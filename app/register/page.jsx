@@ -114,14 +114,14 @@ export default function Register() {
           <div className="flex justify-center">
             <Image
               className="dark:hidden"
-              src="/assets/logo-light.svg"
+              src="/assets/mhsp_title_logo.png"
               alt="logo"
               height={40}
               width={130}
             />
             <Image
               className="hidden dark:block"
-              src="/assets/logo-dark.svg"
+              src="/assets/mhsp_title_logo.png"
               alt="logo"
               height={40}
               width={130}

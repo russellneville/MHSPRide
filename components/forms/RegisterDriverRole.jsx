@@ -58,7 +58,7 @@ export default function RegisterDriverRole ({ setRegisterForm, registerForm , er
       <Label htmlFor='birthdate'>Date of birth</Label>
       <DatePicker
           id="birthdate"
-          date={registerForm.birthdate ? new Date(registerForm.birthdate) : undefined}
+          date={registerForm.birthdate ? new Date(registerForm.birthdate + 'T12:00:00') : undefined}
           setDate={handleDateChange}
         />
         {errors.birthdate && <p className="text-red-500 text-sm">{errors.birthdate}</p>}

@@ -27,7 +27,19 @@ export default function RegisterPassengerRole ({ setRegisterForm, registerForm ,
     };
     return <>
         <div className="space-y-2">
-            <Label htmlFor="fullname">Passenger name</Label>
+            <Label htmlFor="mhspNumber">MHSP Member Number</Label>
+            <Input id="mhspNumber" type="text" placeholder="e.g. 1636" onChange={handleChange} value={registerForm.mhspNumber}/>
+            {errors.mhspNumber && <p className="text-red-500 text-sm">{errors.mhspNumber}</p>}
+        </div>
+
+        <div className="space-y-2">
+            <Label htmlFor="lastName">Last Name</Label>
+            <Input id="lastName" type="text" placeholder="Your last name as it appears on your MHSP record" onChange={handleChange} value={registerForm.lastName}/>
+            {errors.lastName && <p className="text-red-500 text-sm">{errors.lastName}</p>}
+        </div>
+
+        <div className="space-y-2">
+            <Label htmlFor="fullname">Full Name</Label>
             <Input id="fullname" type="text" placeholder="John Doe" onChange={handleChange} value={registerForm.fullname}/>
             {errors.fullname && <p className="text-red-500 text-sm">{errors.fullname}</p>}
         </div>

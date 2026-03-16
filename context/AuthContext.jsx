@@ -29,29 +29,60 @@ export const AuthProvider = ({ children }) => {
 }, []);
 
 
-  const registerUser = async ({ email, password, fullname, birthdate, roleform , phone})=>{
+  const registerUser = async ({ email, password, fullname, lastName, mhspNumber, birthdate, roleform, phone }) => {
     try {
       setIsLoading(true)
+
+      // Step 1: Verify MHSP membership
+      const memberRef = doc(db, 'members', String(mhspNumber).trim())
+      const memberSnap = await getDoc(memberRef)
+
+      if (!memberSnap.exists()) {
+        throw new Error('MHSP member number not found.')
+      }
+
+      const memberData = memberSnap.data()
+
+      if (memberData.lastName.toLowerCase().trim() !== lastName.toLowerCase().trim()) {
+        throw new Error('Last name does not match our records.')
+      }
+
+      if (memberData.claimed) {
+        throw new Error('This membership has already been registered.')
+      }
+
+      // Step 2: Create Firebase Auth account
       const { user } = await createUserWithEmailAndPassword(auth, email, password)
 
-      await setDoc(doc(db, "users", user.uid), {
+      // Step 3: Create user document with member data copied over
+      await setDoc(doc(db, 'users', user.uid), {
         email,
         fullname,
-        phone ,
+        phone,
         birthdate,
-        bio : '' ,
-        role : roleform.role ,
-        roleform, 
+        bio: '',
+        role: roleform.role,
+        roleform,
+        mhspNumber: String(mhspNumber).trim(),
+        classifications: memberData.classifications || [],
+        latitude: memberData.latitude || null,
+        longitude: memberData.longitude || null,
         created_at: new Date(),
-      });
+      })
 
-      toast.success('User registred successfully')
-    
-      const docSnap = await getDoc(doc(db, "users", user.uid));
-      setUser({ uid: user.uid, ...docSnap.data() });
+      // Step 4: Claim the member record
+      await updateDoc(memberRef, {
+        claimed: true,
+        claimedBy: user.uid,
+      })
+
+      toast.success('Account created successfully')
+
+      const docSnap = await getDoc(doc(db, 'users', user.uid))
+      setUser({ uid: user.uid, ...docSnap.data() })
       router.push('/login')
-    } catch (error){
-        toast.error(error.message)
+    } catch (error) {
+      toast.error(error.message)
     } finally {
       setIsLoading(false)
     }

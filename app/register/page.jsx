@@ -14,14 +14,17 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function Register() {
 
-  const roles = ['director' , 'passenger' , 'driver']
+  const roles = ['passenger' , 'driver']
+  const roleLabels = { passenger: 'Rider', driver: 'Driver' }
   const [ currRole , setCurrRole] = useState('')
   const [ currStep , setCurrStep] = useState(1)
   const [ registerForm , setRegisterForm ] = useState({
-    fullname : '', 
-    birthdate : '' , 
-    email : ''  , 
-    password : '' , 
+    fullname : '',
+    lastName : '',
+    mhspNumber : '',
+    birthdate : '' ,
+    email : ''  ,
+    password : '' ,
     confirmpassword : '' ,
     phone : '' ,
     roleform : {}
@@ -35,7 +38,9 @@ export default function Register() {
     const newErrors = {}
     if (currStep == 1){
       if (!currRole) newErrors.role = "role is required"
-      if (!registerForm.fullname.trim()) newErrors.fullname = "full name is required"
+      if (!registerForm.mhspNumber.trim()) newErrors.mhspNumber = "MHSP member number is required"
+      if (!registerForm.lastName.trim()) newErrors.lastName = "Last name is required"
+      if (!registerForm.fullname.trim()) newErrors.fullname = "Full name is required"
       if (!registerForm.phone.trim()) newErrors.phone = "Phone number is required"
       if (!registerForm.birthdate.trim()) {
         newErrors.birthdate = "Birthdate is required";
@@ -53,11 +58,7 @@ export default function Register() {
         }
       }
 
-      if (currRole === 'director') {
-        const institution = registerForm.roleform?.institution || '';
-        if (!institution.trim()) newErrors.institution = "institution is required";
-      }
-      else if (currRole === 'driver') {
+      if (currRole === 'driver') {
         const carModel = registerForm.roleform?.carModel || '';
         const licencePlate = registerForm.roleform?.licencePlate || '';
         if (!carModel.trim()) newErrors.carModel = "car model is required";
@@ -151,20 +152,13 @@ export default function Register() {
                 <SelectContent>
                   <SelectGroup>
                     <SelectLabel>Roles</SelectLabel>
-                    {roles.map(r => <SelectItem key={r} value={r}>{r}</SelectItem>)}
+                    {roles.map(r => <SelectItem key={r} value={r}>{roleLabels[r]}</SelectItem>)}
                   </SelectGroup>
                 </SelectContent>
               </Select>
               {validationError.role && <p className="text-red-500 text-sm">{validationError.role}</p>}
             </div>
-            {currRole == 'director' ? 
-              <RegisterDirectorRole
-                setRegisterForm={setRegisterForm} 
-                registerForm={registerForm} 
-                errors={validationError}
-                currRole={currRole}/> 
-                                            
-            : currRole == 'driver' ?  
+            {currRole == 'driver' ?
                 <RegisterDriverRole 
                   setRegisterForm={setRegisterForm} 
                   registerForm={registerForm} 

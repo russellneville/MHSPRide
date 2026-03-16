@@ -11,8 +11,8 @@ export default function Footer() {
         {/* About */}
         <div>
             <div className="mb-5">
-                <Image className='dark:hidden' src='/assets/logo-light.svg' alt="logo" height={35} width={125}></Image>
-                <Image className='hidden dark:block' src='/assets/logo-dark.svg' alt="logo" height={35} width={125}></Image>
+                <Image className='dark:hidden' src='/assets/mhsp_title_logo.png' alt="logo" height={35} width={125}></Image>
+                <Image className='hidden dark:block' src='/assets/mhsp_title_logo.png' alt="logo" height={35} width={125}></Image>
             </div>
           <p className="text-sm">
             Building modern web experiences with Next.js and Shadcn UI.

@@ -57,14 +57,14 @@ role
         <div className="p-4">
           <Image
             className="dark:hidden"
-            src="/assets/logo-light.svg"
+            src="/assets/mhsp_title_logo.png"
             alt="logo"
             height={35}
             width={125}
           />
           <Image
             className="hidden dark:block"
-            src="/assets/logo-dark.svg"
+            src="/assets/mhsp_title_logo.png"
             alt="logo"
             height={35}
             width={125}

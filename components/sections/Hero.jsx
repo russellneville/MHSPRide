@@ -17,8 +17,7 @@ export default function Hero() {
             Connect with Drivers and Riders in Your Network
           </h1>
           <p className="text-para">
-            YallaRide makes it easy to share trips, connect with people, and
-            enjoy smarter, eco-friendly travel.
+            MHSPRide makes it easy to coordinate rides to the mountain, connect with fellow patrollers, and cut down on solo commutes.
           </p>
           <Button href='/dashboard' className="bg-mainColor dark:text-white dark:hover:!text-black transition duration-300 ease-in">
             Book your ride
@@ -29,7 +28,7 @@ export default function Hero() {
         
         <div className="flex justify-end">
           <div>
-            <Image src='/assets/dacia.svg' alt='dacia sandero 2024' width={750} height={750}></Image>
+            <Image src='/assets/mhsp_hero_logo.png' alt='MHSP Hero' width={750} height={750}></Image>
           </div>
         </div>
       </div>

@@ -162,10 +162,6 @@ export default function FindRidePage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="text-sm text-gray-700 mt-2 sm:mt-0">
-                                                    From <br />
-                                                    <span className="font-semibold text-2xl">{ride.price}</span> MAD
-                                                </div>
                                             </CardHeader>
 
                                             <CardContent className='flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3'>

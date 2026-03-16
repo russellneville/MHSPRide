@@ -16,7 +16,6 @@ export default function OfferRidePopup({networkId}){
         departure_time : '' ,
         arrival_date : '' , 
         arrival_time : '' ,
-        price : '' ,
         total_seats : 0
     })
     const [departureDate , setDepartureDate] = useState(undefined)
@@ -32,7 +31,6 @@ export default function OfferRidePopup({networkId}){
         if (!rideData.ride_description.trim()) newErrors.ride_description = "Ride description is required"
         if (!rideData.departure_date) newErrors.departure_date = "Ride departure date is required"
         if (!rideData.departure_time) newErrors.departure_time = "Ride departure time is required"
-        if (!rideData.price || rideData.price < 0) newErrors.price = "Ride price is required"
         if (!rideData.total_seats || rideData.total_seats < 1) newErrors.total_seats = "Ride available seats is required"
         setValidationErrors(newErrors)
         return Object.keys(newErrors).length === 0
@@ -121,16 +119,11 @@ export default function OfferRidePopup({networkId}){
                 </div>
             </div>
 
-            <div className="space-y-2 flex items-center gap-2 w-full">
+            <div className="space-y-2 w-full">
                 <div className="w-full mb-0 space-y-2">
                     <Label htmlFor='total_seats'>Number of seats</Label>
                     <Input type='number' id='total_seats' placeholder='0' onChange={handleChange} value={rideData.total_seats}></Input>
                     {validationError.total_seats && <p className="text-red-500 text-sm">{validationError.total_seats}</p>}
-                </div>
-                <div className="w-full mb-0 space-y-2">
-                    <Label htmlFor='price'>Ride Price (MAD)</Label>
-                    <Input type='number' id='price' onChange={handleChange} value={rideData.price} placeholder='ride price'></Input>
-                    {validationError.price && <p className="text-red-500 text-sm">{validationError.price}</p>}
                 </div>
             </div>
 

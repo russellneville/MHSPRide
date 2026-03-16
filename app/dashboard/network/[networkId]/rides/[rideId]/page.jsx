@@ -367,9 +367,7 @@ export default function RidePage() {
                         >
                           {isLoading
                             ? "Booking..."
-                            : `Book ${seatsToBook} Seat${
-                                seatsToBook > 1 ? "s" : ""
-                              } (${rideData.price * seatsToBook} MAD)`}
+                            : `Book ${seatsToBook} Seat${seatsToBook > 1 ? "s" : ""}`}
                         </Button>
                       </>
                     )}

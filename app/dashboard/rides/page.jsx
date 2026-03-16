@@ -57,10 +57,6 @@ export default function MyBookings (){
                     </TableHead>
 
                     <TableHead>
-                        price
-                    </TableHead>
-
-                    <TableHead>
                         status
                     </TableHead>
 
@@ -96,10 +92,6 @@ export default function MyBookings (){
 
                     <TableCell>
                         {r.arrival_date} at {r.arrival_time}
-                    </TableCell>
-
-                    <TableCell>
-                        {r.price}MAD
                     </TableCell>
 
                     <TableCell>

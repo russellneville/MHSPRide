@@ -7,6 +7,7 @@ import StatsCard from "@/components/ui/stats-card"
 import { Car, Check, Ticket, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import UserAvatar from "@/components/ui/user-avatar"
 
 export default function Dashboard() {
   const { getRides, getBookings, getNetworkList } = useNetwork()
@@ -36,17 +37,27 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <h3 className="text-xl font-semibold mb-4">
-        Welcome, {user?.fullname}
-      </h3>
+      {/* Hero banner */}
+      <div
+        className="relative h-40 w-full rounded-xl overflow-hidden mb-6"
+        style={{ backgroundImage: 'url(/assets/hood_2.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}
+      >
+        <div className="absolute inset-0 bg-black/40 flex items-center gap-4 px-6">
+          <UserAvatar user={user} size="lg" />
+          <div>
+            <p className="text-white text-2xl font-bold leading-tight">{user?.fullname}</p>
+            <p className="text-white/70 text-sm">Mount Hood Ski Patrol</p>
+          </div>
+        </div>
+      </div>
 
       {hasNetworks ? (
         <div className="flex gap-3 mb-6">
           <Button asChild>
-            <Link href="/dashboard/rides/offer">Offer a Ride</Link>
+            <Link href="/dashboard/networks">Offer a Ride</Link>
           </Button>
           <Button variant="outline" asChild>
-            <Link href="/dashboard/rides/find">Find a Ride</Link>
+            <Link href="/dashboard/networks">Find a Ride</Link>
           </Button>
         </div>
       ) : (

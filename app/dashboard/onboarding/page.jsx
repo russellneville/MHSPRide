@@ -1,5 +1,5 @@
 'use client'
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useNetwork } from "@/context/NetworksContext"
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
+import { UserAvatar } from "@/components/ui/user-avatar"
 import { Check, Users } from "lucide-react"
 
 const NETWORKS = [
@@ -16,11 +17,11 @@ const NETWORKS = [
   { id: "network-NORDIC", label: "Nordic" },
 ]
 
-const TOTAL_STEPS = 4
+const TOTAL_STEPS = 5
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const { user, updateProfile } = useAuth()
+  const { user, updateProfile, uploadPhoto } = useAuth()
   const { joinNetwork } = useNetwork()
 
   const [step, setStep] = useState(1)
@@ -34,6 +35,9 @@ export default function OnboardingPage() {
     vehicle_plate: "",
   })
   const [saving, setSaving] = useState(false)
+  const [photoUploading, setPhotoUploading] = useState(false)
+  const [photoUploaded, setPhotoUploaded] = useState(false)
+  const fileInputRef = useRef(null)
 
   const handleJoinNetwork = async (networkId) => {
     if (joinedNetworks.includes(networkId)) return
@@ -46,6 +50,15 @@ export default function OnboardingPage() {
     } finally {
       setJoiningId(null)
     }
+  }
+
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPhotoUploading(true)
+    const result = await uploadPhoto(file)
+    setPhotoUploading(false)
+    if (result) setPhotoUploaded(true)
   }
 
   const handleVehicleChange = (e) => {
@@ -64,7 +77,7 @@ export default function OnboardingPage() {
       await updateProfile(payload)
     }
     setSaving(false)
-    setStep(4)
+    setStep(5)
   }
 
   const handleComplete = async () => {
@@ -112,8 +125,58 @@ export default function OnboardingPage() {
           </Card>
         )}
 
-        {/* Step 2: Join a Network */}
+        {/* Step 2: Photo Upload */}
         {step === 2 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Add your photo</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Carpoolers recognize each other faster with a photo. You can always add one later from your profile.
+              </p>
+              <div className="flex flex-col items-center gap-4 py-2">
+                <UserAvatar user={user} size="xl" />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handlePhotoChange}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={photoUploading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  {photoUploading ? 'Uploading...' : 'Choose photo'}
+                </Button>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant={photoUploaded ? 'ghost' : 'default'}
+                  className="flex-1"
+                  disabled={photoUploading}
+                  onClick={() => setStep(3)}
+                >
+                  Skip for now
+                </Button>
+                <Button
+                  variant={photoUploaded ? 'default' : 'ghost'}
+                  className="flex-1"
+                  disabled={photoUploading}
+                  onClick={() => setStep(3)}
+                >
+                  Continue
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Step 3: Join a Network */}
+        {step === 3 && (
           <Card>
             <CardHeader>
               <CardTitle>Join a Network</CardTitle>
@@ -145,10 +208,10 @@ export default function OnboardingPage() {
                 })}
               </div>
               <div className="flex gap-2 pt-2">
-                <Button variant="ghost" className="flex-1" onClick={() => setStep(3)}>
+                <Button variant="ghost" className="flex-1" onClick={() => setStep(4)}>
                   Skip
                 </Button>
-                <Button className="flex-1" onClick={() => setStep(3)}>
+                <Button className="flex-1" onClick={() => setStep(4)}>
                   Continue
                 </Button>
               </div>
@@ -156,8 +219,8 @@ export default function OnboardingPage() {
           </Card>
         )}
 
-        {/* Step 3: Vehicle Setup */}
-        {step === 3 && (
+        {/* Step 4: Vehicle Setup */}
+        {step === 4 && (
           <Card>
             <CardHeader>
               <CardTitle>Vehicle Setup</CardTitle>
@@ -226,7 +289,7 @@ export default function OnboardingPage() {
                   variant="ghost"
                   className="flex-1"
                   disabled={saving}
-                  onClick={() => setStep(4)}
+                  onClick={() => setStep(5)}
                 >
                   Skip
                 </Button>
@@ -242,8 +305,8 @@ export default function OnboardingPage() {
           </Card>
         )}
 
-        {/* Step 4: Done */}
-        {step === 4 && (
+        {/* Step 5: Done */}
+        {step === 5 && (
           <Card>
             <CardHeader>
               <CardTitle>You're all set!</CardTitle>

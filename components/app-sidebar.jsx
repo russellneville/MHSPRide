@@ -58,6 +58,20 @@ export function AppSidebar({ user, ...props }) {
         </div>
       </SidebarHeader>
 
+      {/* Mountain photo panel — hidden when collapsed to icon mode */}
+      <div className="group-data-[collapsible=icon]:hidden relative mx-0 overflow-hidden">
+        <img
+          src="/assets/hood_1.jpg"
+          alt="Mt. Hood"
+          className="h-32 w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/30 flex items-end justify-center pb-3">
+          <span className="text-white text-[10px] font-bold tracking-widest uppercase text-center px-2 leading-tight">
+            Teamwork Makes the Mountain Shine
+          </span>
+        </div>
+      </div>
+
       {/* Content */}
       <SidebarContent>
         <NavMain menu={menu} />

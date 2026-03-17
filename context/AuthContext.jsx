@@ -1,7 +1,8 @@
 'use client';
-import { auth, db } from '@/lib/firebaseClient';
+import { auth, db, storage } from '@/lib/firebaseClient';
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 import { useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect, useState } from 'react'
@@ -118,6 +119,31 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const uploadPhoto = async (file) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('File must be an image.')
+      return null
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image must be 5 MB or smaller.')
+      return null
+    }
+    try {
+      const uid = auth.currentUser.uid
+      const storageRef = ref(storage, `profile-photos/${uid}`)
+      await uploadBytes(storageRef, file)
+      const downloadURL = await getDownloadURL(storageRef)
+      await updateDoc(doc(db, 'users', uid), { photoURL: downloadURL })
+      setUser(prev => ({ ...prev, photoURL: downloadURL }))
+      toast.success('Photo updated.')
+      return downloadURL
+    } catch (error) {
+      console.error('[uploadPhoto]', error)
+      toast.error(error.message)
+      return null
+    }
+  }
+
     const logOut = async ()=>{
         try {
           await signOut(auth)
@@ -129,7 +155,7 @@ export const AuthProvider = ({ children }) => {
 
 
   return (
-    <AuthContext.Provider value={{ isLoading, user, registerUser , loginUser , updateProfile , logOut}}>
+    <AuthContext.Provider value={{ isLoading, user, registerUser , loginUser , updateProfile , logOut, uploadPhoto }}>
       {children}
     </AuthContext.Provider>
   );

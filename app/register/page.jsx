@@ -47,8 +47,8 @@ export default function Register() {
       if (!registerForm.email.trim()) newErrors.email = "Email is required"
       else if (!/^\S+@\S+\.\S+$/.test(registerForm.email)) newErrors.email = "Invalid email address"
       if (!registerForm.password.trim()) newErrors.password = "Password is required"
-      else if (registerForm.password.length < 6 || registerForm.password.length > 15)
-        newErrors.password = "Password must be between 6 and 15 characters"
+      else if (registerForm.password.length < 8)
+        newErrors.password = "Password must be at least 8 characters"
       else if (registerForm.password !== registerForm.confirmpassword)
         newErrors.confirmpassword = "Passwords do not match"
     }

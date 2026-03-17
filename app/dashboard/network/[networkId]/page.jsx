@@ -67,20 +67,17 @@ export default function NetworkPage(){
                     <p className="text-sm text-muted-foreground">
                         Network ID: <span className="font-medium">{networkId}</span>
                     </p>
-                    {user?.role == 'director' ? <>
-                    
+                    <Button className='rounded-md' onClick={()=> openPopup('Offer ride' , <OfferRidePopup networkId={networkId}/>)}>
+                        Offer Ride<Plus/>
+                    </Button>
+                    <Button variant='outline' className='rounded-md' href={`/dashboard/network/${networkId}/find`}>
+                        Find Ride
+                    </Button>
+                    {user?.role === 'director' && (
                         <Button variant='destructive' className='size-10 p-2 rounded-full' onClick={handleDeleteNetwork}>
                             <Trash/>
                         </Button>
-                    </> : user?.role == 'driver' ? <>
-                                <Button className='rounded-md' onClick={()=> openPopup('Offer ride' , <OfferRidePopup networkId={networkId}/>)}>
-                                    Offer Ride<Plus/>
-                                </Button> 
-                        </>: user?.role == 'passenger' ? <>
-                                <Button className='rounded-md' href={`/dashboard/network/${networkId}/find`}>
-                                    Find Ride
-                                </Button> 
-                        </> : null}
+                    )}
 
 
                     

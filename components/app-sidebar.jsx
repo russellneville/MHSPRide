@@ -26,29 +26,13 @@ import {
 } from "@/components/ui/sidebar"
 
 export function AppSidebar({ user, ...props }) {
-  const role = user?.role || "passenger"
-role
-  const baseMenu = [
+  const menu = [
     { name: "Home", icon: Home, href: "/dashboard" },
     { name: "Profile", icon: User, href: "/dashboard/profile" },
-    { name: "Networks", icon: Users, href: "/dashboard/networks" }
+    { name: "Networks", icon: Users, href: "/dashboard/networks" },
+    { name: "My Rides", icon: Waypoints, href: "/dashboard/rides" },
+    { name: "My Bookings", icon: Ticket, href: "/dashboard/bookings" },
   ]
-
-  const menus = {
-    director: [
-      ...baseMenu,
-    ],
-    driver: [
-      ...baseMenu,
-      { name: "My Rides", icon: Waypoints, href: "/dashboard/rides" },
-    ],
-    passenger: [
-      ...baseMenu,
-      { name: "My Bookings", icon: Ticket, href: "/dashboard/bookings" },
-    ],
-  }
-
-  const menu = menus[role] || baseMenu
 
   return (
     <Sidebar collapsible="icon" {...props}>

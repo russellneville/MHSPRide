@@ -29,7 +29,7 @@ export const AuthProvider = ({ children }) => {
 }, []);
 
 
-  const registerUser = async ({ email, password, fullname, lastName, mhspNumber, birthdate, roleform, phone }) => {
+  const registerUser = async ({ email, password, fullname, lastName, mhspNumber, birthdate, phone }) => {
     try {
       setIsLoading(true)
 
@@ -61,8 +61,7 @@ export const AuthProvider = ({ children }) => {
         phone,
         birthdate,
         bio: '',
-        role: roleform.role,
-        roleform,
+        role: 'member',
         mhspNumber: String(mhspNumber).trim(),
         classifications: memberData.classifications || [],
         latitude: memberData.latitude || null,
@@ -82,6 +81,7 @@ export const AuthProvider = ({ children }) => {
       setUser({ uid: user.uid, ...docSnap.data() })
       router.push('/login')
     } catch (error) {
+      console.error('[registerUser]', error.code, error.message, error)
       toast.error(error.message)
     } finally {
       setIsLoading(false)

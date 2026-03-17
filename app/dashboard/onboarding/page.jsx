@@ -315,28 +315,13 @@ export default function OnboardingPage() {
               <p className="text-muted-foreground">
                 Start offering or finding rides with other MHSP volunteers.
               </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  className="flex-1"
-                  disabled={saving}
-                  onClick={async () => {
-                    setSaving(true)
-                    await updateProfile({ onboarding_complete: true })
-                    setSaving(false)
-                    router.replace("/dashboard/networks")
-                  }}
-                >
-                  Go to Networks
-                </Button>
-                <Button
-                  className="flex-1"
-                  disabled={saving}
-                  onClick={handleComplete}
-                >
-                  {saving ? "Loading..." : "Go to Dashboard"}
-                </Button>
-              </div>
+              <Button
+                className="w-full"
+                disabled={saving}
+                onClick={handleComplete}
+              >
+                {saving ? "Loading..." : "Complete setup"}
+              </Button>
             </CardContent>
           </Card>
         )}

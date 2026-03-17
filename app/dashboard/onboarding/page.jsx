@@ -12,6 +12,15 @@ import { Badge } from "@/components/ui/badge"
 import { UserAvatar } from "@/components/ui/user-avatar"
 import { Check, Users } from "lucide-react"
 
+const STORAGE_OPTIONS = [
+  { value: "ski_box",    label: "Ski/board roof box" },
+  { value: "roof_rack",  label: "Roof rack" },
+  { value: "trunk",      label: "Trunk" },
+  { value: "back_seats", label: "Back seats" },
+  { value: "truck_bed",  label: "Truck bed" },
+  { value: "cargo_area", label: "Cargo area (SUV/van)" },
+]
+
 const NETWORKS = [
   { id: "network-HILLPATROL", label: "Hill Patrol" },
   { id: "network-MOUNTAINHOSTS", label: "Mountain Hosts" },
@@ -35,6 +44,7 @@ export default function OnboardingPage() {
     vehicle_color: "",
     vehicle_seats: "",
     vehicle_plate: "",
+    vehicle_storage: [],
   })
   const [saving, setSaving] = useState(false)
   const [photoUploading, setPhotoUploading] = useState(false)
@@ -76,6 +86,7 @@ export default function OnboardingPage() {
     if (vehicle.vehicle_color) payload.vehicle_color = vehicle.vehicle_color
     if (vehicle.vehicle_seats) payload.vehicle_seats = Number(vehicle.vehicle_seats)
     if (vehicle.vehicle_plate.trim()) payload.vehicle_plate = vehicle.vehicle_plate.trim()
+    if (vehicle.vehicle_storage.length > 0) payload.vehicle_storage = vehicle.vehicle_storage
     if (Object.keys(payload).length > 0) {
       await updateProfile(payload)
     }
@@ -301,6 +312,37 @@ export default function OnboardingPage() {
                     value={vehicle.vehicle_plate}
                     onChange={handleVehicleChange}
                   />
+                </div>
+                <div className="col-span-2 space-y-2">
+                  <Label>Equipment Storage</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {STORAGE_OPTIONS.map(opt => {
+                      const checked = vehicle.vehicle_storage.includes(opt.value)
+                      return (
+                        <label
+                          key={opt.value}
+                          className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer transition-colors ${
+                            checked
+                              ? "border-primary bg-primary/10 text-primary font-medium"
+                              : "border-border text-muted-foreground hover:border-primary/50"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="hidden"
+                            checked={checked}
+                            onChange={() => setVehicle(prev => ({
+                              ...prev,
+                              vehicle_storage: checked
+                                ? prev.vehicle_storage.filter(v => v !== opt.value)
+                                : [...prev.vehicle_storage, opt.value]
+                            }))}
+                          />
+                          {opt.label}
+                        </label>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
               <div className="flex gap-2 pt-2">

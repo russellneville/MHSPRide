@@ -5,6 +5,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 
 const COLORS = ["Black","White","Silver","Gray","Red","Blue","Green","Brown","Beige","Orange","Yellow","Gold","Purple","Other"]
 
+const STORAGE_OPTIONS = [
+  { value: "ski_box",     label: "Ski/board roof box" },
+  { value: "roof_rack",   label: "Roof rack" },
+  { value: "trunk",       label: "Trunk" },
+  { value: "back_seats",  label: "Back seats" },
+  { value: "truck_bed",   label: "Truck bed" },
+  { value: "cargo_area",  label: "Cargo area (SUV/van)" },
+]
+
 export default function DriverProfile({ profile, setProfile }) {
   const handle = (e) => {
     setProfile(prev => ({ ...prev, [e.target.id]: e.target.value }))
@@ -12,6 +21,14 @@ export default function DriverProfile({ profile, setProfile }) {
 
   const handleSelect = (field, value) => {
     setProfile(prev => ({ ...prev, [field]: value }))
+  }
+
+  const handleStorageToggle = (value) => {
+    const current = profile.vehicle_storage || []
+    const updated = current.includes(value)
+      ? current.filter(v => v !== value)
+      : [...current, value]
+    setProfile(prev => ({ ...prev, vehicle_storage: updated }))
   }
 
   return (
@@ -84,6 +101,33 @@ export default function DriverProfile({ profile, setProfile }) {
               value={profile.vehicle_plate || ""}
               onChange={handle}
             />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Equipment Storage</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {STORAGE_OPTIONS.map(opt => {
+              const checked = (profile.vehicle_storage || []).includes(opt.value)
+              return (
+                <label
+                  key={opt.value}
+                  className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer transition-colors ${
+                    checked
+                      ? "border-primary bg-primary/10 text-primary font-medium"
+                      : "border-border text-muted-foreground hover:border-primary/50"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="hidden"
+                    checked={checked}
+                    onChange={() => handleStorageToggle(opt.value)}
+                  />
+                  {opt.label}
+                </label>
+              )
+            })}
           </div>
         </div>
       </CardContent>

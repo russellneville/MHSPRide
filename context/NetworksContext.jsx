@@ -671,7 +671,17 @@ const changeBookingStatus = async (passengerId  , rideId , bookingId , status)=>
     
   
 
-    return <NetworkContext.Provider value={{createNetwork , joinNetwork , getRidesByNetworkId , deleteNetwork , changeBookingStatus , getNetwork , offerRide ,findRide , changeUserStatus , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , finalizeRide , startRide , isLoading , getNetworkList}}>
+  const getAllNetworks = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'networks'))
+      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+    } catch (error) {
+      console.error('[getAllNetworks]', error)
+      return []
+    }
+  }
+
+    return <NetworkContext.Provider value={{createNetwork , joinNetwork , getRidesByNetworkId , deleteNetwork , changeBookingStatus , getNetwork , offerRide ,findRide , changeUserStatus , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , finalizeRide , startRide , isLoading , getNetworkList , getAllNetworks}}>
         {children}
     </NetworkContext.Provider>
 }

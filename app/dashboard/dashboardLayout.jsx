@@ -27,6 +27,12 @@ export default function DashboardLayout({ children }) {
     }
   }, [user, isLoading, router])
 
+  useEffect(() => {
+    if (!isLoading && user && user.onboarding_complete !== true && pathname !== '/dashboard/onboarding') {
+      router.replace('/dashboard/onboarding')
+    }
+  }, [user, isLoading, router, pathname])
+
   if (!mounted) return null
   if (isLoading && !user) {
     return (

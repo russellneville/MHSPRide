@@ -115,6 +115,8 @@ export default function RidePage() {
     (p) => p.id === user?.uid
   );
 
+  const isRideDriver = rideData?.driverId === user?.uid;
+
   return (
     <DashboardLayout>
       {rideData ? (
@@ -224,7 +226,7 @@ export default function RidePage() {
             {/* RIGHT SIDE */}
             <div className="space-y-4">
             
-              {(user?.role === "driver" || user?.role === "director") && (
+              {(isRideDriver || user?.role === "director") && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -263,7 +265,7 @@ export default function RidePage() {
                                 Status : {" "}
                                 {<Badge variant={p.status}>{p.status}</Badge>}
                               </p>
-                              {p.status === 'pending' && user?.role=== 'driver' && (<div className="flex items-center gap-2 mt-2">
+                              {p.status === 'pending' && isRideDriver && (<div className="flex items-center gap-2 mt-2">
                                 <Button variant='destructive' disabled={isLoading} onClick={() =>{handledeclinePassenger(p.id , p.booking_id)}}>{isLoading ? 'Declining...' : 'Decline'} <X/></Button>
                                 <Button variant='approved' disabled={isLoading} onClick={() =>{handleApprovePassenger(p.id , p.booking_id)}}>{isLoading ? 'Approving...' : 'Approve'} <Check/></Button>
                             </div>)}
@@ -281,7 +283,7 @@ export default function RidePage() {
               )}
 
 
-              {user?.role === 'driver' && rideData.ride_status !== 'finished' && (
+              {isRideDriver && rideData.ride_status !== 'finished' && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -308,7 +310,7 @@ export default function RidePage() {
               
 
               {/* Passenger booking section */}
-              {user?.role === "passenger" && (
+              {!isRideDriver && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">

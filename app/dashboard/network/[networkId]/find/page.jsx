@@ -70,7 +70,7 @@ export default function FindRidePage() {
 
     return (
         <DashboardLayout>
-            {user?.role === 'passenger' ? (
+            {user ? (
                 <>
                     <Card className="mb-5">
                         <CardHeader className='!pb-3 border-b border-border'>

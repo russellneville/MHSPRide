@@ -47,14 +47,6 @@ export default function BookingPage() {
     );
   }
 
-  if (user?.role !== "passenger") {
-    return (
-      <DashboardLayout>
-        <p className="text-center py-10 text-red-500">You don't have access to this page!</p>
-      </DashboardLayout>
-    );
-  }
-
   const bookingUrl = `${window.location.origin}/dashboard/bookings/${bookingId}`;
 
   return (

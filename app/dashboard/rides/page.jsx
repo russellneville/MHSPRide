@@ -23,7 +23,7 @@ export default function MyBookings (){
       }, [user]);
     
     return <DashboardLayout>
-        {user?.role === 'driver' && <>
+        {user && <>
         
             <div className="flex items-center justify-betwee py-3">
             <h3 className="text-xl font-semibold py-2">My Rides</h3>

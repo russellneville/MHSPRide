@@ -93,7 +93,7 @@ export default function ProfilePage (){
         
        </Card>
 
-       {user?.role === 'driver' && <DriverProfile profile={profile} setProfile={setProfile}/>}
+       {(user?.role === 'member' || user?.role === 'driver') && <DriverProfile profile={profile} setProfile={setProfile}/>}
        {user?.role === 'director' && <DirectorProfile profile={profile} setProfile={setProfile}/>}
 
        <div className="flex items-center justify-end bg-background py-3">

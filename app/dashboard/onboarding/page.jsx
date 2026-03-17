@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { UserAvatar } from "@/components/ui/user-avatar"
 import { Check, Users } from "lucide-react"
@@ -31,6 +32,7 @@ export default function OnboardingPage() {
     vehicle_make: "",
     vehicle_model: "",
     vehicle_year: "",
+    vehicle_color: "",
     vehicle_seats: "",
     vehicle_plate: "",
   })
@@ -71,6 +73,7 @@ export default function OnboardingPage() {
     if (vehicle.vehicle_make.trim()) payload.vehicle_make = vehicle.vehicle_make.trim()
     if (vehicle.vehicle_model.trim()) payload.vehicle_model = vehicle.vehicle_model.trim()
     if (vehicle.vehicle_year.trim()) payload.vehicle_year = vehicle.vehicle_year.trim()
+    if (vehicle.vehicle_color) payload.vehicle_color = vehicle.vehicle_color
     if (vehicle.vehicle_seats) payload.vehicle_seats = Number(vehicle.vehicle_seats)
     if (vehicle.vehicle_plate.trim()) payload.vehicle_plate = vehicle.vehicle_plate.trim()
     if (Object.keys(payload).length > 0) {
@@ -259,6 +262,22 @@ export default function OnboardingPage() {
                     value={vehicle.vehicle_year}
                     onChange={handleVehicleChange}
                   />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="vehicle_color">Color</Label>
+                  <Select
+                    value={vehicle.vehicle_color}
+                    onValueChange={(value) => setVehicle(prev => ({ ...prev, vehicle_color: value }))}
+                  >
+                    <SelectTrigger id="vehicle_color">
+                      <SelectValue placeholder="Select color" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["Black","White","Silver","Gray","Red","Blue","Green","Brown","Beige","Orange","Yellow","Gold","Purple","Other"].map(c => (
+                        <SelectItem key={c} value={c.toLowerCase()}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="vehicle_seats">Seats (2–8)</Label>

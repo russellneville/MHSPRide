@@ -37,19 +37,20 @@ export function AppSidebar({ user, ...props }) {
   return (
     <Sidebar collapsible="icon" {...props}>
       {/* Header */}
-      <SidebarHeader>
-        <div className="flex items-center justify-center overflow-hidden px-2 py-3">
-          {/* Expanded: show full title logo */}
+      <SidebarHeader className="p-0">
+        {/* Expanded: full-width transparent logo */}
+        <div className="group-data-[collapsible=icon]:hidden w-full px-3 py-3">
           <Image
-            className="group-data-[collapsible=icon]:hidden block"
-            src="/assets/mhsp_title_logo.png"
+            src="/assets/mhspride_alt_logo.png"
             alt="MHSPRide"
-            height={35}
-            width={125}
+            width={423}
+            height={286}
+            className="w-full h-auto"
           />
-          {/* Collapsed icon mode: show small square logo */}
+        </div>
+        {/* Collapsed: small shield icon centered */}
+        <div className="group-data-[collapsible=icon]:flex hidden justify-center py-3">
           <Image
-            className="group-data-[collapsible=icon]:block hidden"
             src="/assets/mhsp_main_logo.png"
             alt="MHSPRide"
             height={28}

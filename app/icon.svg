@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Shield shape -->
+  <path d="M16 2L4 7v9c0 7 5.5 12.5 12 14 6.5-1.5 12-7 12-14V7L16 2z" fill="#1e3a5f"/>
+  <!-- White M letterform -->
+  <path d="M9 11h2.2l4.8 6.5L20.8 11H23v10h-2v-6.8l-4 5.4-4-5.4V21H9V11z" fill="white"/>
+</svg>

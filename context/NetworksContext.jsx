@@ -671,10 +671,16 @@ const changeBookingStatus = async (passengerId  , rideId , bookingId , status)=>
     
   
 
+  const NETWORK_IDS = ['network-HILLPATROL', 'network-MOUNTAINHOSTS', 'network-NORDIC']
+
   const getAllNetworks = async () => {
     try {
-      const snap = await getDocs(collection(db, 'networks'))
-      return snap.docs.map(d => ({ id: d.id, ...d.data() }))
+      const snaps = await Promise.all(
+        NETWORK_IDS.map(id => getDoc(doc(db, 'networks', id)))
+      )
+      return snaps
+        .filter(s => s.exists())
+        .map(s => ({ id: s.id, ...s.data() }))
     } catch (error) {
       console.error('[getAllNetworks]', error)
       return []

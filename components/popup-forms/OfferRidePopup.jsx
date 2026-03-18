@@ -9,6 +9,10 @@ import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Checkbox } from "../ui/checkbox"
+import {
+  AlertDialog, AlertDialogAction, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "../ui/alert-dialog"
 import { LOCATIONS } from "@/lib/locations"
 import { estimateArrival } from "@/lib/drive-times"
 import { toLocalDateStr } from "@/lib/utils"
@@ -55,8 +59,9 @@ function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, loca
 
 export default function OfferRidePopup({ networkId }) {
   const { closePopup } = usePopup()
-  const { isLoading, offerRide } = useNetwork()
+  const { isLoading, offerRide, getRides } = useNetwork()
   const { user } = useAuth()
+  const [showDayConflict, setShowDayConflict] = useState(false)
 
   const [departureSelect, setDepartureSelect] = useState('')
   const [departureOther, setDepartureOther] = useState('')
@@ -104,6 +109,14 @@ export default function OfferRidePopup({ networkId }) {
   const handleOfferRide = async () => {
     if (validateForm()) {
       const dateStr = toLocalDateStr(date)
+      const existingRides = await getRides()
+      const conflict = (existingRides || []).some(
+        r => r.departure_date === dateStr && r.ride_status !== 'canceled' && r.ride_status !== 'cancled'
+      )
+      if (conflict) {
+        setShowDayConflict(true)
+        return
+      }
       await offerRide({
         departure: effectiveDeparture,
         arrival: effectiveArrival,
@@ -122,6 +135,27 @@ export default function OfferRidePopup({ networkId }) {
 
   return (
     <div className="space-y-5">
+
+      {/* ── Number of riders ────────────────────────────── */}
+      <div className="space-y-1">
+        <Label>Number of riders</Label>
+        <Select
+          value={rideData.total_seats ? String(rideData.total_seats) : ''}
+          onValueChange={(v) => setRideData(prev => ({ ...prev, total_seats: v }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select" />
+          </SelectTrigger>
+          <SelectContent>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
+              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {validationError.total_seats && <p className="text-red-500 text-sm">{validationError.total_seats}</p>}
+      </div>
+
+      <div className="border-t border-border" />
 
       {/* ── To Destination ─────────────────────────────── */}
       <div className="space-y-3">
@@ -193,36 +227,16 @@ export default function OfferRidePopup({ networkId }) {
         )}
       </div>
 
-      {/* ── Riders + Notes ─────────────────────────────── */}
-      <div className="space-y-3">
-        <div className="space-y-1">
-          <Label>Number of riders</Label>
-          <Select
-            value={rideData.total_seats ? String(rideData.total_seats) : ''}
-            onValueChange={(v) => setRideData(prev => ({ ...prev, total_seats: v }))}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select" />
-            </SelectTrigger>
-            <SelectContent>
-              {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
-                <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {validationError.total_seats && <p className="text-red-500 text-sm">{validationError.total_seats}</p>}
-        </div>
-
-        <div className="space-y-1">
-          <Label htmlFor="ride_description">Ride notes</Label>
-          <Textarea
-            placeholder="Add any notes for riders"
-            id="ride_description"
-            className="resize-none h-20"
-            onChange={handleChange}
-            value={rideData.ride_description}
-          />
-        </div>
+      {/* ── Notes ──────────────────────────────────────── */}
+      <div className="space-y-1">
+        <Label htmlFor="ride_description">Ride notes</Label>
+        <Textarea
+          placeholder="Add any notes for riders"
+          id="ride_description"
+          className="resize-none h-20"
+          onChange={handleChange}
+          value={rideData.ride_description}
+        />
       </div>
 
       <div className="flex justify-end gap-4">
@@ -231,6 +245,20 @@ export default function OfferRidePopup({ networkId }) {
           {isLoading ? 'Submitting...' : 'Submit ride'}
         </Button>
       </div>
+
+      <AlertDialog open={showDayConflict} onOpenChange={setShowDayConflict}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ride already offered that day</AlertDialogTitle>
+            <AlertDialogDescription>
+              You already have a ride offered on {toLocalDateStr(date)}. Only one offered ride per day is allowed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowDayConflict(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   )

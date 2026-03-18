@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, MapPin, MoveRight, Plus, Trash, Users, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock, MapPin, MoveRight, Plus, Trash, Users, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePopup } from "@/context/PopupContext";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
+import DriverDetailsPopup from "@/components/popup-forms/DriverDetailsPopup";
 import Link from "next/link";
 import { LOCATIONS, ARRIVAL_LOCATIONS, getLocationName } from "@/lib/locations";
+import { formatTime } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
 // ── Location resolution ───────────────────────────────────────────────────────
@@ -66,6 +68,7 @@ export default function NetworkPage() {
 
   const [networkData, setNetworkData] = useState(null);
   const [rides, setRides] = useState([]);
+  const [pastOpen, setPastOpen] = useState(false);
 
   // Filters
   const [filterDate, setFilterDate] = useState('');
@@ -227,10 +230,14 @@ export default function NetworkPage() {
         {/* ── Past rides (last 24h) ────────────────────────────────────────── */}
         {past.length > 0 && (
           <div className="space-y-3">
-            <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Past Rides <span className="normal-case font-normal">(last 24 hours)</span>
-            </h4>
-            {past.map(ride => (
+            <button
+              className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setPastOpen(o => !o)}
+            >
+              {pastOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+              Past Rides <span className="normal-case font-normal ml-1">({past.length})</span>
+            </button>
+            {pastOpen && past.map(ride => (
               <RideCard key={ride.id} ride={ride} networkId={networkId} muted />
             ))}
           </div>
@@ -241,17 +248,11 @@ export default function NetworkPage() {
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function formatTime(t) {
-  if (!t) return ''
-  const [h, m] = t.split(':').map(Number)
-  const ampm = h >= 12 ? 'pm' : 'am'
-  const hour = h % 12 || 12
-  return `${hour}:${String(m).padStart(2, '0')} ${ampm}`
-}
 
 // ── Ride card ─────────────────────────────────────────────────────────────────
 function RideCard({ ride, networkId, muted }) {
+  const { openPopup } = usePopup()
+
   return (
     <Link href={`/dashboard/network/${networkId}/rides/${ride.id}`}>
       <Card className={`hover:border-primary/50 transition-colors cursor-pointer ${muted ? 'opacity-60' : ''}`}>
@@ -270,8 +271,14 @@ function RideCard({ ride, networkId, muted }) {
               <span className="font-bold text-foreground">{formatTime(ride.departure_time)}</span>
             </div>
             {ride.driver?.fullname && (
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground flex items-center gap-1.5">
                 Driver: <span className="text-foreground font-medium">{ride.driver.fullname}</span>
+                <button
+                  className="text-xs text-primary underline underline-offset-2 hover:text-primary/70 transition-colors"
+                  onClick={e => { e.preventDefault(); openPopup(`${ride.driver.fullname}'s car`, <DriverDetailsPopup driver={ride.driver} />) }}
+                >
+                  car details
+                </button>
               </div>
             )}
           </div>

@@ -538,14 +538,40 @@ const updateRide = async (rideId, updates) => {
       available_seats: newAvailable,
     })
 
-    // Notify booked passengers if any
-    const approvedPassengers = (existing.passengers || []).filter(p => p.status === 'approved' || p.status === 'pending')
-    if (approvedPassengers.length > 0) {
+    // Use booking_ids already stored on each passenger entry — avoids a collection query
+    // that would be blocked by Firestore rules for cross-user reads
+    const activePassengers = (existing.passengers || []).filter(p =>
+      p.status !== 'canceled' && p.status !== 'cancled' && p.booking_id
+    )
+
+    const bookingFields = {
+      departure:             updates.departure             ?? existing.departure,
+      arrival:               updates.arrival               ?? existing.arrival,
+      departure_date:        updates.departure_date        ?? existing.departure_date,
+      arrival_date:          updates.arrival_date          ?? existing.arrival_date,
+      departure_time:        updates.departure_time        ?? existing.departure_time,
+      arrival_time:          updates.arrival_time          ?? existing.arrival_time,
+      return_departure_time: updates.return_departure_time ?? existing.return_departure_time,
+      ride_updated:          true,
+      update_seen:           false,
+      updated_ride_snapshot: { ...existing, ...updates },
+    }
+
+    await Promise.all(
+      activePassengers.map(p => updateDoc(doc(db, 'bookings', p.booking_id), bookingFields))
+    )
+
+    // Email booked passengers
+    const emailList = activePassengers
+      .map(p => ({ email: p.email, fullname: p.fullname }))
+      .filter(p => p.email)
+
+    if (emailList.length > 0) {
       await fetch('/api/notify-ride-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          passengers: approvedPassengers,
+          passengers: emailList,
           ride: { ...existing, ...updates },
         }),
       })
@@ -556,6 +582,14 @@ const updateRide = async (rideId, updates) => {
     toast.error(error.message)
   } finally {
     setIsLoading(false)
+  }
+}
+
+const dismissRideUpdate = async (bookingId) => {
+  try {
+    await updateDoc(doc(db, 'bookings', bookingId), { ride_updated: false, update_seen: true })
+  } catch (error) {
+    console.error('[dismissRideUpdate]', error)
   }
 }
 
@@ -708,7 +742,7 @@ const changeBookingStatus = async (passengerId  , rideId , bookingId , status)=>
     }
   }
 
-    return <NetworkContext.Provider value={{createNetwork , joinNetwork , getRidesByNetworkId , deleteNetwork , changeBookingStatus , getNetwork , offerRide ,findRide , changeUserStatus , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , finalizeRide , startRide , isLoading , getNetworkList , getAllNetworks , updateRide}}>
+    return <NetworkContext.Provider value={{createNetwork , joinNetwork , getRidesByNetworkId , deleteNetwork , changeBookingStatus , getNetwork , offerRide ,findRide , changeUserStatus , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , finalizeRide , startRide , isLoading , getNetworkList , getAllNetworks , updateRide , dismissRideUpdate}}>
         {children}
     </NetworkContext.Provider>
 }

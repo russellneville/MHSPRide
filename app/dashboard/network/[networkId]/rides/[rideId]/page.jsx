@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { usePopup } from "@/context/PopupContext";
+import { formatTime } from "@/lib/utils";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -40,28 +41,40 @@ import {
 
 export default function RidePage() {
   const { rideId, networkId } = useParams();
-  const { getRide, isLoading, bookRide, cancelRide } = useNetwork();
+  const { getRide, isLoading, bookRide, cancelRide, getBookings } = useNetwork();
   const { user } = useAuth();
   const { openPopup } = usePopup();
 
   const [rideData, setRideData] = useState(null);
   const [seatsToBook, setSeatsToBook] = useState(1);
   const [showEditWarn, setShowEditWarn] = useState(false);
+  const [showDayConflict, setShowDayConflict] = useState(false);
+  const [existingBookings, setExistingBookings] = useState([]);
 
 
-   const fetchRide = async () => {
-      const data = await getRide(rideId, networkId);
-      setRideData(data);
-    };
+  const fetchRide = async () => {
+    const data = await getRide(rideId, networkId);
+    setRideData(data);
+  };
+
   useEffect(() => {
-   
     if (rideId) fetchRide();
-  }, [user , rideId, networkId]);
+    if (user) getBookings().then(data => setExistingBookings(data || []));
+  }, [user, rideId, networkId]);
 
   const handleBookSeats = async () => {
     if (!rideData) return;
+    const alreadyBookedThatDay = existingBookings.some(
+      b => b.departure_date === rideData.departure_date &&
+           b.booking_status !== 'canceled' &&
+           b.booking_status !== 'cancled'
+    );
+    if (alreadyBookedThatDay) {
+      setShowDayConflict(true);
+      return;
+    }
     await bookRide({ ...rideData, rideId }, seatsToBook, networkId);
-    fetchRide()
+    fetchRide();
   };
 
 
@@ -82,6 +95,16 @@ export default function RidePage() {
   );
 
   const isRideDriver = rideData?.driverId === user?.uid;
+
+  const inProgress = (() => {
+    if (!rideData) return false
+    const now       = new Date()
+    const departure = new Date(`${rideData.departure_date}T${rideData.departure_time || '00:00'}`)
+    const arrival   = rideData.arrival_time
+      ? new Date(`${rideData.departure_date}T${rideData.arrival_time}`)
+      : new Date(departure.getTime() + 4 * 60 * 60 * 1000)
+    return now >= departure && now <= arrival
+  })()
 
   return (
     <DashboardLayout>
@@ -106,17 +129,34 @@ export default function RidePage() {
               {/* Ride Info */}
               <Card>
                 <CardHeader className="flex items-center gap-3">
-                  <div className="size-12 rounded-full bg-secondary flex items-center justify-center">
-                    <Car className="text-muted-foreground" />
+                  <div className="relative size-12 shrink-0 flex items-center justify-center">
+                    {inProgress && (
+                      <div
+                        className="absolute inset-0 rounded-full animate-spin"
+                        style={{
+                          background: 'conic-gradient(from 0deg, transparent 75%, rgba(74,222,128,0.85) 100%)',
+                          animationDuration: '4s',
+                          animationTimingFunction: 'linear',
+                        }}
+                      />
+                    )}
+                    <div className="size-11 rounded-full bg-green-600 flex items-center justify-center relative z-10">
+                      <Car className="text-white" />
+                    </div>
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-semibold flex items-center gap-3">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-3 flex-wrap">
                       {rideData.departure} <MoveRight className="size-4" />{" "}
                       {rideData.arrival}
+                      {inProgress && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-300">
+                          In Progress
+                        </span>
+                      )}
                     </CardTitle>
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                       <Clock className="size-4" />
-                      {rideData.departure_date} at {rideData.departure_time}
+                      {rideData.departure_date} at {formatTime(rideData.departure_time)}
                     </p>
                   </div>
                 </CardHeader>
@@ -132,6 +172,20 @@ export default function RidePage() {
                     <span className="font-medium">Arrival:</span>{" "}
                     {rideData.arrival}
                   </p>
+                  {rideData.arrival_time && (
+                    <p>
+                      <Clock className="inline size-4 mr-1" />{" "}
+                      <span className="font-medium">Arrives:</span>{" "}
+                      {formatTime(rideData.arrival_time)}
+                    </p>
+                  )}
+                  {!rideData.one_way && rideData.return_departure_time && (
+                    <p>
+                      <Clock className="inline size-4 mr-1" />{" "}
+                      <span className="font-medium">Return departs:</span>{" "}
+                      {formatTime(rideData.return_departure_time)}
+                    </p>
+                  )}
                   <p>
                     <Users className="inline size-4 mr-1" />{" "}
                     <span className="font-medium">Seats Available:</span>{" "}
@@ -143,13 +197,6 @@ export default function RidePage() {
                     {rideData.ride_description || "No description provided."}
                   </p>
 
-                  <p>
-                    <CircleCheck className="inline size-4 mr-1" />{" "}
-                    <span className="font-medium">Ride status:</span>{" "}
-                    <Badge variant={rideData.ride_status}>
-                      {rideData.ride_status || "No description provided."}
-                    </Badge>
-                  </p>
                 </CardContent>
               </Card>
 
@@ -405,6 +452,21 @@ export default function RidePage() {
       ) : (
         <p className="text-center p-5 text-muted-foreground">Ride not found.</p>
       )}
+
+      <AlertDialog open={showDayConflict} onOpenChange={setShowDayConflict}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ride already booked that day</AlertDialogTitle>
+            <AlertDialogDescription>
+              You already have a booked ride on {rideData?.departure_date}. Only one ride per day is allowed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowDayConflict(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </DashboardLayout>
   );
 }

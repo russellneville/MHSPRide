@@ -134,8 +134,7 @@ export default function MyOfferedRides() {
           <TableHead>Departure date</TableHead>
           <TableHead>Arrival date</TableHead>
           <TableHead>Status</TableHead>
-          <TableHead>Booked seats</TableHead>
-          <TableHead>Available seats</TableHead>
+          <TableHead>Riders</TableHead>
           {allowEdit && <TableHead />}
         </TableRow>
       </TableHeader>
@@ -151,8 +150,7 @@ export default function MyOfferedRides() {
               <TableCell className="whitespace-nowrap">{r.departure_date} at {r.departure_time}</TableCell>
               <TableCell className="whitespace-nowrap">{r.arrival_date} at {r.arrival_time}</TableCell>
               <TableCell><Badge variant={status}>{status}</Badge></TableCell>
-              <TableCell>{r.total_seats - r.available_seats}</TableCell>
-              <TableCell>{r.available_seats}</TableCell>
+              <TableCell className="whitespace-nowrap">{(r.total_seats || 0) - (r.available_seats || 0)} of {r.total_seats || 0}</TableCell>
               {allowEdit && (
                 <TableCell>
                   <Button variant="ghost" size="icon" onClick={() => handleEditClick(r)}>

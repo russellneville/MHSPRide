@@ -7,6 +7,7 @@ import { useAuth } from "@/context/AuthContext"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
+import FeedbackWidget from "@/components/ui/feedback-widget"
 
 export default function DashboardLayout({ children }) {
   const router = useRouter()
@@ -87,6 +88,7 @@ export default function DashboardLayout({ children }) {
           {children}
         </div>
       </SidebarInset>
+      <FeedbackWidget />
     </SidebarProvider>
   )
 }

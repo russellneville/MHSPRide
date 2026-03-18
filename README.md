@@ -10,18 +10,37 @@ Built for the patrol, by the patrol.
 
 ## Who it's for
 
-MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and hosting duties. Access is restricted to verified MHSP members — registration requires your patrol ID number.
+MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and hosting duties. Access is restricted to verified MHSP members — registration requires your patrol ID number and last name.
 
 ---
 
 ## What it does
 
-- **Drivers** post rides with departure times, pickup locations, and gear capacity
-- **Riders** search for rides, book seats, and coordinate pickup details
-- **Three communities** — Hill Patrol, Mountain Hosts, and Nordic — each with their own ride pool
-- **Pickup negotiation** — if a rider lives closer to the driver than the proposed pickup spot, the app surfaces that and lets them work out something better
+- **Offer rides** — post departure time, pickup location, seat count, return time, and notes
+- **Book rides** — browse upcoming rides in your network, reserve seats instantly
+- **Three communities** — Hill Patrol, Mountain Hosts, and Nordic each have their own ride pool
+- **Smart arrival time** — auto-filled from a pre-computed drive-time matrix for all pickup/destination pairs
+- **Ride management** — drivers can edit or cancel rides; booked passengers are notified by email on changes
+- **Dashboard** — see today's rides at a glance, upcoming rides, and a paginated ride history
 
-![On the mountain at Timberline](/public/assets/hood_1.jpg)
+---
+
+## Current status
+
+Phases 1–5 are complete and the app is functional end-to-end:
+
+| Phase | Status |
+|-------|--------|
+| 1 — Seed & data foundation | Complete |
+| 2 — Remove pricing | Complete |
+| 3 — Member verification | Complete |
+| 4 — Onboarding & UX | Complete |
+| 5 — Predefined locations & drive times | Complete |
+| 6 — Gear fields | Not started |
+| 7 — Favorites | Not started |
+| 8 — Pickup negotiation | Not started |
+
+See `resources/implementation-plan.md` for full details.
 
 ---
 
@@ -29,16 +48,17 @@ MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and ho
 
 | Layer | Tech |
 |-------|------|
-| Frontend | Next.js + Tailwind CSS + Shadcn |
+| Frontend | Next.js 15 + Tailwind CSS v4 + shadcn/ui |
 | Backend & DB | Firebase + Firestore |
 | Auth | Firebase Authentication |
-| Hosting | Google Cloud Platform |
+| Email | Resend |
+| Hosting | Google Cloud Platform / Vercel |
 
 ---
 
 ## Getting started
 
-### 1. Clone the repo
+### 1. Clone and install
 
 ```bash
 git clone https://github.com/russellneville/MHSPRide.git
@@ -46,7 +66,7 @@ cd MHSPRide
 npm install
 ```
 
-### 2. Configure Firebase
+### 2. Configure environment variables
 
 Create a `.env` file in the project root:
 
@@ -57,35 +77,41 @@ NEXT_PUBLIC_FIREBASE_PROJECT_ID=
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
+RESEND_API_KEY=
 ```
 
-Get these values from your Firebase project settings under **Project Settings > General > Your apps**.
+Firebase values are in **Firebase Console → Project Settings → General → Your apps**.
+Resend API key is from [resend.com](https://resend.com) — used to notify passengers when a ride is edited.
 
 ### 3. Seed the database
 
-Place a Firebase service account key at `scripts/serviceAccountKey.json` (see `scripts/README.md`), then run:
+Place a Firebase service account key at `scripts/serviceAccountKey.json`, then:
 
 ```bash
 node scripts/seedNetworks.mjs
 node scripts/seedMembers.mjs
 ```
 
-### 4. Start the app
+### 4. Publish Firestore security rules
+
+Copy the rules from `resources/implementation-plan.md` (Firestore Security Rules section) into **Firebase Console → Firestore → Rules** and publish.
+
+### 5. Run the app
 
 ```bash
 npm run dev
 ```
 
-Open http://localhost:3000
+Open [http://localhost:3000](http://localhost:3000)
 
 ---
 
 ## Roster sync
 
-When the MHSP roster changes, run the sync process to update Firestore without disturbing existing registered accounts:
+When the MHSP roster changes, update Firestore without disturbing existing accounts:
 
 ```bash
-# 1. Geocode new addresses in the updated CSV
+# 1. Geocode new addresses
 cd resources && python3 geocode_roster.py
 
 # 2. Diff against the previous version
@@ -103,16 +129,27 @@ See `scripts/README.md` for full details.
 
 ```
 MHSPRide/
-├── app/                    # Next.js pages
-│   ├── dashboard/          # Protected dashboard (rides, bookings, networks, profile)
-│   ├── login/              # Login page
-│   └── register/           # Registration page
-├── components/             # UI components
-├── context/                # Auth and network state
-├── lib/                    # Firebase config, locations, utilities
-├── scripts/                # Seed and sync scripts (Node.js, Admin SDK)
-├── resources/              # Roster CSVs, geocoding scripts, implementation docs
-└── public/assets/          # Images and static files
+├── app/
+│   ├── api/                    # Server-side API routes (email notifications)
+│   └── dashboard/              # Protected dashboard pages
+│       ├── network/[networkId]/ # Network detail, ride list, ride detail, members
+│       ├── rides/              # My Offered Rides
+│       ├── bookings/           # My Booked Rides
+│       ├── profile/            # User profile
+│       └── onboarding/         # First-login wizard
+├── components/
+│   ├── popup-forms/            # OfferRidePopup, EditRidePopup
+│   ├── forms/                  # Registration sub-forms
+│   └── ui/                     # shadcn components + FeedbackWidget
+├── context/
+│   ├── AuthContext.jsx         # Auth state, profile updates
+│   └── NetworksContext.jsx     # All Firestore ride/booking/network operations
+├── lib/
+│   ├── locations.js            # 11 pickup locations with coordinates
+│   ├── drive-times.js          # 120-pair static drive-time matrix
+│   └── utils.js                # cn(), toLocalDateStr()
+├── scripts/                    # Node.js seed/sync scripts (Admin SDK)
+└── resources/                  # Roster CSVs, implementation docs
 ```
 
 ---

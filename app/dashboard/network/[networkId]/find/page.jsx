@@ -42,7 +42,7 @@ export default function FindRidePage() {
         setDate(selectedDate);
         setRideData(prev => ({
             ...prev,
-            departure_date: selectedDate ? selectedDate.toLocaleDateString("en-CA") : "",
+            departure_date: selectedDate ? selectedDate : "",
         }));
     };
 

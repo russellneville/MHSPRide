@@ -8,9 +8,15 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { ChevronDown, ChevronRight, Plus } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { ChevronDown, ChevronRight, Pencil, Plus } from "lucide-react";
 import { toLocalDateStr } from "@/lib/utils";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
+import EditRidePopup from "@/components/popup-forms/EditRidePopup";
 
 const PAGE_SIZE = 25
 
@@ -37,9 +43,16 @@ export default function MyOfferedRides() {
   const [pastOpen, setPastOpen] = useState(false)
   const [pastPage, setPastPage] = useState(0)
 
+  // Warning dialog state
+  const [warnRide, setWarnRide] = useState(null)
+
+  const fetchRides = async () => {
+    getRides().then(data => setRides(data || []))
+  }
+
   useEffect(() => {
     if (!user) return
-    getRides().then(data => setRides(data || []))
+    fetchRides()
     getNetworkList().then(list => {
       const ids = new Set((list || []).map(n => n.id))
       setJoinedNetworks(KNOWN_NETWORKS.filter(n => ids.has(n.id)))
@@ -58,6 +71,19 @@ export default function MyOfferedRides() {
 
   const pastPageCount = Math.ceil(past.length / PAGE_SIZE)
   const pagedPast = past.slice(pastPage * PAGE_SIZE, (pastPage + 1) * PAGE_SIZE)
+
+  const openEdit = (ride) => {
+    openPopup('Edit ride', <EditRidePopup ride={ride} onSaved={fetchRides} />)
+  }
+
+  const handleEditClick = (ride) => {
+    const bookedSeats = (ride.total_seats || 0) - (ride.available_seats || 0)
+    if (bookedSeats > 0) {
+      setWarnRide(ride)
+    } else {
+      openEdit(ride)
+    }
+  }
 
   const openOffer = (networkId) => {
     openPopup('Offer ride', <OfferRidePopup networkId={networkId} />)
@@ -94,7 +120,7 @@ export default function MyOfferedRides() {
     )
   }
 
-  const RideTable = ({ rows }) => (
+  const RideTable = ({ rows, allowEdit }) => (
     <Table className="border border-border overflow-x-auto">
       <TableHeader>
         <TableRow>
@@ -105,6 +131,7 @@ export default function MyOfferedRides() {
           <TableHead>Status</TableHead>
           <TableHead>Booked seats</TableHead>
           <TableHead>Available seats</TableHead>
+          {allowEdit && <TableHead />}
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -119,6 +146,13 @@ export default function MyOfferedRides() {
               <TableCell><Badge variant={status}>{status}</Badge></TableCell>
               <TableCell>{r.total_seats - r.available_seats}</TableCell>
               <TableCell>{r.available_seats}</TableCell>
+              {allowEdit && (
+                <TableCell>
+                  <Button variant="ghost" size="icon" onClick={() => handleEditClick(r)}>
+                    <Pencil className="size-4" />
+                  </Button>
+                </TableCell>
+              )}
             </TableRow>
           )
         })}
@@ -142,7 +176,7 @@ export default function MyOfferedRides() {
             </h4>
             {upcoming.length === 0
               ? <p className="text-sm text-muted-foreground">No upcoming rides.</p>
-              : <RideTable rows={upcoming} />
+              : <RideTable rows={upcoming} allowEdit />
             }
           </section>
 
@@ -159,7 +193,7 @@ export default function MyOfferedRides() {
 
               {pastOpen && (
                 <div className="space-y-3">
-                  <RideTable rows={pagedPast} />
+                  <RideTable rows={pagedPast} allowEdit={false} />
                   {pastPageCount > 1 && (
                     <div className="flex items-center gap-3 text-sm">
                       <Button variant="outline" size="sm" disabled={pastPage === 0} onClick={() => setPastPage(p => p - 1)}>Previous</Button>
@@ -173,6 +207,28 @@ export default function MyOfferedRides() {
           )}
         </div>
       )}
+
+      {/* Warning dialog — seats already booked */}
+      <AlertDialog open={!!warnRide} onOpenChange={(open) => { if (!open) setWarnRide(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Riders have booked this ride</AlertDialogTitle>
+            <AlertDialogDescription>
+              {warnRide && (() => {
+                const booked = (warnRide.total_seats || 0) - (warnRide.available_seats || 0)
+                return `${booked} seat${booked !== 1 ? 's have' : ' has'} already been booked with the current details. If you continue, riders will receive an email about the changes — but you should also contact them directly to confirm.`
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { openEdit(warnRide); setWarnRide(null) }}>
+              Continue anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </DashboardLayout>
   )
 }

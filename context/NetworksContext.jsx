@@ -353,7 +353,7 @@ export const NetworkProvider = ({children})=>{
                 arrival ,
                 arrival_date ,
                 arrival_time ,
-                booking_status : "pending" ,
+                booking_status : "booked" ,
                 booked_seats ,
                 networkId ,
                 booked_at : new Date()
@@ -367,7 +367,7 @@ export const NetworkProvider = ({children})=>{
                 booked_seats : booked_seats , 
                 booked_at : new Date() ,
                 booking_id : bookId,
-                status : 'pending'
+                status : 'booked'
               })})
             toast.success('Ride Booked successfully')
           }
@@ -520,6 +520,45 @@ const deleteNetwork = async (id) => {
   }
 };
 
+const updateRide = async (rideId, updates) => {
+  try {
+    setIsLoading(true)
+    const rideRef = doc(db, 'rides', rideId)
+    const rideSnap = await getDoc(rideRef)
+    if (!rideSnap.exists()) throw new Error('Ride not found')
+
+    const existing = rideSnap.data()
+
+    // Recalculate available_seats if total_seats changed
+    const bookedSeats = (existing.total_seats || 0) - (existing.available_seats || 0)
+    const newAvailable = (updates.total_seats || existing.total_seats) - bookedSeats
+
+    await updateDoc(rideRef, {
+      ...updates,
+      available_seats: newAvailable,
+    })
+
+    // Notify booked passengers if any
+    const approvedPassengers = (existing.passengers || []).filter(p => p.status === 'approved' || p.status === 'pending')
+    if (approvedPassengers.length > 0) {
+      await fetch('/api/notify-ride-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          passengers: approvedPassengers,
+          ride: { ...existing, ...updates },
+        }),
+      })
+    }
+
+    toast.success('Ride updated successfully')
+  } catch (error) {
+    toast.error(error.message)
+  } finally {
+    setIsLoading(false)
+  }
+}
+
 const cancelRide = async (rideId)=>{
   try {
     setIsLoading(true)
@@ -669,7 +708,7 @@ const changeBookingStatus = async (passengerId  , rideId , bookingId , status)=>
     }
   }
 
-    return <NetworkContext.Provider value={{createNetwork , joinNetwork , getRidesByNetworkId , deleteNetwork , changeBookingStatus , getNetwork , offerRide ,findRide , changeUserStatus , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , finalizeRide , startRide , isLoading , getNetworkList , getAllNetworks}}>
+    return <NetworkContext.Provider value={{createNetwork , joinNetwork , getRidesByNetworkId , deleteNetwork , changeBookingStatus , getNetwork , offerRide ,findRide , changeUserStatus , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , finalizeRide , startRide , isLoading , getNetworkList , getAllNetworks , updateRide}}>
         {children}
     </NetworkContext.Provider>
 }

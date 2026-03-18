@@ -241,6 +241,15 @@ export default function NetworkPage() {
   );
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function formatTime(t) {
+  if (!t) return ''
+  const [h, m] = t.split(':').map(Number)
+  const ampm = h >= 12 ? 'pm' : 'am'
+  const hour = h % 12 || 12
+  return `${hour}:${String(m).padStart(2, '0')} ${ampm}`
+}
+
 // ── Ride card ─────────────────────────────────────────────────────────────────
 function RideCard({ ride, networkId, muted }) {
   return (
@@ -256,7 +265,9 @@ function RideCard({ ride, networkId, muted }) {
             </div>
             <div className="text-sm text-muted-foreground flex items-center gap-1">
               <Clock className="size-3.5" />
-              {ride.departure_date} at {ride.departure_time}
+              <span className="font-bold text-foreground">{ride.departure_date}</span>
+              <span>at</span>
+              <span className="font-bold text-foreground">{formatTime(ride.departure_time)}</span>
             </div>
             {ride.driver?.fullname && (
               <div className="text-sm text-muted-foreground">

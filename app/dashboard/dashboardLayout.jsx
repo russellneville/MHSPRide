@@ -64,7 +64,8 @@ export default function DashboardLayout({ children, banner, headerActions }) {
                 {segments.filter((_,i)=> i!== 0).map((segment, index) => {
                   const href = '/' + segments.slice(0, index + 1).join('/')
                   const isLast = index === segments.length - 1
-                  const label = segment.charAt(0).toUpperCase() + segment.slice(1)
+                  const stripped = segment.replace(/^network-/i, '')
+                  const label = stripped.charAt(0).toUpperCase() + stripped.slice(1).toLowerCase()
 
                   return (
                     <div key={href} className="flex items-center">

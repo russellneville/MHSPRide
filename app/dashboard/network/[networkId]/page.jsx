@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Clock, MapPin, MoveRight, Plus, Trash, Users, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Clock, MapPin, MoveRight, Plus, Trash, Users, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePopup } from "@/context/PopupContext";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
@@ -67,6 +67,7 @@ export default function NetworkPage() {
 
   const [networkData, setNetworkData] = useState(null);
   const [rides, setRides] = useState([]);
+  const [pastOpen, setPastOpen] = useState(false);
 
   // Filters
   const [filterDate, setFilterDate] = useState('');
@@ -228,10 +229,14 @@ export default function NetworkPage() {
         {/* ── Past rides (last 24h) ────────────────────────────────────────── */}
         {past.length > 0 && (
           <div className="space-y-3">
-            <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Past Rides <span className="normal-case font-normal">(last 24 hours)</span>
-            </h4>
-            {past.map(ride => (
+            <button
+              className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setPastOpen(o => !o)}
+            >
+              {pastOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+              Past Rides <span className="normal-case font-normal ml-1">({past.length})</span>
+            </button>
+            {pastOpen && past.map(ride => (
               <RideCard key={ride.id} ride={ride} networkId={networkId} muted />
             ))}
           </div>

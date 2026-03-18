@@ -332,23 +332,23 @@ function TodayRideCard({ ride }) {
             </div>
           </div>
 
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <CardTitle className="text-base font-semibold text-white flex items-center gap-2 flex-wrap">
-              {ride.departure} <MoveRight className="size-4" /> {ride.arrival}
+              {ride.departure} <MoveRight className="size-4 shrink-0" /> {ride.arrival}
             </CardTitle>
             <p className="text-sm text-green-100 flex items-center gap-1 mt-0.5">
-              <Clock className="size-3.5" /> {ride.departure_date} at {formatTime(ride.departure_time)}
+              <Clock className="size-3.5 shrink-0" /> {ride.departure_date} at {formatTime(ride.departure_time)}
             </p>
-          </div>
-          <div className="flex flex-col items-end gap-1.5 shrink-0">
-            {inProgress && (
-              <Badge className="bg-white text-green-800 border-white/50 font-semibold">
-                In Progress
+            <div className="flex flex-wrap gap-1.5 mt-2">
+              {inProgress && (
+                <Badge className="bg-white text-green-800 border-white/50 font-semibold">
+                  In Progress
+                </Badge>
+              )}
+              <Badge className="bg-white/20 text-white border-white/30">
+                {isOffering ? 'You are driving' : 'You are a passenger'}
               </Badge>
-            )}
-            <Badge className="bg-white/20 text-white border-white/30">
-              {isOffering ? 'You are driving' : 'You are a passenger'}
-            </Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm text-green-100">

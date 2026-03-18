@@ -96,6 +96,16 @@ export default function RidePage() {
 
   const isRideDriver = rideData?.driverId === user?.uid;
 
+  const inProgress = (() => {
+    if (!rideData) return false
+    const now       = new Date()
+    const departure = new Date(`${rideData.departure_date}T${rideData.departure_time || '00:00'}`)
+    const arrival   = rideData.arrival_time
+      ? new Date(`${rideData.departure_date}T${rideData.arrival_time}`)
+      : new Date(departure.getTime() + 4 * 60 * 60 * 1000)
+    return now >= departure && now <= arrival
+  })()
+
   return (
     <DashboardLayout>
       {rideData ? (
@@ -119,13 +129,30 @@ export default function RidePage() {
               {/* Ride Info */}
               <Card>
                 <CardHeader className="flex items-center gap-3">
-                  <div className="size-12 rounded-full bg-secondary flex items-center justify-center">
-                    <Car className="text-muted-foreground" />
+                  <div className="relative size-12 shrink-0 flex items-center justify-center">
+                    {inProgress && (
+                      <div
+                        className="absolute inset-0 rounded-full animate-spin"
+                        style={{
+                          background: 'conic-gradient(from 0deg, transparent 75%, rgba(74,222,128,0.85) 100%)',
+                          animationDuration: '4s',
+                          animationTimingFunction: 'linear',
+                        }}
+                      />
+                    )}
+                    <div className="size-11 rounded-full bg-secondary flex items-center justify-center relative z-10">
+                      <Car className="text-muted-foreground" />
+                    </div>
                   </div>
                   <div>
-                    <CardTitle className="text-lg font-semibold flex items-center gap-3">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-3 flex-wrap">
                       {rideData.departure} <MoveRight className="size-4" />{" "}
                       {rideData.arrival}
+                      {inProgress && (
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-300">
+                          In Progress
+                        </span>
+                      )}
                     </CardTitle>
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                       <Clock className="size-4" />
@@ -170,13 +197,6 @@ export default function RidePage() {
                     {rideData.ride_description || "No description provided."}
                   </p>
 
-                  <p>
-                    <CircleCheck className="inline size-4 mr-1" />{" "}
-                    <span className="font-medium">Ride status:</span>{" "}
-                    <Badge variant={rideData.ride_status}>
-                      {rideData.ride_status || "No description provided."}
-                    </Badge>
-                  </p>
                 </CardContent>
               </Card>
 

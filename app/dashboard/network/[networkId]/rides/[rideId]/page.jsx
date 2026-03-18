@@ -145,6 +145,20 @@ export default function RidePage() {
                     <span className="font-medium">Arrival:</span>{" "}
                     {rideData.arrival}
                   </p>
+                  {rideData.arrival_time && (
+                    <p>
+                      <Clock className="inline size-4 mr-1" />{" "}
+                      <span className="font-medium">Arrives:</span>{" "}
+                      {formatTime(rideData.arrival_time)}
+                    </p>
+                  )}
+                  {!rideData.one_way && rideData.return_departure_time && (
+                    <p>
+                      <Clock className="inline size-4 mr-1" />{" "}
+                      <span className="font-medium">Return departs:</span>{" "}
+                      {formatTime(rideData.return_departure_time)}
+                    </p>
+                  )}
                   <p>
                     <Users className="inline size-4 mr-1" />{" "}
                     <span className="font-medium">Seats Available:</span>{" "}

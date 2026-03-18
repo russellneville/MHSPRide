@@ -31,6 +31,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 export default function RidePage() {
   const { rideId, networkId } = useParams();
@@ -184,9 +185,7 @@ export default function RidePage() {
               {/* Driver Info */}
               <Card>
                 <CardHeader className="flex items-center gap-3">
-                  <div className="size-12 rounded-full bg-secondary flex items-center justify-center">
-                    <User className="text-muted-foreground" />
-                  </div>
+                  <UserAvatar user={rideData.driver} size="lg" />
                   <CardTitle className="text-lg font-semibold">
                     Driver Information
                   </CardTitle>
@@ -208,16 +207,12 @@ export default function RidePage() {
                   </p>
                   <p>
                     <Car className="inline size-4 mr-1" />{" "}
-                    <span className="font-medium text-foreground">
-                      Car Model:
-                    </span>{" "}
-                    {rideData.driver?.roleform?.carModel || "Not specified"}
+                    <span className="font-medium text-foreground">Car:</span>{" "}
+                    {[rideData.driver?.vehicle_make, rideData.driver?.vehicle_model].filter(Boolean).join(" ") || "Not specified"}
                   </p>
                   <p>
-                    <span className="font-medium text-foreground">
-                      Car Plate:
-                    </span>{" "}
-                    {rideData.driver?.roleform?.licencePlate || "—"}
+                    <span className="font-medium text-foreground">Car Plate:</span>{" "}
+                    {rideData.driver?.vehicle_plate || "—"}
                   </p>
                 </CardContent>
               </Card>

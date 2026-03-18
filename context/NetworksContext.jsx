@@ -89,7 +89,6 @@ export const NetworkProvider = ({children})=>{
         fullname: userData.fullname,
         email: userData.email,
         phone: userData.phone,
-        status: "pending",
         joined_at: new Date(),
       }),
     });
@@ -146,12 +145,10 @@ export const NetworkProvider = ({children})=>{
                      data.passengers.find(p => p.id === auth.currentUser.uid);
 
       if (!member){
-        throw new Error('Unothorized user')
+        throw new Error('You must join this network before offering a ride')
       }
 
-      const status = member.status
-
-      if (status === 'approved'){
+      {
         await setDoc(doc(db , 'rides' , `ride-${inviteCode}`) ,
           {
               ...rideData ,
@@ -166,9 +163,6 @@ export const NetworkProvider = ({children})=>{
               created_at: new Date()
           })
         toast.success('Ride created successfully')
-      }
-      else {
-        throw new Error('You need director approval first')
       }
       
     } 
@@ -219,25 +213,17 @@ export const NetworkProvider = ({children})=>{
                      data.drivers.find(p => p.id === auth.currentUser.uid);
 
       if (!member){
-        throw new Error('Unknown error')
+        throw new Error('You must join this network before finding a ride')
       }
 
-      const status = member.status
-
-      if (status === 'approved'){
-        const q = query(ridesRef, where("departure", "==", departure.toLowerCase()) ,
-                                  where("arrival", "==", arrival.toLowerCase()),
-                                  where("departure_date", "==", departure_date) ,
-                                  where("network_id", "==", networkId) ,
-                                  where ('ride_status' , "==" , "not started") ,
-                                  );
-        const snapshot = await getDocs(q);
-        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        return data
-      }
-      else {
-        throw new Error('You need director approval first')
-      }
+      const q = query(ridesRef, where("departure", "==", departure.toLowerCase()) ,
+                                where("arrival", "==", arrival.toLowerCase()),
+                                where("departure_date", "==", departure_date) ,
+                                where("network_id", "==", networkId) ,
+                                where ('ride_status' , "==" , "not started") ,
+                                );
+      const ridesSnapshot = await getDocs(q);
+      return ridesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
                 
     }
     catch (error){
@@ -339,15 +325,14 @@ export const NetworkProvider = ({children})=>{
       const ridepassenger = rideData.passengers.find(p => p.id === auth.currentUser.uid);
 
       if (!networkmember){
-        throw new Error('Unknown error')
+        throw new Error('You must join this network before booking a ride')
       }
 
-      const status = networkmember.status
       const booked = ridepassenger !== undefined ? true : false
 
       const bookId = `book-${inviteCode}`
 
-      if (status === 'approved'){
+      {
           if (!booked) {
             console.log(userData)
             await setDoc(doc(db , 'bookings' , bookId) , 
@@ -389,9 +374,6 @@ export const NetworkProvider = ({children})=>{
           else {
             throw new Error('ride already booked')
           }
-        }
-        else {
-          throw new Error('you need admin approval first')
         }
 
 

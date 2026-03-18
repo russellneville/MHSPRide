@@ -4,26 +4,21 @@ import DashboardLayout from "../../dashboardLayout";
 import { useNetwork } from "@/context/NetworksContext";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Car, CarFront, EllipsisVertical, Plus, Trash, Users } from "lucide-react";
+import { Car, CarFront, Plus, Trash, Users } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePopup } from "@/context/PopupContext";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
 import StatsCard from "@/components/ui/stats-card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Popover , PopoverContent, PopoverTrigger} from "@/components/ui/popover";
-import { Select , SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function NetworkPage(){
     const params = useParams(); 
     const { networkId } = params;
     const [networkData , setNetworkData] = useState(null)
-    const { isLoading , getNetwork , deleteNetwork , changeUserStatus , getRidesByNetworkId} = useNetwork()
+    const { isLoading , getNetwork , deleteNetwork , getRidesByNetworkId} = useNetwork()
     const { user } = useAuth()
     const { openPopup } = usePopup()
-    const passStatus = ['pending' , 'approved' , 'denied']
-    const [currPassStatus , setCurrPassStatus] = useState('')
-     const [rides, setRides] = useState([])
+    const [rides, setRides] = useState([])
       useEffect(() => {
     const fetchData = async () => {
       if (!user) return
@@ -36,10 +31,6 @@ export default function NetworkPage(){
   }, [user])
 
  
-
-    const handleChangePassStatus = async (id , role)=>{
-        await changeUserStatus(id , currPassStatus , networkId , role)
-    }
 
     const handleDeleteNetwork = async ()=>{
         let confirmed = confirm('Are you sure you want to delete ?')
@@ -99,71 +90,16 @@ export default function NetworkPage(){
                                     <Table className='border border-border'>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>
-                                                    #
-                                                </TableHead>
-                                                <TableHead>
-                                                    full name
-                                                </TableHead>
-                                                <TableHead>
-                                                    email
-                                                </TableHead>
-                                                <TableHead>
-                                                    status
-                                                </TableHead>
-                                                <TableHead>
-                                                    joined at
-                                                </TableHead>
-                                                <TableHead/>
-                                                
-                                        
+                                                <TableHead>full name</TableHead>
+                                                <TableHead>email</TableHead>
+                                                <TableHead>joined at</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                                 {networkData.passengers.map(p => <TableRow key={p.id}>
-                                                    <TableCell>
-                                                        {p.id}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {p.fullname}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {p.email}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={p.status}>
-                                                            {p.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {p.joined_at.toDate().toISOString().split('T')[0]}
-                                                    </TableCell>
-                                                    {user?.role == 'director' && <TableCell>
-                                                        <Popover>
-                                                            <PopoverTrigger asChild className='cursor-pointer'>
-                                                                <EllipsisVertical/>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent>
-                                                                <div className="flex items-center gap-2">
-                                                                    <Select id='status'  defaultValue={p.status} onValueChange={(value) => setCurrPassStatus(value)}>
-                                                                        <SelectTrigger className='w-full'>
-                                                                            <SelectValue placeholder="Select a fruit" />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent>
-                                                                            <SelectGroup>
-                                                                                <SelectLabel>Status</SelectLabel>
-                                                                                {passStatus.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                                                                            </SelectGroup>
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                    <Button  disabled={isLoading} onClick={()=> handleChangePassStatus(p.id , p.role)}>{isLoading? 'Saving...' : 'Save'}</Button>
-                                                                </div>
-                                                            
-                                                                    
-                                                            </PopoverContent>
-                                                        </Popover>
-                                                        
-                                                    </TableCell>}
+                                                    <TableCell>{p.fullname}</TableCell>
+                                                    <TableCell>{p.email}</TableCell>
+                                                    <TableCell>{p.joined_at.toDate().toISOString().split('T')[0]}</TableCell>
                                                 </TableRow>)}
                                         </TableBody>
                                     </Table>
@@ -174,71 +110,16 @@ export default function NetworkPage(){
                                     <Table className='border border-border'>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead>
-                                                    #
-                                                </TableHead>
-                                                <TableHead>
-                                                    full name
-                                                </TableHead>
-                                                <TableHead>
-                                                    email
-                                                </TableHead>
-                                                <TableHead>
-                                                    status
-                                                </TableHead>
-                                                <TableHead>
-                                                    joined at
-                                                </TableHead>
-                                                <TableHead/>
-                                                
-                                        
+                                                <TableHead>full name</TableHead>
+                                                <TableHead>email</TableHead>
+                                                <TableHead>joined at</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                                 {networkData.drivers.map(p => <TableRow key={p.id}>
-                                                    <TableCell>
-                                                        {p.id}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {p.fullname}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {p.email}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge variant={p.status}>
-                                                            {p.status}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {p.joined_at.toDate().toISOString().split('T')[0]}
-                                                    </TableCell>
-                                                    {user?.role == 'director' &&<TableCell>
-                                                        <Popover>
-                                                            <PopoverTrigger asChild className='cursor-pointer'>
-                                                                <EllipsisVertical/>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent>
-                                                                <div className="flex items-center gap-2">
-                                                                    <Select id='status'  defaultValue={p.status} onValueChange={(value) => setCurrPassStatus(value)}>
-                                                                        <SelectTrigger className='w-full'>
-                                                                            <SelectValue placeholder="Select a fruit" />
-                                                                        </SelectTrigger>
-                                                                        <SelectContent>
-                                                                            <SelectGroup>
-                                                                                <SelectLabel>Status</SelectLabel>
-                                                                                {passStatus.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                                                                            </SelectGroup>
-                                                                        </SelectContent>
-                                                                    </Select>
-                                                                    <Button  disabled={isLoading} onClick={()=> handleChangePassStatus(p.id , p.role)}>{isLoading? 'Saving...' : 'Save'}</Button>
-                                                                </div>
-                                                            
-                                                                    
-                                                            </PopoverContent>
-                                                        </Popover>
-                                                        
-                                                    </TableCell>}
+                                                    <TableCell>{p.fullname}</TableCell>
+                                                    <TableCell>{p.email}</TableCell>
+                                                    <TableCell>{p.joined_at.toDate().toISOString().split('T')[0]}</TableCell>
                                                 </TableRow>)}
                                         </TableBody>
                                     </Table>

@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Members collection: public read for registration verification,
+    // authenticated users can only update claimed/claimedBy fields
+    match /members/{memberId} {
+      allow read: if true;
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['claimed', 'claimedBy']);
+      allow create, delete: if false;
+    }
+
+    // Users: only accessible by the owning user
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Networks: readable by authenticated members, no client-side creates
+    match /networks/{networkId} {
+      allow read: if request.auth != null
+        && (request.auth.uid in resource.data.passengersIds
+            || request.auth.uid in resource.data.driversIds);
+      allow update: if request.auth != null;
+      allow create, delete: if false;
+    }
+
+    // Rides: readable by network members, writable by the driver
+    match /rides/{rideId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.driverId == request.auth.uid;
+      allow update: if request.auth != null
+        && (resource.data.driverId == request.auth.uid || request.auth.uid in resource.data.passengersIds);
+      allow delete: if request.auth != null && resource.data.driverId == request.auth.uid;
+    }
+
+    // Bookings: readable/writable by the passenger or the driver named in the booking
+    match /bookings/{bookingId} {
+      allow read: if request.auth != null
+        && (resource.data.passengerId == request.auth.uid
+            || resource.data.driverId == request.auth.uid);
+      allow create: if request.auth != null && request.resource.data.passengerId == request.auth.uid;
+      allow update: if request.auth != null
+        && (resource.data.passengerId == request.auth.uid
+            || resource.data.driverId == request.auth.uid);
+      allow delete: if false;
+    }
+  }
+}

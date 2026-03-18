@@ -303,13 +303,35 @@ function TodayRideCard({ ride }) {
   const networkId  = ride.network_id || ride.networkId
   const href       = networkId ? `/dashboard/network/${networkId}/rides/${ride.id}` : '#'
 
+  const now       = new Date()
+  const departure = new Date(`${ride.departure_date}T${ride.departure_time || '00:00'}`)
+  const arrival   = ride.arrival_time
+    ? new Date(`${ride.departure_date}T${ride.arrival_time}`)
+    : new Date(departure.getTime() + 4 * 60 * 60 * 1000)
+  const inProgress = now >= departure && now <= arrival
+
   return (
     <Link href={href}>
       <Card className="border-green-600 bg-green-700 hover:bg-green-600 transition-colors cursor-pointer">
         <CardHeader className="flex items-center gap-3">
-          <div className="size-12 rounded-full bg-green-500/40 flex items-center justify-center">
-            <Car className="text-white" />
+
+          {/* Logo with optional spinning ring */}
+          <div className="relative size-12 shrink-0 flex items-center justify-center">
+            {inProgress && (
+              <div
+                className="absolute inset-0 rounded-full animate-spin"
+                style={{
+                  background: 'conic-gradient(from 0deg, transparent 75%, rgba(255,255,255,0.75) 100%)',
+                  animationDuration: '4s',
+                  animationTimingFunction: 'linear',
+                }}
+              />
+            )}
+            <div className="size-11 rounded-full bg-green-500/40 flex items-center justify-center relative z-10">
+              <Car className="text-white" />
+            </div>
           </div>
+
           <div className="flex-1">
             <CardTitle className="text-base font-semibold text-white flex items-center gap-2 flex-wrap">
               {ride.departure} <MoveRight className="size-4" /> {ride.arrival}
@@ -318,9 +340,16 @@ function TodayRideCard({ ride }) {
               <Clock className="size-3.5" /> {ride.departure_date} at {formatTime(ride.departure_time)}
             </p>
           </div>
-          <Badge className="shrink-0 bg-white/20 text-white border-white/30">
-            {isOffering ? 'You are driving' : 'You are a passenger'}
-          </Badge>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            {inProgress && (
+              <Badge className="bg-white text-green-800 border-white/50 font-semibold">
+                In Progress
+              </Badge>
+            )}
+            <Badge className="bg-white/20 text-white border-white/30">
+              {isOffering ? 'You are driving' : 'You are a passenger'}
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="space-y-1.5 text-sm text-green-100">
           <p><MapPin className="inline size-4 mr-1" /><span className="font-medium text-white">Departure:</span> {ride.departure}</p>

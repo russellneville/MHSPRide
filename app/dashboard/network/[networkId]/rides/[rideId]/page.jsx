@@ -140,8 +140,8 @@ export default function RidePage() {
                         }}
                       />
                     )}
-                    <div className="size-11 rounded-full bg-secondary flex items-center justify-center relative z-10">
-                      <Car className="text-muted-foreground" />
+                    <div className="size-11 rounded-full bg-green-600 flex items-center justify-center relative z-10">
+                      <Car className="text-white" />
                     </div>
                   </div>
                   <div>

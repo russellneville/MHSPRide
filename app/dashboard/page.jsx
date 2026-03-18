@@ -169,6 +169,7 @@ export default function Dashboard() {
                   <TableHead>Arrival</TableHead>
                   <TableHead>Arrives</TableHead>
                   <TableHead>Return</TableHead>
+                  <TableHead>Riders</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -176,7 +177,7 @@ export default function Dashboard() {
                   <TableRow key={i}>
                     <TableCell>
                       {r._type === 'offered'
-                        ? <Badge className="bg-green-100 text-green-800 border-green-300">Offering</Badge>
+                        ? <Badge className="bg-green-100 text-green-800 border-green-300">Offered</Badge>
                         : <Badge className="bg-blue-100 text-blue-800 border-blue-300">Booked</Badge>
                       }
                     </TableCell>
@@ -186,6 +187,12 @@ export default function Dashboard() {
                     <TableCell>{r.arrival}</TableCell>
                     <TableCell>{r.arrival_time || '—'}</TableCell>
                     <TableCell>{r.return_departure_time || '—'}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {r._type === 'offered'
+                        ? `${(r.total_seats || 0) - (r.available_seats || 0)} of ${r.total_seats || 0}`
+                        : '—'
+                      }
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -219,6 +226,7 @@ export default function Dashboard() {
                           ? <Badge className="bg-green-100 text-green-800 border-green-300">Offered</Badge>
                           : <Badge className="bg-blue-100 text-blue-800 border-blue-300">Booked</Badge>
                         }
+
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{r.departure_date}</TableCell>
                       <TableCell>{r.departure}</TableCell>

@@ -6,6 +6,7 @@ import { useNetwork } from "@/context/NetworksContext";
 import DatePicker from "@/components/ui/date-picker";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Car, MapPin, MapPinned, Users } from "lucide-react";
+import { formatTime } from "@/lib/utils";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
@@ -146,7 +147,7 @@ export default function FindRidePage() {
                                             <CardHeader className='flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-border gap-3'>
                                                 <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5 w-full sm:w-auto">
                                                     <div className="text-sm">
-                                                        <span className="block font-semibold">{ride.departure_time}</span>
+                                                        <span className="block font-semibold">{formatTime(ride.departure_time)}</span>
                                                         <span>{ride.departure}</span>
                                                     </div>
 
@@ -157,7 +158,7 @@ export default function FindRidePage() {
                                                     </span>
 
                                                     <div className="text-sm">
-                                                        <span className="block font-semibold">{ride.arrival_time}</span>
+                                                        <span className="block font-semibold">{formatTime(ride.arrival_time)}</span>
                                                         <span>{ride.arrival}</span>
                                                     </div>
                                                 </div>

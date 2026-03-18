@@ -14,7 +14,7 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ChevronDown, ChevronRight, Pencil, Plus } from "lucide-react";
-import { toLocalDateStr } from "@/lib/utils";
+import { formatTime, toLocalDateStr } from "@/lib/utils";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
 
@@ -147,8 +147,8 @@ export default function MyOfferedRides() {
               <TableCell className="whitespace-nowrap">{networkName}</TableCell>
               <TableCell>{r.departure}</TableCell>
               <TableCell>{r.arrival}</TableCell>
-              <TableCell className="whitespace-nowrap">{r.departure_date} at {r.departure_time}</TableCell>
-              <TableCell className="whitespace-nowrap">{r.arrival_date} at {r.arrival_time}</TableCell>
+              <TableCell className="whitespace-nowrap">{r.departure_date} at {formatTime(r.departure_time)}</TableCell>
+              <TableCell className="whitespace-nowrap">{r.arrival_date} at {formatTime(r.arrival_time)}</TableCell>
               <TableCell><Badge variant={status}>{status}</Badge></TableCell>
               <TableCell className="whitespace-nowrap">{(r.total_seats || 0) - (r.available_seats || 0)} of {r.total_seats || 0}</TableCell>
               {allowEdit && (

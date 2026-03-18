@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { usePopup } from "@/context/PopupContext";
+import { formatTime } from "@/lib/utils";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -128,7 +129,7 @@ export default function RidePage() {
                     </CardTitle>
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                       <Clock className="size-4" />
-                      {rideData.departure_date} at {rideData.departure_time}
+                      {rideData.departure_date} at {formatTime(rideData.departure_time)}
                     </p>
                   </div>
                 </CardHeader>

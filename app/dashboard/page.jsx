@@ -4,7 +4,7 @@ import DashboardLayout from "./dashboardLayout"
 import { useAuth } from "@/context/AuthContext"
 import { usePopup } from "@/context/PopupContext"
 import { useEffect, useState } from "react"
-import { toLocalDateStr } from "@/lib/utils"
+import { formatTime, toLocalDateStr } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
@@ -191,10 +191,10 @@ export default function Dashboard() {
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{r.departure_date}</TableCell>
                     <TableCell>{r.departure}</TableCell>
-                    <TableCell>{r.departure_time}</TableCell>
+                    <TableCell>{formatTime(r.departure_time)}</TableCell>
                     <TableCell>{r.arrival}</TableCell>
-                    <TableCell>{r.arrival_time || '—'}</TableCell>
-                    <TableCell>{r.return_departure_time || '—'}</TableCell>
+                    <TableCell>{formatTime(r.arrival_time)}</TableCell>
+                    <TableCell>{formatTime(r.return_departure_time)}</TableCell>
                     <TableCell className="whitespace-nowrap">
                       {r._type === 'offered'
                         ? `${(r.total_seats || 0) - (r.available_seats || 0)} of ${r.total_seats || 0}`
@@ -286,9 +286,9 @@ function RideUpdatedBanner({ booking, onDismiss }) {
       <div className="text-sm text-yellow-900 dark:text-yellow-100 space-y-1">
         <p><span className="font-medium">Route:</span> {r.departure} → {r.arrival}</p>
         <p><span className="font-medium">Date:</span> {r.departure_date}</p>
-        <p><span className="font-medium">Departs:</span> {r.departure_time}</p>
-        {r.arrival_time && <p><span className="font-medium">Arrives:</span> {r.arrival_time}</p>}
-        {r.return_departure_time && <p><span className="font-medium">Return departs:</span> {r.return_departure_time}</p>}
+        <p><span className="font-medium">Departs:</span> {formatTime(r.departure_time)}</p>
+        {r.arrival_time && <p><span className="font-medium">Arrives:</span> {formatTime(r.arrival_time)}</p>}
+        {r.return_departure_time && <p><span className="font-medium">Return departs:</span> {formatTime(r.return_departure_time)}</p>}
         {r.ride_description && <p><span className="font-medium">Notes:</span> {r.ride_description}</p>}
       </div>
       <Button size="sm" variant="outline" className="border-yellow-400 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-900" onClick={onDismiss}>
@@ -315,7 +315,7 @@ function TodayRideCard({ ride }) {
               {ride.departure} <MoveRight className="size-4" /> {ride.arrival}
             </CardTitle>
             <p className="text-sm text-green-100 flex items-center gap-1 mt-0.5">
-              <Clock className="size-3.5" /> {ride.departure_date} at {ride.departure_time}
+              <Clock className="size-3.5" /> {ride.departure_date} at {formatTime(ride.departure_time)}
             </p>
           </div>
           <Badge className="shrink-0 bg-white/20 text-white border-white/30">
@@ -326,10 +326,10 @@ function TodayRideCard({ ride }) {
           <p><MapPin className="inline size-4 mr-1" /><span className="font-medium text-white">Departure:</span> {ride.departure}</p>
           <p><Navigation className="inline size-4 mr-1" /><span className="font-medium text-white">Arrival:</span> {ride.arrival}</p>
           {ride.arrival_time && (
-            <p><Clock className="inline size-4 mr-1" /><span className="font-medium text-white">Arrives:</span> {ride.arrival_time}</p>
+            <p><Clock className="inline size-4 mr-1" /><span className="font-medium text-white">Arrives:</span> {formatTime(ride.arrival_time)}</p>
           )}
           {ride.return_departure_time && (
-            <p><Clock className="inline size-4 mr-1" /><span className="font-medium text-white">Return departs:</span> {ride.return_departure_time}</p>
+            <p><Clock className="inline size-4 mr-1" /><span className="font-medium text-white">Return departs:</span> {formatTime(ride.return_departure_time)}</p>
           )}
           {ride.ride_description && (
             <p><Info className="inline size-4 mr-1" /><span className="font-medium text-white">Notes:</span> {ride.ride_description}</p>

@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { toLocalDateStr } from "@/lib/utils";
+import { formatTime, toLocalDateStr } from "@/lib/utils";
 import Link from "next/link";
 
 const PAGE_SIZE = 25
@@ -84,8 +84,8 @@ export default function MyBookedRides() {
               <TableCell>{statusBadge(status)}</TableCell>
               <TableCell>{b.departure}</TableCell>
               <TableCell>{b.arrival}</TableCell>
-              <TableCell className="whitespace-nowrap">{b.departure_date} at {b.departure_time}</TableCell>
-              <TableCell className="whitespace-nowrap">{b.arrival_date} at {b.arrival_time}</TableCell>
+              <TableCell className="whitespace-nowrap">{b.departure_date} at {formatTime(b.departure_time)}</TableCell>
+              <TableCell className="whitespace-nowrap">{b.arrival_date} at {formatTime(b.arrival_time)}</TableCell>
             </TableRow>
           )
         })}

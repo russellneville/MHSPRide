@@ -291,14 +291,13 @@ export default function OnboardingPage() {
                   </Select>
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="vehicle_seats">Seats (2–8)</Label>
+                  <Label htmlFor="vehicle_seats">Passenger Seats</Label>
                   <Input
                     id="vehicle_seats"
                     name="vehicle_seats"
                     type="number"
-                    min={2}
-                    max={8}
-                    placeholder="e.g. 5"
+                    min={1}
+                    placeholder="e.g. 4"
                     value={vehicle.vehicle_seats}
                     onChange={handleVehicleChange}
                   />

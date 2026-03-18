@@ -40,6 +40,7 @@ export function AppSidebar({ user, ...props }) {
       <SidebarHeader className="p-0">
         {/* Expanded: full-width transparent logo */}
         <div className="group-data-[collapsible=icon]:hidden w-full px-3 py-3">
+          <div className="rounded-xl overflow-hidden bg-white">
           <Image
             src="/assets/mhspride_alt_logo.png"
             alt="MHSPRide"
@@ -47,6 +48,7 @@ export function AppSidebar({ user, ...props }) {
             height={286}
             className="w-full h-auto"
           />
+          </div>
         </div>
         {/* Collapsed: small shield icon centered */}
         <div className="group-data-[collapsible=icon]:flex hidden justify-center py-3">
@@ -60,7 +62,7 @@ export function AppSidebar({ user, ...props }) {
       </SidebarHeader>
 
       {/* Mountain photo panel — hidden when collapsed to icon mode */}
-      <div className="group-data-[collapsible=icon]:hidden relative mx-0 overflow-hidden">
+      <div className="group-data-[collapsible=icon]:hidden relative mx-3 rounded-xl overflow-hidden">
         <img
           src="/assets/hood_1.jpg"
           alt="Mt. Hood"

@@ -198,7 +198,7 @@ export default function Dashboard() {
                     <TableCell className="whitespace-nowrap">
                       {r._type === 'offered'
                         ? `${(r.total_seats || 0) - (r.available_seats || 0)} of ${r.total_seats || 0}`
-                        : '—'
+                        : `${r.booked_seats || 1} seat${(r.booked_seats || 1) !== 1 ? 's' : ''}`
                       }
                     </TableCell>
                   </TableRow>

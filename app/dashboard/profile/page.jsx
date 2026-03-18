@@ -6,6 +6,7 @@ import { Label } from "@radix-ui/react-label";
 import { Input } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import DatePicker from "@/components/ui/date-picker";
+import { toLocalDateStr } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import DriverProfile from "@/components/forms/DriverProfile";
 import { Button } from "@/components/ui/button";
@@ -43,7 +44,7 @@ export default function ProfilePage (){
         setDate(selectedDate);
         setProfile((prev) => ({
           ...prev,
-          birthdate: selectedDate ? selectedDate.toLocaleDateString("en-CA") : "",
+          birthdate: toLocalDateStr(selectedDate),
         }));
     };
     return <>

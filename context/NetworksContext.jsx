@@ -537,10 +537,10 @@ const cancelRide = async (rideId)=>{
       const bookingSnap = await getDoc(bookingRef)
       if (!bookingSnap.exists()) return 
 
-      await updateDoc(bookingRef , {booking_status : 'cancled'})
+      await updateDoc(bookingRef , {booking_status : 'canceled'})
     })
 
-    await updateDoc(rideRef , {ride_status : 'cancled'})
+    await updateDoc(rideRef , {ride_status : 'canceled'})
     toast.success('Ride canceled successfully')
     
     

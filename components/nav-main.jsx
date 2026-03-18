@@ -21,7 +21,6 @@ import {
 export function NavMain({menu}) {
   return (
     <SidebarGroup>
-      <SidebarGroupLabel>Platform</SidebarGroupLabel>
       <SidebarMenu>
         {menu.map((item) => (
           <Collapsible

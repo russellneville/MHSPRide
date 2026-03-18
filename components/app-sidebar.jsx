@@ -28,10 +28,10 @@ import {
 export function AppSidebar({ user, ...props }) {
   const menu = [
     { name: "Home", icon: Home, href: "/dashboard" },
-    { name: "Profile", icon: User, href: "/dashboard/profile" },
+    { name: "My Booked Rides", icon: Ticket, href: "/dashboard/bookings" },
+    { name: "My Offered Rides", icon: Waypoints, href: "/dashboard/rides" },
     { name: "Networks", icon: Users, href: "/dashboard/networks" },
-    { name: "My Rides", icon: Waypoints, href: "/dashboard/rides" },
-    { name: "My Bookings", icon: Ticket, href: "/dashboard/bookings" },
+    { name: "Profile", icon: User, href: "/dashboard/profile" },
   ]
 
   return (
@@ -61,8 +61,13 @@ export function AppSidebar({ user, ...props }) {
         </div>
       </SidebarHeader>
 
+      {/* Content */}
+      <SidebarContent>
+        <NavMain menu={menu} />
+      </SidebarContent>
+
       {/* Mountain photo panel — hidden when collapsed to icon mode */}
-      <div className="group-data-[collapsible=icon]:hidden relative mx-3 rounded-xl overflow-hidden">
+      <div className="group-data-[collapsible=icon]:hidden relative mx-3 rounded-xl overflow-hidden mb-2">
         <img
           src="/assets/hood_1.jpg"
           alt="Mt. Hood"
@@ -74,11 +79,6 @@ export function AppSidebar({ user, ...props }) {
           </span>
         </div>
       </div>
-
-      {/* Content */}
-      <SidebarContent>
-        <NavMain menu={menu} />
-      </SidebarContent>
 
       {/* Footer */}
       <SidebarFooter>

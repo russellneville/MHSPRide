@@ -3,41 +3,69 @@ import { useNetwork } from "@/context/NetworksContext"
 import DashboardLayout from "./dashboardLayout"
 import { useAuth } from "@/context/AuthContext"
 import { useEffect, useState } from "react"
-import StatsCard from "@/components/ui/stats-card"
-import { Car, Check, Ticket, Users } from "lucide-react"
+import { toLocalDateStr } from "@/lib/utils"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Car, Clock, Info, MapPin, MoveRight, Navigation } from "lucide-react"
 import Link from "next/link"
 import UserAvatar from "@/components/ui/user-avatar"
 
+const PAGE_SIZE = 25
+
+function normalizeStatus(s) {
+  return s === 'cancled' ? 'canceled' : (s || '—')
+}
+
 export default function Dashboard() {
-  const { getRides, getBookings, getNetworkList } = useNetwork()
+  const { getRides, getBookings } = useNetwork()
   const { user } = useAuth()
   const [rides, setRides] = useState([])
   const [bookings, setBookings] = useState([])
-  const [networks, setNetworks] = useState([])
+  const [pastPage, setPastPage] = useState(0)
 
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return
-      const [rideData, bookingData, networkData] = await Promise.all([
-        getRides(),
-        getBookings(),
-        getNetworkList(),
-      ])
-      setRides(rideData)
-      setBookings(bookingData)
-      setNetworks(networkData || [])
+      const [rideData, bookingData] = await Promise.all([getRides(), getBookings()])
+      setRides(rideData || [])
+      setBookings(bookingData || [])
     }
     fetchData()
   }, [user])
 
-  const totalPassengers = rides.reduce((acc, ride) => acc + (ride.passengers?.length || 0), 0)
-  const completedBookings = bookings.filter(b => b.booking_status === 'finished')
-  const hasNetworks = networks.length > 0
+  const today = toLocalDateStr(new Date())
+
+  const allOffered = rides.map(r => ({ ...r, _type: 'offered' }))
+  const allBooked  = bookings.map(b => ({ ...b, _type: 'booked' }))
+  const combined   = [...allOffered, ...allBooked]
+
+  const isCanceled = (r) => {
+    const s = r._type === 'offered' ? r.ride_status : r.booking_status
+    return s === 'canceled' || s === 'cancled'
+  }
+
+  const todayRides = combined.filter(r => r.departure_date === today && !isCanceled(r))
+
+  const upcoming = combined
+    .filter(r => r.departure_date > today && !isCanceled(r))
+    .sort((a, b) =>
+      `${a.departure_date}${a.departure_time}`.localeCompare(`${b.departure_date}${b.departure_time}`)
+    )
+
+  const past = combined
+    .filter(r => r.departure_date < today)
+    .sort((a, b) =>
+      `${b.departure_date}${b.departure_time}`.localeCompare(`${a.departure_date}${a.departure_time}`)
+    )
+
+  const pastPageCount = Math.ceil(past.length / PAGE_SIZE)
+  const pagedPast = past.slice(pastPage * PAGE_SIZE, (pastPage + 1) * PAGE_SIZE)
 
   return (
     <DashboardLayout>
-      {/* Hero banner */}
+      {/* Hero */}
       <div
         className="relative h-40 w-full rounded-xl overflow-hidden mb-6"
         style={{ backgroundImage: 'url(/assets/hood_2.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}
@@ -51,45 +79,149 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {hasNetworks ? (
-        <div className="flex gap-3 mb-6">
-          <Button asChild>
-            <Link href="/dashboard/networks">Offer a Ride</Link>
-          </Button>
-          <Button variant="outline" asChild>
-            <Link href="/dashboard/networks">Find a Ride</Link>
-          </Button>
-        </div>
-      ) : (
-        <div className="mb-6 rounded-lg border border-border bg-muted/40 px-4 py-5">
-          <p className="font-medium mb-1">You haven't joined a network yet.</p>
-          <p className="text-sm text-muted-foreground mb-3">
-            Join a network to start offering or finding rides with other MHSP volunteers.
-          </p>
-          <Button asChild size="sm">
-            <Link href="/dashboard/networks">Browse Networks</Link>
-          </Button>
-        </div>
-      )}
+      <div className="space-y-8">
 
-      <div className="space-y-6">
-        <div>
-          <h4 className="text-sm font-medium text-muted-foreground mb-2">Rides I'm Driving</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatsCard title="Rides Offered" statnumber={rides.length} icon={Car} href="/dashboard/rides" />
-            <StatsCard title="Rides Finished" statnumber={rides.filter(r => r.ride_status === 'finished').length} icon={Check} href="/dashboard/rides" />
-            <StatsCard title="Riders Carried" statnumber={totalPassengers} icon={Users} href="/dashboard/rides" />
-          </div>
-        </div>
+        {/* ── Rides Today ─────────────────────────────────── */}
+        {todayRides.length > 0 && (
+          <section className="space-y-3">
+            <h3 className="text-lg font-semibold text-green-700">Rides Today!</h3>
+            {todayRides.map((ride, i) => (
+              <TodayRideCard key={i} ride={ride} />
+            ))}
+          </section>
+        )}
 
-        <div>
-          <h4 className="text-sm font-medium text-muted-foreground mb-2">Rides I'm Taking</h4>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <StatsCard title="Total Bookings" statnumber={bookings.length} icon={Ticket} href="/dashboard/bookings" />
-            <StatsCard title="Completed" statnumber={completedBookings.length} icon={Check} href="/dashboard/bookings" />
-          </div>
-        </div>
+        {/* ── Upcoming Rides ──────────────────────────────── */}
+        <section className="space-y-3">
+          <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            Upcoming Rides {upcoming.length > 0 && <span className="text-foreground ml-1">({upcoming.length})</span>}
+          </h4>
+          {upcoming.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No upcoming rides. <Link href="/dashboard/networks" className="text-primary underline">Browse your networks</Link> to offer or book one.</p>
+          ) : (
+            <Table className="border border-border">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Departure</TableHead>
+                  <TableHead>Departs</TableHead>
+                  <TableHead>Arrival</TableHead>
+                  <TableHead>Arrives</TableHead>
+                  <TableHead>Return</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {upcoming.map((r, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <Badge variant="secondary">{r._type === 'offered' ? 'Offering' : 'Booked'}</Badge>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap">{r.departure_date}</TableCell>
+                    <TableCell>{r.departure}</TableCell>
+                    <TableCell>{r.departure_time}</TableCell>
+                    <TableCell>{r.arrival}</TableCell>
+                    <TableCell>{r.arrival_time || '—'}</TableCell>
+                    <TableCell>{r.return_departure_time || '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </section>
+
+        {/* ── Past Rides ──────────────────────────────────── */}
+        {past.length > 0 && (
+          <section className="space-y-3">
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Past Rides
+            </h4>
+            <Table className="border border-border">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Departure</TableHead>
+                  <TableHead>Arrival</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pagedPast.map((r, i) => {
+                  const status = normalizeStatus(r._type === 'offered' ? r.ride_status : r.booking_status)
+                  return (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Badge variant="secondary">{r._type === 'offered' ? 'Offered' : 'Booked'}</Badge>
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap">{r.departure_date}</TableCell>
+                      <TableCell>{r.departure}</TableCell>
+                      <TableCell>{r.arrival}</TableCell>
+                      <TableCell>
+                        <Badge variant={status}>{status}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+            {pastPageCount > 1 && (
+              <div className="flex items-center gap-3 text-sm">
+                <Button variant="outline" size="sm" disabled={pastPage === 0} onClick={() => setPastPage(p => p - 1)}>
+                  Previous
+                </Button>
+                <span className="text-muted-foreground">Page {pastPage + 1} of {pastPageCount}</span>
+                <Button variant="outline" size="sm" disabled={pastPage >= pastPageCount - 1} onClick={() => setPastPage(p => p + 1)}>
+                  Next
+                </Button>
+              </div>
+            )}
+          </section>
+        )}
+
       </div>
     </DashboardLayout>
+  )
+}
+
+function TodayRideCard({ ride }) {
+  const isOffering = ride._type === 'offered'
+  const networkId  = ride.network_id || ride.networkId
+  const href       = networkId ? `/dashboard/network/${networkId}/rides/${ride.id}` : '#'
+
+  return (
+    <Link href={href}>
+      <Card className="border-green-200 bg-green-50/50 hover:border-green-400 transition-colors cursor-pointer">
+        <CardHeader className="flex items-center gap-3">
+          <div className="size-12 rounded-full bg-green-100 flex items-center justify-center">
+            <Car className="text-green-700" />
+          </div>
+          <div className="flex-1">
+            <CardTitle className="text-base font-semibold flex items-center gap-2 flex-wrap">
+              {ride.departure} <MoveRight className="size-4" /> {ride.arrival}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+              <Clock className="size-3.5" /> {ride.departure_date} at {ride.departure_time}
+            </p>
+          </div>
+          <Badge variant="secondary" className="shrink-0">
+            {isOffering ? 'You are driving' : 'You are a passenger'}
+          </Badge>
+        </CardHeader>
+        <CardContent className="space-y-1.5 text-sm text-muted-foreground">
+          <p><MapPin className="inline size-4 mr-1" /><span className="font-medium">Departure:</span> {ride.departure}</p>
+          <p><Navigation className="inline size-4 mr-1" /><span className="font-medium">Arrival:</span> {ride.arrival}</p>
+          {ride.arrival_time && (
+            <p><Clock className="inline size-4 mr-1" /><span className="font-medium">Arrives:</span> {ride.arrival_time}</p>
+          )}
+          {ride.return_departure_time && (
+            <p><Clock className="inline size-4 mr-1" /><span className="font-medium">Return departs:</span> {ride.return_departure_time}</p>
+          )}
+          {ride.ride_description && (
+            <p><Info className="inline size-4 mr-1" /><span className="font-medium">Notes:</span> {ride.ride_description}</p>
+          )}
+        </CardContent>
+      </Card>
+    </Link>
   )
 }

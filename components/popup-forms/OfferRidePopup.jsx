@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Checkbox } from "../ui/checkbox"
 import { LOCATIONS } from "@/lib/locations"
 import { estimateArrival } from "@/lib/drive-times"
+import { toLocalDateStr } from "@/lib/utils"
 
 const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== "timberline-lodge")
 
@@ -102,7 +103,7 @@ export default function OfferRidePopup({ networkId }) {
 
   const handleOfferRide = async () => {
     if (validateForm()) {
-      const dateStr = date ? date.toLocaleDateString("en-CA") : ""
+      const dateStr = toLocalDateStr(date)
       await offerRide({
         departure: effectiveDeparture,
         arrival: effectiveArrival,

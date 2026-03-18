@@ -16,13 +16,10 @@ import {
   Mail,
   Calendar,
   X,
-  Check,
   CircleCheck,
   Settings,
-  CarFront,
   BookText,
   Calendar1,
-  UserRound,
   UserRoundX,
 } from "lucide-react";
 import { Badge } from '@/components/ui/badge'
@@ -35,38 +32,16 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 
 export default function RidePage() {
   const { rideId, networkId } = useParams();
-  const { getRide, isLoading, bookRide , changeBookingStatus , cancelRide , startRide , 
-    finalizeRide
-  } = useNetwork();
+  const { getRide, isLoading, bookRide, changeBookingStatus, cancelRide } = useNetwork();
   const { user } = useAuth();
 
   const [rideData, setRideData] = useState(null);
   const [seatsToBook, setSeatsToBook] = useState(1);
-  const [readyTostart , setReadyTostart] = useState(false)
 
 
    const fetchRide = async () => {
       const data = await getRide(rideId, networkId);
       setRideData(data);
-
-      if (data?.departure_date && data?.departure_time) {
-        const rideDateTime = new Date(`${data.departure_date}T${data.departure_time}`);
-        const now = new Date();
-
-        // 30 minutes after scheduled time
-        const thirtyMinutesAfter = new Date(rideDateTime.getTime() + 30 * 60 * 1000);
-
-        // set true only if now is between scheduled time and +30min
-        if (now >= rideDateTime && now <= thirtyMinutesAfter) {
-          setReadyTostart(true);
-        } else {
-          setReadyTostart(false);
-        }
-
-         if (now > thirtyMinutesAfter && data.ride_status === 'not started') {
-          await handleCancelRide()
-        }
-      }
     };
   useEffect(() => {
    
@@ -90,18 +65,8 @@ export default function RidePage() {
     fetchRide()
   }
 
-  const handleStartRide = async ()=>{
-    await startRide(rideId)
-    fetchRide()
-  }
-
-    const handleCancelRide = async ()=>{
+  const handleCancelRide = async ()=>{
     await cancelRide(rideId)
-    fetchRide()
-  }
-
-  const handlefinalizeRide = async ()=> {
-    await finalizeRide(rideId)
     fetchRide()
   }
 
@@ -128,6 +93,12 @@ export default function RidePage() {
               Ride ID: <span className="font-medium">{rideId}</span>
             </p>
           </div>
+
+          {rideData.ride_status === 'canceled' && (
+            <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 font-medium">
+              This ride has been canceled.
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-[7fr_3fr] gap-5">
             {/* LEFT SIDE */}
@@ -278,7 +249,7 @@ export default function RidePage() {
               )}
 
 
-              {isRideDriver && rideData.ride_status !== 'finished' && (
+              {isRideDriver && rideData.ride_status !== 'canceled' && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -287,19 +258,12 @@ export default function RidePage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex items-center gap-3">
-                      <Button variant='destructive' onClick={handleCancelRide} disabled={rideData.ride_status === 'cancled' || rideData.ride_status !== 'not started' || isLoading || readyTostart}>
-                        Cancel ride
-                        <X/>
-                        </Button>
-                      {rideData.ride_status === 'on progress' ? 
-                      <Button disabled={isLoading} onClick={handlefinalizeRide}>Finalize Ride <Check/></Button> : 
-                      <Button disabled={!readyTostart || isLoading} onClick={handleStartRide}>
-                        Start ride <CarFront/>
-                        </Button>}
-                    </div>
+                    <Button variant="destructive" onClick={handleCancelRide} disabled={isLoading}>
+                      Cancel ride <X className="size-4 ml-1" />
+                    </Button>
                   </CardContent>
-              </Card>)}
+                </Card>
+              )}
 
 
               

@@ -1,6 +1,7 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "../ui/input";
 import DatePicker from "../ui/date-picker";
+import { toLocalDateStr } from "@/lib/utils";
 
 export default function RegisterMemberForm({ setRegisterForm, registerForm, errors }) {
   const handleChange = (e) => {
@@ -10,7 +11,7 @@ export default function RegisterMemberForm({ setRegisterForm, registerForm, erro
   const handleDateChange = (selectedDate) => {
     setRegisterForm((prev) => ({
       ...prev,
-      birthdate: selectedDate ? selectedDate.toLocaleDateString("en-CA") : "",
+      birthdate: toLocalDateStr(selectedDate),
     }))
   }
 

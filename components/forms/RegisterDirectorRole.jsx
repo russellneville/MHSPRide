@@ -2,6 +2,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "../ui/input";
 import DatePicker from "../ui/date-picker";
 import { useState } from "react";
+import { toLocalDateStr } from "@/lib/utils";
 
 export default function RegisterDirectorRole({ setRegisterForm, registerForm , errors , currRole}) {
   const [date , setDate] = useState(undefined)
@@ -19,7 +20,7 @@ export default function RegisterDirectorRole({ setRegisterForm, registerForm , e
     setDate(selectedDate);
     setRegisterForm((prev) => ({
       ...prev,
-      birthdate: selectedDate ? selectedDate.toLocaleDateString("en-CA") : "",
+      birthdate: toLocalDateStr(selectedDate),
     }));
 };
 
@@ -53,7 +54,7 @@ export default function RegisterDirectorRole({ setRegisterForm, registerForm , e
         <Label htmlFor="birthdate">Date of birth</Label>
         <DatePicker
           id="birthdate"
-          date={registerForm.birthdate ? new Date(registerForm.birthdate) : undefined}
+          date={registerForm.birthdate ? new Date(registerForm.birthdate + 'T12:00:00') : undefined}
           setDate={handleDateChange}
         />
         {errors.birthdate && <p className="text-red-500 text-sm">{errors.birthdate}</p>}

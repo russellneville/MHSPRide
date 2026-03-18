@@ -2,6 +2,7 @@ import { useState } from "react";
 import DatePicker from "../ui/date-picker";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
+import { toLocalDateStr } from "@/lib/utils";
 
 export default function RegisterPassengerRole ({ setRegisterForm, registerForm , errors , currRole}){
     const [date, setDate] = useState(undefined)
@@ -22,7 +23,7 @@ export default function RegisterPassengerRole ({ setRegisterForm, registerForm ,
         setDate(selectedDate);
         setRegisterForm((prev) => ({
           ...prev,
-          birthdate: selectedDate ? selectedDate.toLocaleDateString("en-CA") : "",
+          birthdate: toLocalDateStr(selectedDate),
         }));
     };
     return <>

@@ -40,28 +40,40 @@ import {
 
 export default function RidePage() {
   const { rideId, networkId } = useParams();
-  const { getRide, isLoading, bookRide, cancelRide } = useNetwork();
+  const { getRide, isLoading, bookRide, cancelRide, getBookings } = useNetwork();
   const { user } = useAuth();
   const { openPopup } = usePopup();
 
   const [rideData, setRideData] = useState(null);
   const [seatsToBook, setSeatsToBook] = useState(1);
   const [showEditWarn, setShowEditWarn] = useState(false);
+  const [showDayConflict, setShowDayConflict] = useState(false);
+  const [existingBookings, setExistingBookings] = useState([]);
 
 
-   const fetchRide = async () => {
-      const data = await getRide(rideId, networkId);
-      setRideData(data);
-    };
+  const fetchRide = async () => {
+    const data = await getRide(rideId, networkId);
+    setRideData(data);
+  };
+
   useEffect(() => {
-   
     if (rideId) fetchRide();
-  }, [user , rideId, networkId]);
+    if (user) getBookings().then(data => setExistingBookings(data || []));
+  }, [user, rideId, networkId]);
 
   const handleBookSeats = async () => {
     if (!rideData) return;
+    const alreadyBookedThatDay = existingBookings.some(
+      b => b.departure_date === rideData.departure_date &&
+           b.booking_status !== 'canceled' &&
+           b.booking_status !== 'cancled'
+    );
+    if (alreadyBookedThatDay) {
+      setShowDayConflict(true);
+      return;
+    }
     await bookRide({ ...rideData, rideId }, seatsToBook, networkId);
-    fetchRide()
+    fetchRide();
   };
 
 
@@ -405,6 +417,21 @@ export default function RidePage() {
       ) : (
         <p className="text-center p-5 text-muted-foreground">Ride not found.</p>
       )}
+
+      <AlertDialog open={showDayConflict} onOpenChange={setShowDayConflict}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ride already booked that day</AlertDialogTitle>
+            <AlertDialogDescription>
+              You already have a booked ride on {rideData?.departure_date}. Only one ride per day is allowed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowDayConflict(false)}>OK</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </DashboardLayout>
   );
 }

@@ -11,6 +11,7 @@ import { Clock, MapPin, MoveRight, Plus, Trash, Users, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePopup } from "@/context/PopupContext";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
+import DriverDetailsPopup from "@/components/popup-forms/DriverDetailsPopup";
 import Link from "next/link";
 import { LOCATIONS, ARRIVAL_LOCATIONS, getLocationName } from "@/lib/locations";
 import { Input } from "@/components/ui/input";
@@ -252,6 +253,8 @@ function formatTime(t) {
 
 // ── Ride card ─────────────────────────────────────────────────────────────────
 function RideCard({ ride, networkId, muted }) {
+  const { openPopup } = usePopup()
+
   return (
     <Link href={`/dashboard/network/${networkId}/rides/${ride.id}`}>
       <Card className={`hover:border-primary/50 transition-colors cursor-pointer ${muted ? 'opacity-60' : ''}`}>
@@ -270,8 +273,14 @@ function RideCard({ ride, networkId, muted }) {
               <span className="font-bold text-foreground">{formatTime(ride.departure_time)}</span>
             </div>
             {ride.driver?.fullname && (
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-muted-foreground flex items-center gap-1.5">
                 Driver: <span className="text-foreground font-medium">{ride.driver.fullname}</span>
+                <button
+                  className="text-xs text-primary underline underline-offset-2 hover:text-primary/70 transition-colors"
+                  onClick={e => { e.preventDefault(); openPopup(`${ride.driver.fullname}'s car`, <DriverDetailsPopup driver={ride.driver} />) }}
+                >
+                  car details
+                </button>
               </div>
             )}
           </div>

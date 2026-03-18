@@ -2,15 +2,24 @@
 import { useNetwork } from "@/context/NetworksContext"
 import DashboardLayout from "./dashboardLayout"
 import { useAuth } from "@/context/AuthContext"
+import { usePopup } from "@/context/PopupContext"
 import { useEffect, useState } from "react"
 import { toLocalDateStr } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Car, Clock, Info, MapPin, MoveRight, Navigation } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Car, ChevronDown, Clock, Info, MapPin, MoveRight, Navigation, Plus, Search } from "lucide-react"
 import Link from "next/link"
 import UserAvatar from "@/components/ui/user-avatar"
+import OfferRidePopup from "@/components/popup-forms/OfferRidePopup"
+
+const KNOWN_NETWORKS = [
+  { id: "network-HILLPATROL",    name: "Hill Patrol" },
+  { id: "network-MOUNTAINHOSTS", name: "Mountain Hosts" },
+  { id: "network-NORDIC",        name: "Nordic" },
+]
 
 const PAGE_SIZE = 25
 
@@ -19,18 +28,22 @@ function normalizeStatus(s) {
 }
 
 export default function Dashboard() {
-  const { getRides, getBookings } = useNetwork()
+  const { getRides, getBookings, getNetworkList } = useNetwork()
   const { user } = useAuth()
+  const { openPopup } = usePopup()
   const [rides, setRides] = useState([])
   const [bookings, setBookings] = useState([])
+  const [joinedNetworks, setJoinedNetworks] = useState([])
   const [pastPage, setPastPage] = useState(0)
 
   useEffect(() => {
     const fetchData = async () => {
       if (!user) return
-      const [rideData, bookingData] = await Promise.all([getRides(), getBookings()])
+      const [rideData, bookingData, netList] = await Promise.all([getRides(), getBookings(), getNetworkList()])
       setRides(rideData || [])
       setBookings(bookingData || [])
+      const ids = new Set((netList || []).map(n => n.id))
+      setJoinedNetworks(KNOWN_NETWORKS.filter(n => ids.has(n.id)))
     }
     fetchData()
   }, [user])
@@ -38,8 +51,19 @@ export default function Dashboard() {
   const today = toLocalDateStr(new Date())
 
   const allOffered = rides.map(r => ({ ...r, _type: 'offered' }))
-  const allBooked  = bookings.map(b => ({ ...b, _type: 'booked' }))
-  const combined   = [...allOffered, ...allBooked]
+
+  // Deduplicate bookings by ride_id — keep the most recently booked
+  const dedupedBookings = Object.values(
+    bookings.reduce((acc, b) => {
+      const key = b.ride_id || b.id
+      if (!acc[key] || (b.booked_at?.seconds || 0) > (acc[key].booked_at?.seconds || 0)) {
+        acc[key] = b
+      }
+      return acc
+    }, {})
+  )
+  const allBooked = dedupedBookings.map(b => ({ ...b, _type: 'booked' }))
+  const combined  = [...allOffered, ...allBooked]
 
   const isCanceled = (r) => {
     const s = r._type === 'offered' ? r.ride_status : r.booking_status
@@ -63,22 +87,58 @@ export default function Dashboard() {
   const pastPageCount = Math.ceil(past.length / PAGE_SIZE)
   const pagedPast = past.slice(pastPage * PAGE_SIZE, (pastPage + 1) * PAGE_SIZE)
 
-  return (
-    <DashboardLayout>
-      {/* Hero */}
-      <div
-        className="relative h-40 w-full rounded-xl overflow-hidden mb-6"
-        style={{ backgroundImage: 'url(/assets/hood_2.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}
-      >
-        <div className="absolute inset-0 bg-black/40 flex items-center gap-4 px-6">
-          <UserAvatar user={user} size="lg" />
-          <div>
-            <p className="text-white text-2xl font-bold leading-tight">{user?.fullname}</p>
-            <p className="text-white/70 text-sm">Mount Hood Ski Patrol</p>
-          </div>
+  const openOffer = (networkId) => openPopup('Offer ride', <OfferRidePopup networkId={networkId} />)
+
+  const banner = (
+    <div
+      className="relative h-40 w-full overflow-hidden"
+      style={{ backgroundImage: 'url(/assets/hood_2.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}
+    >
+      <div className="absolute inset-0 bg-black/40 flex items-center gap-4 px-6">
+        <UserAvatar user={user} size="lg" />
+        <div>
+          <p className="text-white text-2xl font-bold leading-tight">{user?.fullname}</p>
+          <p className="text-white/70 text-sm">Mount Hood Ski Patrol</p>
         </div>
       </div>
+    </div>
+  )
 
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button variant="outline" size="sm" asChild>
+        <Link href="/dashboard/networks"><Search className="size-4 mr-1" /> Find Ride</Link>
+      </Button>
+      {joinedNetworks.length === 1 && (
+        <Button size="sm" onClick={() => openOffer(joinedNetworks[0].id)}>
+          <Plus className="size-4 mr-1" /> Offer Ride
+        </Button>
+      )}
+      {joinedNetworks.length > 1 && (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm">
+              <Plus className="size-4 mr-1" /> Offer Ride <ChevronDown className="size-3.5 ml-1" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-1" align="end">
+            {joinedNetworks.map(net => (
+              <button
+                key={net.id}
+                className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
+                onClick={() => openOffer(net.id)}
+              >
+                {net.name}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  )
+
+  return (
+    <DashboardLayout banner={banner} headerActions={headerActions}>
       <div className="space-y-8">
 
         {/* ── Rides Today ─────────────────────────────────── */}
@@ -115,7 +175,10 @@ export default function Dashboard() {
                 {upcoming.map((r, i) => (
                   <TableRow key={i}>
                     <TableCell>
-                      <Badge variant="secondary">{r._type === 'offered' ? 'Offering' : 'Booked'}</Badge>
+                      {r._type === 'offered'
+                        ? <Badge className="bg-green-100 text-green-800 border-green-300">Offering</Badge>
+                        : <Badge className="bg-blue-100 text-blue-800 border-blue-300">Booked</Badge>
+                      }
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{r.departure_date}</TableCell>
                     <TableCell>{r.departure}</TableCell>
@@ -152,7 +215,10 @@ export default function Dashboard() {
                   return (
                     <TableRow key={i}>
                       <TableCell>
-                        <Badge variant="secondary">{r._type === 'offered' ? 'Offered' : 'Booked'}</Badge>
+                        {r._type === 'offered'
+                          ? <Badge className="bg-green-100 text-green-800 border-green-300">Offered</Badge>
+                          : <Badge className="bg-blue-100 text-blue-800 border-blue-300">Booked</Badge>
+                        }
                       </TableCell>
                       <TableCell className="whitespace-nowrap">{r.departure_date}</TableCell>
                       <TableCell>{r.departure}</TableCell>

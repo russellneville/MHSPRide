@@ -30,10 +30,20 @@ export default function MyBookedRides() {
 
   useEffect(() => {
     const fetchBookings = async () => {
-      const data = await getBookings();
-      setBookings(data || []);
-    };
-    if (user) fetchBookings();
+      const data = await getBookings()
+      // Deduplicate by ride_id — keep the most recently booked
+      const deduped = Object.values(
+        (data || []).reduce((acc, b) => {
+          const key = b.ride_id || b.id
+          if (!acc[key] || (b.booked_at?.seconds || 0) > (acc[key].booked_at?.seconds || 0)) {
+            acc[key] = b
+          }
+          return acc
+        }, {})
+      )
+      setBookings(deduped)
+    }
+    if (user) fetchBookings()
   }, [user]);
 
   const today = toLocalDateStr(new Date())
@@ -48,6 +58,12 @@ export default function MyBookedRides() {
 
   const pastPageCount = Math.ceil(past.length / PAGE_SIZE)
   const pagedPast = past.slice(pastPage * PAGE_SIZE, (pastPage + 1) * PAGE_SIZE)
+
+  const statusBadge = (status) => {
+    if (status === 'booked')   return <Badge className="bg-blue-100 text-blue-800 border-blue-300">Booked</Badge>
+    if (status === 'canceled') return <Badge className="bg-gray-100 text-gray-600 border-gray-300">Canceled</Badge>
+    return <Badge variant="secondary">{status}</Badge>
+  }
 
   const BookingTable = ({ rows }) => (
     <Table className="border border-border overflow-x-auto">
@@ -65,7 +81,7 @@ export default function MyBookedRides() {
           const status = normalizeStatus(b.booking_status)
           return (
             <TableRow key={b.id} className={b.departure_date === today ? 'bg-blue-50 dark:bg-blue-950' : ''}>
-              <TableCell><Badge variant={status}>{status}</Badge></TableCell>
+              <TableCell>{statusBadge(status)}</TableCell>
               <TableCell>{b.departure}</TableCell>
               <TableCell>{b.arrival}</TableCell>
               <TableCell className="whitespace-nowrap">{b.departure_date} at {b.departure_time}</TableCell>

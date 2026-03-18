@@ -9,7 +9,7 @@ import { usePathname, useRouter } from "next/navigation"
 import { useEffect, useState } from "react"
 import FeedbackWidget from "@/components/ui/feedback-widget"
 
-export default function DashboardLayout({ children }) {
+export default function DashboardLayout({ children, banner, headerActions }) {
   const router = useRouter()
   const { user, isLoading } = useAuth()
   const [mounted, setMounted] = useState(false)
@@ -48,8 +48,9 @@ export default function DashboardLayout({ children }) {
     <SidebarProvider>
       <AppSidebar user={user} />
       <SidebarInset>
+        {banner}
         <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-data-[collapsible=icon]/sidebar-wrapper:h-12">
-          <div className="flex items-center gap-2 px-4">
+          <div className="flex flex-1 items-center gap-2 px-4">
             <SidebarTrigger className="-ml-1" />
             <Separator orientation="vertical" className="mr-2 data-[orientation=vertical]:h-4" />
             <Breadcrumb>
@@ -82,6 +83,7 @@ export default function DashboardLayout({ children }) {
                 })}
               </BreadcrumbList>
             </Breadcrumb>
+            {headerActions && <div className="ml-auto pr-2">{headerActions}</div>}
           </div>
         </header>
         <div className="flex flex-1 flex-col gap-4 p-4 pt-0">

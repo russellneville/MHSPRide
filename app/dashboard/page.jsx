@@ -152,7 +152,7 @@ export default function Dashboard() {
         {/* ── Rides Today ─────────────────────────────────── */}
         {todayRides.length > 0 && (
           <section className="space-y-3">
-            <h3 className="text-lg font-semibold text-green-700">Rides Today!</h3>
+            <h3 className="text-lg font-semibold text-green-700">Ride Today!</h3>
             {todayRides.map((ride, i) => (
               <TodayRideCard key={i} ride={ride} />
             ))}

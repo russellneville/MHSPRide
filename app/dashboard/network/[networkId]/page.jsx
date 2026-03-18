@@ -74,7 +74,8 @@ export default function NetworkPage() {
   const [filterDate, setFilterDate] = useState('');
   const [filterPickup, setFilterPickup] = useState('');
   const [filterArrival, setFilterArrival] = useState('');
-  const hasFilters = filterDate || filterPickup || filterArrival;
+  const [filterDriver, setFilterDriver] = useState('');
+  const hasFilters = filterDate || filterPickup || filterArrival || filterDriver;
 
   useEffect(() => {
     if (!user || !networkId) return;
@@ -120,12 +121,14 @@ export default function NetworkPage() {
     if (filterDate && r.departure_date !== filterDate) return false;
     if (filterPickup && r.departure !== filterPickup) return false;
     if (filterArrival && r.arrival !== filterArrival) return false;
+    if (filterDriver && r.driver?.fullname !== filterDriver) return false;
     return true;
   });
 
-  // Collect distinct pickup/arrival values present in upcoming rides for filter dropdowns
-  const pickupOptions = [...new Set(sortedUpcoming.map(r => r.departure).filter(Boolean))];
+  // Collect distinct values for filter dropdowns
+  const pickupOptions  = [...new Set(sortedUpcoming.map(r => r.departure).filter(Boolean))];
   const arrivalOptions = [...new Set(sortedUpcoming.map(r => r.arrival).filter(Boolean))];
+  const driverOptions  = [...new Set(sortedUpcoming.map(r => r.driver?.fullname).filter(Boolean))];
 
   return (
     <DashboardLayout>
@@ -188,8 +191,18 @@ export default function NetworkPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <Select value={filterDriver} onValueChange={setFilterDriver}>
+                <SelectTrigger className="w-40 h-9 text-sm">
+                  <SelectValue placeholder="Driver" />
+                </SelectTrigger>
+                <SelectContent>
+                  {driverOptions.map(name => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {hasFilters && (
-                <Button variant="ghost" size="sm" onClick={() => { setFilterDate(''); setFilterPickup(''); setFilterArrival(''); }}>
+                <Button variant="ghost" size="sm" onClick={() => { setFilterDate(''); setFilterPickup(''); setFilterArrival(''); setFilterDriver(''); }}>
                   <X className="size-3.5 mr-1" /> Clear
                 </Button>
               )}

@@ -4,7 +4,6 @@ import { Input } from "../ui/input"
 import DatePicker from "../ui/date-picker"
 import { usePopup } from "@/context/PopupContext"
 import { useNetwork } from "@/context/NetworksContext"
-import { useAuth } from "@/context/AuthContext"
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
@@ -23,6 +22,9 @@ const ARRIVAL_LOCATIONS = [
   { id: "meadows",      name: "Meadows" },
   { id: "tea-cup",      name: "Tea Cup" },
 ]
+
+const KNOWN_DEP_IDS  = new Set(DEPARTURE_LOCATIONS.map(l => l.id))
+const KNOWN_ARR_IDS  = new Set(ARRIVAL_LOCATIONS.map(l => l.id))
 
 function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, locations, selectPlaceholder }) {
   return (
@@ -53,33 +55,35 @@ function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, loca
   )
 }
 
-export default function OfferRidePopup({ networkId }) {
+export default function EditRidePopup({ ride, onSaved }) {
   const { closePopup } = usePopup()
-  const { isLoading, offerRide } = useNetwork()
-  const { user } = useAuth()
+  const { isLoading, updateRide } = useNetwork()
 
-  const [departureSelect, setDepartureSelect] = useState('')
-  const [departureOther, setDepartureOther] = useState('')
-  const [arrivalSelect, setArrivalSelect] = useState('')
-  const [arrivalOther, setArrivalOther] = useState('')
-  const [date, setDate] = useState(undefined)
-  const [oneWay, setOneWay] = useState(false)
+  // Seed departure — known ID or free-text
+  const initDepSelect = KNOWN_DEP_IDS.has(ride.departure) ? ride.departure : ''
+  const initDepOther  = KNOWN_DEP_IDS.has(ride.departure) ? '' : (ride.departure || '')
+
+  // Seed arrival — known ID or free-text
+  const initArrSelect = KNOWN_ARR_IDS.has(ride.arrival) ? ride.arrival : ''
+  const initArrOther  = KNOWN_ARR_IDS.has(ride.arrival) ? '' : (ride.arrival || '')
+
+  const [departureSelect, setDepartureSelect] = useState(initDepSelect)
+  const [departureOther,  setDepartureOther]  = useState(initDepOther)
+  const [arrivalSelect,   setArrivalSelect]   = useState(initArrSelect)
+  const [arrivalOther,    setArrivalOther]    = useState(initArrOther)
+  const [date, setDate] = useState(ride.departure_date ? new Date(ride.departure_date + 'T12:00:00') : undefined)
+  const [oneWay, setOneWay] = useState(ride.one_way || false)
   const [rideData, setRideData] = useState({
-    departure_time: '',
-    arrival_time: '',
-    return_departure_time: '',
-    ride_description: '',
-    total_seats: user?.vehicle_seats ? String(user.vehicle_seats) : '',
+    departure_time:        ride.departure_time || '',
+    arrival_time:          ride.arrival_time || '',
+    return_departure_time: ride.return_departure_time || '',
+    ride_description:      ride.ride_description || '',
+    total_seats:           ride.total_seats ? String(ride.total_seats) : '',
   })
   const [validationError, setValidationErrors] = useState({})
 
-  const effectiveDeparture = departureOther.trim()
-    ? departureOther.trim().toLowerCase()
-    : departureSelect
-
-  const effectiveArrival = arrivalOther.trim()
-    ? arrivalOther.trim().toLowerCase()
-    : arrivalSelect
+  const effectiveDeparture = departureOther.trim() ? departureOther.trim().toLowerCase() : departureSelect
+  const effectiveArrival   = arrivalOther.trim()   ? arrivalOther.trim().toLowerCase()   : arrivalSelect
 
   const handleChange = (e) => {
     const updated = { ...rideData, [e.target.id]: e.target.value }
@@ -93,31 +97,31 @@ export default function OfferRidePopup({ networkId }) {
   const validateForm = () => {
     const newErrors = {}
     if (!effectiveDeparture) newErrors.departure = "Departure is required"
-    if (!effectiveArrival) newErrors.arrival = "Arrival is required"
-    if (!date) newErrors.date = "Date is required"
+    if (!effectiveArrival)   newErrors.arrival   = "Arrival is required"
+    if (!date)               newErrors.date      = "Date is required"
     if (!rideData.departure_time) newErrors.departure_time = "Departure time is required"
     if (!rideData.total_seats || Number(rideData.total_seats) < 1) newErrors.total_seats = "Number of riders is required"
     setValidationErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
-  const handleOfferRide = async () => {
-    if (validateForm()) {
-      const dateStr = toLocalDateStr(date)
-      await offerRide({
-        departure: effectiveDeparture,
-        arrival: effectiveArrival,
-        departure_date: dateStr,
-        arrival_date: dateStr,
-        departure_time: rideData.departure_time,
-        arrival_time: rideData.arrival_time,
-        one_way: oneWay,
-        return_departure_time: oneWay ? '' : rideData.return_departure_time,
-        ride_description: rideData.ride_description,
-        total_seats: Number(rideData.total_seats),
-      }, networkId)
-      closePopup()
-    }
+  const handleSave = async () => {
+    if (!validateForm()) return
+    const dateStr = toLocalDateStr(date)
+    await updateRide(ride.id, {
+      departure:             effectiveDeparture,
+      arrival:               effectiveArrival,
+      departure_date:        dateStr,
+      arrival_date:          dateStr,
+      departure_time:        rideData.departure_time,
+      arrival_time:          rideData.arrival_time,
+      one_way:               oneWay,
+      return_departure_time: oneWay ? '' : rideData.return_departure_time,
+      ride_description:      rideData.ride_description,
+      total_seats:           Number(rideData.total_seats),
+    })
+    onSaved?.()
+    closePopup()
   }
 
   return (
@@ -177,14 +181,10 @@ export default function OfferRidePopup({ networkId }) {
         <div className="flex items-center justify-between">
           <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Return from Destination</h4>
           <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
-            <Checkbox
-              checked={oneWay}
-              onCheckedChange={setOneWay}
-            />
+            <Checkbox checked={oneWay} onCheckedChange={setOneWay} />
             One way trip
           </label>
         </div>
-
         {!oneWay && (
           <div className="space-y-1">
             <Label htmlFor="return_departure_time">Return departure time</Label>
@@ -227,8 +227,8 @@ export default function OfferRidePopup({ networkId }) {
 
       <div className="flex justify-end gap-4">
         <Button onClick={closePopup} variant="outline">Cancel</Button>
-        <Button onClick={handleOfferRide} disabled={isLoading}>
-          {isLoading ? 'Submitting...' : 'Submit ride'}
+        <Button onClick={handleSave} disabled={isLoading}>
+          {isLoading ? 'Saving…' : 'Save changes'}
         </Button>
       </div>
 

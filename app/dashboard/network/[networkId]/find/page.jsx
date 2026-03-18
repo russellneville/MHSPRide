@@ -42,7 +42,7 @@ export default function FindRidePage() {
         setDate(selectedDate);
         setRideData(prev => ({
             ...prev,
-            departure_date: selectedDate ? selectedDate.toLocaleDateString("en-CA") : "",
+            departure_date: selectedDate ? selectedDate : "",
         }));
     };
 
@@ -70,7 +70,7 @@ export default function FindRidePage() {
 
     return (
         <DashboardLayout>
-            {user?.role === 'passenger' ? (
+            {user ? (
                 <>
                     <Card className="mb-5">
                         <CardHeader className='!pb-3 border-b border-border'>

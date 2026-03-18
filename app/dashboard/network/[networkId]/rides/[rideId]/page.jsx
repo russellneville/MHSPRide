@@ -16,14 +16,12 @@ import {
   Mail,
   Calendar,
   X,
-  Check,
   CircleCheck,
   Settings,
-  CarFront,
   BookText,
   Calendar1,
-  UserRound,
   UserRoundX,
+  Pencil,
 } from "lucide-react";
 import { Badge } from '@/components/ui/badge'
 import { useParams } from "next/navigation";
@@ -31,41 +29,29 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { UserAvatar } from "@/components/ui/user-avatar";
+import { usePopup } from "@/context/PopupContext";
+import EditRidePopup from "@/components/popup-forms/EditRidePopup";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function RidePage() {
   const { rideId, networkId } = useParams();
-  const { getRide, isLoading, bookRide , changeBookingStatus , cancelRide , startRide , 
-    finalizeRide
-  } = useNetwork();
+  const { getRide, isLoading, bookRide, cancelRide } = useNetwork();
   const { user } = useAuth();
+  const { openPopup } = usePopup();
 
   const [rideData, setRideData] = useState(null);
   const [seatsToBook, setSeatsToBook] = useState(1);
-  const [readyTostart , setReadyTostart] = useState(false)
+  const [showEditWarn, setShowEditWarn] = useState(false);
 
 
    const fetchRide = async () => {
       const data = await getRide(rideId, networkId);
       setRideData(data);
-
-      if (data?.departure_date && data?.departure_time) {
-        const rideDateTime = new Date(`${data.departure_date}T${data.departure_time}`);
-        const now = new Date();
-
-        // 30 minutes after scheduled time
-        const thirtyMinutesAfter = new Date(rideDateTime.getTime() + 30 * 60 * 1000);
-
-        // set true only if now is between scheduled time and +30min
-        if (now >= rideDateTime && now <= thirtyMinutesAfter) {
-          setReadyTostart(true);
-        } else {
-          setReadyTostart(false);
-        }
-
-         if (now > thirtyMinutesAfter && data.ride_status === 'not started') {
-          await handleCancelRide()
-        }
-      }
     };
   useEffect(() => {
    
@@ -79,28 +65,8 @@ export default function RidePage() {
   };
 
 
-  const handledeclinePassenger = async (passengerId , bookingId)=>{
-    await changeBookingStatus(passengerId  , rideId , bookingId , 'declined')
-    fetchRide()
-  }
-
-  const handleApprovePassenger = async (passengerId , bookingId)=>{
-    await changeBookingStatus(passengerId  , rideId , bookingId , 'approved')
-    fetchRide()
-  }
-
-  const handleStartRide = async ()=>{
-    await startRide(rideId)
-    fetchRide()
-  }
-
-    const handleCancelRide = async ()=>{
+  const handleCancelRide = async ()=>{
     await cancelRide(rideId)
-    fetchRide()
-  }
-
-  const handlefinalizeRide = async ()=> {
-    await finalizeRide(rideId)
     fetchRide()
   }
 
@@ -115,6 +81,8 @@ export default function RidePage() {
     (p) => p.id === user?.uid
   );
 
+  const isRideDriver = rideData?.driverId === user?.uid;
+
   return (
     <DashboardLayout>
       {rideData ? (
@@ -125,6 +93,12 @@ export default function RidePage() {
               Ride ID: <span className="font-medium">{rideId}</span>
             </p>
           </div>
+
+          {rideData.ride_status === 'canceled' && (
+            <div className="rounded-xl bg-red-50 border border-red-200 text-red-700 px-4 py-3 font-medium">
+              This ride has been canceled.
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-[7fr_3fr] gap-5">
             {/* LEFT SIDE */}
@@ -182,9 +156,7 @@ export default function RidePage() {
               {/* Driver Info */}
               <Card>
                 <CardHeader className="flex items-center gap-3">
-                  <div className="size-12 rounded-full bg-secondary flex items-center justify-center">
-                    <User className="text-muted-foreground" />
-                  </div>
+                  <UserAvatar user={rideData.driver} size="lg" />
                   <CardTitle className="text-lg font-semibold">
                     Driver Information
                   </CardTitle>
@@ -206,16 +178,12 @@ export default function RidePage() {
                   </p>
                   <p>
                     <Car className="inline size-4 mr-1" />{" "}
-                    <span className="font-medium text-foreground">
-                      Car Model:
-                    </span>{" "}
-                    {rideData.driver?.roleform?.carModel || "Not specified"}
+                    <span className="font-medium text-foreground">Car:</span>{" "}
+                    {[rideData.driver?.vehicle_make, rideData.driver?.vehicle_model].filter(Boolean).join(" ") || "Not specified"}
                   </p>
                   <p>
-                    <span className="font-medium text-foreground">
-                      Car Plate:
-                    </span>{" "}
-                    {rideData.driver?.roleform?.licencePlate || "—"}
+                    <span className="font-medium text-foreground">Car Plate:</span>{" "}
+                    {rideData.driver?.vehicle_plate || "—"}
                   </p>
                 </CardContent>
               </Card>
@@ -224,7 +192,7 @@ export default function RidePage() {
             {/* RIGHT SIDE */}
             <div className="space-y-4">
             
-              {(user?.role === "driver" || user?.role === "director") && (
+              {(isRideDriver || user?.role === "director") && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -263,10 +231,6 @@ export default function RidePage() {
                                 Status : {" "}
                                 {<Badge variant={p.status}>{p.status}</Badge>}
                               </p>
-                              {p.status === 'pending' && user?.role=== 'driver' && (<div className="flex items-center gap-2 mt-2">
-                                <Button variant='destructive' disabled={isLoading} onClick={() =>{handledeclinePassenger(p.id , p.booking_id)}}>{isLoading ? 'Declining...' : 'Decline'} <X/></Button>
-                                <Button variant='approved' disabled={isLoading} onClick={() =>{handleApprovePassenger(p.id , p.booking_id)}}>{isLoading ? 'Approving...' : 'Approve'} <Check/></Button>
-                            </div>)}
                             
                           </li>
                         ))}
@@ -281,7 +245,7 @@ export default function RidePage() {
               )}
 
 
-              {user?.role === 'driver' && rideData.ride_status !== 'finished' && (
+              {isRideDriver && rideData.ride_status !== 'canceled' && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -289,26 +253,56 @@ export default function RidePage() {
                       Manage Ride
                     </CardTitle>
                   </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-3">
-                      <Button variant='destructive' onClick={handleCancelRide} disabled={rideData.ride_status === 'cancled' || rideData.ride_status !== 'not started' || isLoading || readyTostart}>
-                        Cancel ride
-                        <X/>
-                        </Button>
-                      {rideData.ride_status === 'on progress' ? 
-                      <Button disabled={isLoading} onClick={handlefinalizeRide}>Finalize Ride <Check/></Button> : 
-                      <Button disabled={!readyTostart || isLoading} onClick={handleStartRide}>
-                        Start ride <CarFront/>
-                        </Button>}
-                    </div>
+                  <CardContent className="flex gap-2 flex-wrap">
+                    <Button
+                      variant="outline"
+                      disabled={isLoading}
+                      onClick={() => {
+                        const bookedSeats = (rideData.total_seats || 0) - (rideData.available_seats || 0)
+                        if (bookedSeats > 0) {
+                          setShowEditWarn(true)
+                        } else {
+                          openPopup('Edit ride', <EditRidePopup ride={{ ...rideData, id: rideId }} onSaved={fetchRide} />)
+                        }
+                      }}
+                    >
+                      Edit ride <Pencil className="size-4 ml-1" />
+                    </Button>
+                    <Button variant="destructive" onClick={handleCancelRide} disabled={isLoading}>
+                      Cancel ride <X className="size-4 ml-1" />
+                    </Button>
                   </CardContent>
-              </Card>)}
+                </Card>
+              )}
+
+              <AlertDialog open={showEditWarn} onOpenChange={setShowEditWarn}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Riders have booked this ride</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {(() => {
+                        const booked = (rideData?.total_seats || 0) - (rideData?.available_seats || 0)
+                        return `${booked} seat${booked !== 1 ? 's have' : ' has'} already been booked with the current details. If you continue, riders will receive an email about the changes — but you should also contact them directly to confirm.`
+                      })()}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => {
+                      setShowEditWarn(false)
+                      openPopup('Edit ride', <EditRidePopup ride={{ ...rideData, id: rideId }} onSaved={fetchRide} />)
+                    }}>
+                      Continue anyway
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
 
               
 
               {/* Passenger booking section */}
-              {user?.role === "passenger" && (
+              {!isRideDriver && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
@@ -319,11 +313,8 @@ export default function RidePage() {
                   <CardContent className="space-y-3">
                     {currentBooking ? (
                       <div className="border rounded-md p-3 bg-secondary/30">
-                        <p className="font-medium text-foreground">
-                          {currentBooking.status === 'pending' && 'wait for driver approval'}
-                        </p>
                         <p className="text-sm">
-                          <strong>Seats:</strong> {currentBooking.seats || 1}
+                          <strong>Seats:</strong> {currentBooking.booked_seats || 1}
                         </p>
                         <p className="text-sm">
                           <strong>Status:</strong> <Badge variant={currentBooking.status}>

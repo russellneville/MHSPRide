@@ -28,30 +28,35 @@ import {
 export function AppSidebar({ user, ...props }) {
   const menu = [
     { name: "Home", icon: Home, href: "/dashboard" },
-    { name: "Profile", icon: User, href: "/dashboard/profile" },
+    { name: "My Booked Rides", icon: Ticket, href: "/dashboard/bookings" },
+    { name: "My Offered Rides", icon: Waypoints, href: "/dashboard/rides" },
     { name: "Networks", icon: Users, href: "/dashboard/networks" },
-    { name: "My Rides", icon: Waypoints, href: "/dashboard/rides" },
-    { name: "My Bookings", icon: Ticket, href: "/dashboard/bookings" },
+    { name: "Profile", icon: User, href: "/dashboard/profile" },
   ]
 
   return (
     <Sidebar collapsible="icon" {...props}>
       {/* Header */}
-      <SidebarHeader>
-        <div className="p-4">
+      <SidebarHeader className="p-0">
+        {/* Expanded: full-width transparent logo */}
+        <div className="group-data-[collapsible=icon]:hidden w-full px-3 py-3">
+          <div className="rounded-xl overflow-hidden bg-white">
           <Image
-            className="dark:hidden"
-            src="/assets/mhsp_title_logo.png"
-            alt="logo"
-            height={35}
-            width={125}
+            src="/assets/mhspride_alt_logo.png"
+            alt="MHSPRide"
+            width={423}
+            height={286}
+            className="w-full h-auto"
           />
+          </div>
+        </div>
+        {/* Collapsed: small shield icon centered */}
+        <div className="group-data-[collapsible=icon]:flex hidden justify-center py-3">
           <Image
-            className="hidden dark:block"
-            src="/assets/mhsp_title_logo.png"
-            alt="logo"
-            height={35}
-            width={125}
+            src="/assets/mhsp_main_logo.png"
+            alt="MHSPRide"
+            height={28}
+            width={28}
           />
         </div>
       </SidebarHeader>
@@ -60,6 +65,20 @@ export function AppSidebar({ user, ...props }) {
       <SidebarContent>
         <NavMain menu={menu} />
       </SidebarContent>
+
+      {/* Mountain photo panel — hidden when collapsed to icon mode */}
+      <div className="group-data-[collapsible=icon]:hidden relative mx-3 rounded-xl overflow-hidden mb-2">
+        <img
+          src="/assets/hood_1.jpg"
+          alt="Mt. Hood"
+          className="h-32 w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-black/30 flex items-end justify-center pb-3">
+          <span className="text-white text-[10px] font-bold tracking-widest uppercase text-center px-2 leading-tight">
+            Teamwork Makes the Mountain Shine
+          </span>
+        </div>
+      </div>
 
       {/* Footer */}
       <SidebarFooter>

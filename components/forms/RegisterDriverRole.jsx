@@ -2,6 +2,7 @@ import { Label } from "@radix-ui/react-label";
 import { Input } from "../ui/input";
 import DatePicker from "../ui/date-picker";
 import { useState } from "react";
+import { toLocalDateStr } from "@/lib/utils";
 export default function RegisterDriverRole ({ setRegisterForm, registerForm , errors , currRole}){
     const [date, setDate] = useState(undefined)
     const [roleData , setRoleData ] = useState({
@@ -18,7 +19,7 @@ export default function RegisterDriverRole ({ setRegisterForm, registerForm , er
       setDate(selectedDate);
       setRegisterForm((prev) => ({
         ...prev,
-        birthdate: selectedDate ? selectedDate.toLocaleDateString("en-CA") : "",
+        birthdate: toLocalDateStr(selectedDate),
       }));
   };
 

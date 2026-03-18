@@ -81,36 +81,17 @@ export const NetworkProvider = ({children})=>{
       return;
     }
 
-  
-    if (userData.role === "passenger") {
-      await updateDoc(docRef, {
-        passengersIds: arrayUnion(uid),
-        passengers: arrayUnion({
-          role : 'passenger' , 
-          id: uid,
-          fullname: userData.fullname,
-          email: userData.email,
-          phone: userData.phone,
-          status: "pending",
-          joined_at: new Date(),
-        }),
-      });
-    } else if (userData.role === "driver") {
-      await updateDoc(docRef, {
-        driversIds: arrayUnion(uid),
-        drivers: arrayUnion({
-          id: uid,
-          role : 'driver' , 
-          fullname: userData.fullname,
-          email: userData.email,
-          phone: userData.phone,
-          status: "pending",
-          joined_at: new Date(),
-        }),
-      });
-    } else {
-      throw new Error("Invalid user role");
-    }
+    await updateDoc(docRef, {
+      passengersIds: arrayUnion(uid),
+      passengers: arrayUnion({
+        role: 'member',
+        id: uid,
+        fullname: userData.fullname,
+        email: userData.email,
+        phone: userData.phone,
+        joined_at: new Date(),
+      }),
+    });
 
     toast.success("Network joined successfully");
   } catch (error) {
@@ -160,39 +141,28 @@ export const NetworkProvider = ({children})=>{
       const snapshot = await getDoc(networkRef);
 
       const data = snapshot.data();
-      const driver = data.drivers.find(p => p.id === auth.currentUser.uid);
+      const member = data.drivers.find(p => p.id === auth.currentUser.uid) ||
+                     data.passengers.find(p => p.id === auth.currentUser.uid);
 
-      if (!driver){
-        throw new Error('Unothorized user') 
+      if (!member){
+        throw new Error('You must join this network before offering a ride')
       }
 
-      const status = driver.status
-
-
-      if (userData?.role == 'driver'){
-        if (status === 'approved'){
-          await setDoc(doc(db , 'rides' , `ride-${inviteCode}`) , 
-            {
-                ...rideData , 
-                started_at : '',
-                finished_at : '' ,
-                available_seats : rideData.total_seats,
-                driver : {...userData , id : auth.currentUser.uid},
-                driverId : auth.currentUser.uid,
-                network_id : networkId,
-                passengers : [],
-                ride_status : 'not started',
-                created_at: new Date()
-            })
-          toast.success('Ride created successfully')
-        }
-        else {
-          throw new Error('You need director approval first')
-        }
-        
-      }
-      else {
-        throw new Error('You do not have permission to create Ride')
+      {
+        await setDoc(doc(db , 'rides' , `ride-${inviteCode}`) ,
+          {
+              ...rideData ,
+              started_at : '',
+              finished_at : '' ,
+              available_seats : rideData.total_seats,
+              driver : {...userData , id : auth.currentUser.uid},
+              driverId : auth.currentUser.uid,
+              network_id : networkId,
+              passengers : [],
+              ride_status : 'not started',
+              created_at: new Date()
+          })
+        toast.success('Ride created successfully')
       }
       
     } 
@@ -239,36 +209,21 @@ export const NetworkProvider = ({children})=>{
       const snapshot = await getDoc(networkRef);
 
       const data = snapshot.data();
-      const passenger = data.passengers.find(p => p.id === auth.currentUser.uid);
+      const member = data.passengers.find(p => p.id === auth.currentUser.uid) ||
+                     data.drivers.find(p => p.id === auth.currentUser.uid);
 
-      if (!passenger){
-        throw new Error('Unknown error') 
+      if (!member){
+        throw new Error('You must join this network before finding a ride')
       }
 
-      const status = passenger.status
-
-
-
-      if (userData?.role === 'passenger'){
-        if (status === 'approved'){
-          const q = query(ridesRef, where("departure", "==", departure.toLowerCase()) ,
-                                    where("arrival", "==", arrival.toLowerCase()),
-                                    where("departure_date", "==", departure_date) , 
-                                    where("network_id", "==", networkId) , 
-                                    where ('ride_status' , "==" , "not started") ,
-                                    );
-          const snapshot = await getDocs(q);
-          const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          return data 
-        }
-        else {
-          throw new Error('You need director approval first')
-        }
-
-      }
-      else {
-          throw new Error('Unvalid user')
-      }
+      const q = query(ridesRef, where("departure", "==", departure.toLowerCase()) ,
+                                where("arrival", "==", arrival.toLowerCase()),
+                                where("departure_date", "==", departure_date) ,
+                                where("network_id", "==", networkId) ,
+                                where ('ride_status' , "==" , "not started") ,
+                                );
+      const ridesSnapshot = await getDocs(q);
+      return ridesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
                 
     }
     catch (error){
@@ -359,7 +314,8 @@ export const NetworkProvider = ({children})=>{
       const networkSnapshot = await getDoc(networkRef);
 
       const networkData = networkSnapshot.data();
-      const networkpassenger = networkData.passengers.find(p => p.id === auth.currentUser.uid);
+      const networkmember = networkData.passengers.find(p => p.id === auth.currentUser.uid) ||
+                            networkData.drivers.find(p => p.id === auth.currentUser.uid);
 
 
       const rideRef = doc(db, "rides", rideId);
@@ -368,17 +324,15 @@ export const NetworkProvider = ({children})=>{
       const rideData = rideSnapshot.data();
       const ridepassenger = rideData.passengers.find(p => p.id === auth.currentUser.uid);
 
-      if (!networkpassenger && !ridepassenger){
-        throw new Error('Unknown error') 
+      if (!networkmember){
+        throw new Error('You must join this network before booking a ride')
       }
 
-      const status = networkpassenger.status
       const booked = ridepassenger !== undefined ? true : false
 
       const bookId = `book-${inviteCode}`
 
-      if (userData?.role === 'passenger'){
-        if (status === 'approved'){
+      {
           if (!booked) {
             console.log(userData)
             await setDoc(doc(db , 'bookings' , bookId) , 
@@ -399,7 +353,7 @@ export const NetworkProvider = ({children})=>{
                 arrival ,
                 arrival_date ,
                 arrival_time ,
-                booking_status : "pending" ,
+                booking_status : "booked" ,
                 booked_seats ,
                 networkId ,
                 booked_at : new Date()
@@ -413,7 +367,7 @@ export const NetworkProvider = ({children})=>{
                 booked_seats : booked_seats , 
                 booked_at : new Date() ,
                 booking_id : bookId,
-                status : 'pending'
+                status : 'booked'
               })})
             toast.success('Ride Booked successfully')
           }
@@ -421,12 +375,8 @@ export const NetworkProvider = ({children})=>{
             throw new Error('ride already booked')
           }
         }
-        else {
-          throw new Error('you need admin approval first')
-        }
-      }
 
-      
+
     }
     catch (error){
       toast.error(error.message)
@@ -446,7 +396,6 @@ export const NetworkProvider = ({children})=>{
     const userData = userDoc.data();
     if (!userData) throw new Error("User data not found");
 
-    if (userData.role !== 'passenger') {throw new Error("This page is available only for passengers")};
 
     const bookingsRef = collection(db, 'bookings');
     const q = query(bookingsRef, where('passengerId', '==', user.uid));
@@ -501,7 +450,6 @@ const getRides = async () => {
     const userData = userDoc.data();
     if (!userData) throw new Error("User data not found");
 
-    if (userData.role !== 'driver') {throw new Error("This page is available only for drivers")};
 
     const rideRef = collection(db, 'rides');
     const q = query(rideRef, where('driverId', '==', user.uid));
@@ -531,22 +479,28 @@ const getNetworkList = async ()=>{
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
                 const userData = userDoc.data();
                 const networksRef = collection(db , 'networks')
-                let q;
+                let results = [];
+
                 if (userData?.role === 'director'){
-                  q = query(networksRef, where("directorId", "==", user.uid));
+                  const q = query(networksRef, where("directorId", "==", user.uid));
+                  const snapshot = await getDocs(q);
+                  results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                } else {
+                  // members can appear in either driversIds or passengersIds
+                  const [driversSnap, passengersSnap] = await Promise.all([
+                    getDocs(query(networksRef, where("driversIds", "array-contains", user.uid))),
+                    getDocs(query(networksRef, where("passengersIds", "array-contains", user.uid))),
+                  ]);
+                  const seen = new Set();
+                  for (const d of [...driversSnap.docs, ...passengersSnap.docs]) {
+                    if (!seen.has(d.id)) {
+                      seen.add(d.id);
+                      results.push({ id: d.id, ...d.data() });
+                    }
+                  }
                 }
-                else if (userData?.role === 'driver'){
-                  q = query(networksRef , where("driversIds", "array-contains", user.uid));
-                }
-                else if (userData?.role === 'passenger'){
-                  q = query(networksRef , where("passengersIds", "array-contains", user.uid));
-                }
-                else {
-                  throw new Error('Unvalid user')
-                }
-                const snapshot = await getDocs(q);
-                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                return data.length === 0 ? [] : data
+
+                return results.length === 0 ? [] : results
             }
             catch (err){
                 toast.error(err.message)
@@ -566,6 +520,45 @@ const deleteNetwork = async (id) => {
   }
 };
 
+const updateRide = async (rideId, updates) => {
+  try {
+    setIsLoading(true)
+    const rideRef = doc(db, 'rides', rideId)
+    const rideSnap = await getDoc(rideRef)
+    if (!rideSnap.exists()) throw new Error('Ride not found')
+
+    const existing = rideSnap.data()
+
+    // Recalculate available_seats if total_seats changed
+    const bookedSeats = (existing.total_seats || 0) - (existing.available_seats || 0)
+    const newAvailable = (updates.total_seats || existing.total_seats) - bookedSeats
+
+    await updateDoc(rideRef, {
+      ...updates,
+      available_seats: newAvailable,
+    })
+
+    // Notify booked passengers if any
+    const approvedPassengers = (existing.passengers || []).filter(p => p.status === 'approved' || p.status === 'pending')
+    if (approvedPassengers.length > 0) {
+      await fetch('/api/notify-ride-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          passengers: approvedPassengers,
+          ride: { ...existing, ...updates },
+        }),
+      })
+    }
+
+    toast.success('Ride updated successfully')
+  } catch (error) {
+    toast.error(error.message)
+  } finally {
+    setIsLoading(false)
+  }
+}
+
 const cancelRide = async (rideId)=>{
   try {
     setIsLoading(true)
@@ -583,10 +576,10 @@ const cancelRide = async (rideId)=>{
       const bookingSnap = await getDoc(bookingRef)
       if (!bookingSnap.exists()) return 
 
-      await updateDoc(bookingRef , {booking_status : 'cancled'})
+      await updateDoc(bookingRef , {booking_status : 'canceled'})
     })
 
-    await updateDoc(rideRef , {ride_status : 'cancled'})
+    await updateDoc(rideRef , {ride_status : 'canceled'})
     toast.success('Ride canceled successfully')
     
     
@@ -699,7 +692,23 @@ const changeBookingStatus = async (passengerId  , rideId , bookingId , status)=>
     
   
 
-    return <NetworkContext.Provider value={{createNetwork , joinNetwork , getRidesByNetworkId , deleteNetwork , changeBookingStatus , getNetwork , offerRide ,findRide , changeUserStatus , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , finalizeRide , startRide , isLoading , getNetworkList}}>
+  const NETWORK_IDS = ['network-HILLPATROL', 'network-MOUNTAINHOSTS', 'network-NORDIC']
+
+  const getAllNetworks = async () => {
+    try {
+      const snaps = await Promise.all(
+        NETWORK_IDS.map(id => getDoc(doc(db, 'networks', id)))
+      )
+      return snaps
+        .filter(s => s.exists())
+        .map(s => ({ id: s.id, ...s.data() }))
+    } catch (error) {
+      console.error('[getAllNetworks]', error)
+      return []
+    }
+  }
+
+    return <NetworkContext.Provider value={{createNetwork , joinNetwork , getRidesByNetworkId , deleteNetwork , changeBookingStatus , getNetwork , offerRide ,findRide , changeUserStatus , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , finalizeRide , startRide , isLoading , getNetworkList , getAllNetworks , updateRide}}>
         {children}
     </NetworkContext.Provider>
 }

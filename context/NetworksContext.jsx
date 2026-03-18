@@ -538,44 +538,43 @@ const updateRide = async (rideId, updates) => {
       available_seats: newAvailable,
     })
 
-    // Update all active booking docs for this ride with new details + notification flag
-    const bookingsRef = collection(db, 'bookings')
-    const bookingsSnap = await getDocs(query(bookingsRef, where('ride_id', '==', rideId)))
-    const activeBookings = bookingsSnap.docs.filter(d => {
-      const s = d.data().booking_status
-      return s !== 'canceled' && s !== 'cancled'
-    })
+    // Use booking_ids already stored on each passenger entry — avoids a collection query
+    // that would be blocked by Firestore rules for cross-user reads
+    const activePassengers = (existing.passengers || []).filter(p =>
+      p.status !== 'canceled' && p.status !== 'cancled' && p.booking_id
+    )
 
-    await Promise.all(activeBookings.map(d => updateDoc(d.ref, {
-      departure:            updates.departure            ?? existing.departure,
-      arrival:              updates.arrival              ?? existing.arrival,
-      departure_date:       updates.departure_date       ?? existing.departure_date,
-      arrival_date:         updates.arrival_date         ?? existing.arrival_date,
-      departure_time:       updates.departure_time       ?? existing.departure_time,
-      arrival_time:         updates.arrival_time         ?? existing.arrival_time,
+    const bookingFields = {
+      departure:             updates.departure             ?? existing.departure,
+      arrival:               updates.arrival               ?? existing.arrival,
+      departure_date:        updates.departure_date        ?? existing.departure_date,
+      arrival_date:          updates.arrival_date          ?? existing.arrival_date,
+      departure_time:        updates.departure_time        ?? existing.departure_time,
+      arrival_time:          updates.arrival_time          ?? existing.arrival_time,
       return_departure_time: updates.return_departure_time ?? existing.return_departure_time,
-      ride_updated:  true,
-      update_seen:   false,
+      ride_updated:          true,
+      update_seen:           false,
       updated_ride_snapshot: { ...existing, ...updates },
-    })))
+    }
+
+    await Promise.all(
+      activePassengers.map(p => updateDoc(doc(db, 'bookings', p.booking_id), bookingFields))
+    )
 
     // Email booked passengers
-    if (activeBookings.length > 0) {
-      const passengers = activeBookings.map(d => {
-        const b = d.data()
-        return { email: b.passenger?.email, fullname: b.passenger?.fullname }
-      }).filter(p => p.email)
+    const emailList = activePassengers
+      .map(p => ({ email: p.email, fullname: p.fullname }))
+      .filter(p => p.email)
 
-      if (passengers.length > 0) {
-        await fetch('/api/notify-ride-update', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            passengers,
-            ride: { ...existing, ...updates },
-          }),
-        })
-      }
+    if (emailList.length > 0) {
+      await fetch('/api/notify-ride-update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          passengers: emailList,
+          ride: { ...existing, ...updates },
+        }),
+      })
     }
 
     toast.success('Ride updated successfully')

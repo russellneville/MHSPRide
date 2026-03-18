@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Car, ChevronDown, Clock, Info, MapPin, MoveRight, Navigation, Plus, Search } from "lucide-react"
+import { AlertTriangle, Car, ChevronDown, Clock, Info, MapPin, MoveRight, Navigation, Plus, Search, X } from "lucide-react"
 import Link from "next/link"
 import UserAvatar from "@/components/ui/user-avatar"
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup"
@@ -28,7 +28,7 @@ function normalizeStatus(s) {
 }
 
 export default function Dashboard() {
-  const { getRides, getBookings, getNetworkList } = useNetwork()
+  const { getRides, getBookings, getNetworkList, dismissRideUpdate } = useNetwork()
   const { user } = useAuth()
   const { openPopup } = usePopup()
   const [rides, setRides] = useState([])
@@ -140,6 +140,14 @@ export default function Dashboard() {
   return (
     <DashboardLayout banner={banner} headerActions={headerActions}>
       <div className="space-y-8">
+
+        {/* ── Ride update notifications ────────────────────── */}
+        {bookings.filter(b => b.ride_updated && !b.update_seen).map(b => (
+          <RideUpdatedBanner key={b.id} booking={b} onDismiss={() => {
+            dismissRideUpdate(b.id)
+            setBookings(prev => prev.map(x => x.id === b.id ? { ...x, update_seen: true } : x))
+          }} />
+        ))}
 
         {/* ── Rides Today ─────────────────────────────────── */}
         {todayRides.length > 0 && (
@@ -255,6 +263,38 @@ export default function Dashboard() {
 
       </div>
     </DashboardLayout>
+  )
+}
+
+function RideUpdatedBanner({ booking, onDismiss }) {
+  const r = booking.updated_ride_snapshot || booking
+  return (
+    <div className="rounded-xl border border-yellow-400 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-600 p-4 space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 font-semibold text-yellow-800 dark:text-yellow-200">
+          <AlertTriangle className="size-4 shrink-0" />
+          One of your rides has changed!
+        </div>
+        <button
+          onClick={onDismiss}
+          className="text-yellow-600 hover:text-yellow-800 dark:text-yellow-400 dark:hover:text-yellow-200 transition-colors"
+          aria-label="Dismiss"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+      <div className="text-sm text-yellow-900 dark:text-yellow-100 space-y-1">
+        <p><span className="font-medium">Route:</span> {r.departure} → {r.arrival}</p>
+        <p><span className="font-medium">Date:</span> {r.departure_date}</p>
+        <p><span className="font-medium">Departs:</span> {r.departure_time}</p>
+        {r.arrival_time && <p><span className="font-medium">Arrives:</span> {r.arrival_time}</p>}
+        {r.return_departure_time && <p><span className="font-medium">Return departs:</span> {r.return_departure_time}</p>}
+        {r.ride_description && <p><span className="font-medium">Notes:</span> {r.ride_description}</p>}
+      </div>
+      <Button size="sm" variant="outline" className="border-yellow-400 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-100 dark:hover:bg-yellow-900" onClick={onDismiss}>
+        Dismiss
+      </Button>
+    </div>
   )
 }
 

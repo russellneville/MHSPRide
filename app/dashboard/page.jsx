@@ -265,34 +265,34 @@ function TodayRideCard({ ride }) {
 
   return (
     <Link href={href}>
-      <Card className="border-green-200 bg-green-50/50 hover:border-green-400 transition-colors cursor-pointer">
+      <Card className="border-green-600 bg-green-700 hover:bg-green-600 transition-colors cursor-pointer">
         <CardHeader className="flex items-center gap-3">
-          <div className="size-12 rounded-full bg-green-100 flex items-center justify-center">
-            <Car className="text-green-700" />
+          <div className="size-12 rounded-full bg-green-500/40 flex items-center justify-center">
+            <Car className="text-white" />
           </div>
           <div className="flex-1">
-            <CardTitle className="text-base font-semibold flex items-center gap-2 flex-wrap">
+            <CardTitle className="text-base font-semibold text-white flex items-center gap-2 flex-wrap">
               {ride.departure} <MoveRight className="size-4" /> {ride.arrival}
             </CardTitle>
-            <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+            <p className="text-sm text-green-100 flex items-center gap-1 mt-0.5">
               <Clock className="size-3.5" /> {ride.departure_date} at {ride.departure_time}
             </p>
           </div>
-          <Badge variant="secondary" className="shrink-0">
+          <Badge className="shrink-0 bg-white/20 text-white border-white/30">
             {isOffering ? 'You are driving' : 'You are a passenger'}
           </Badge>
         </CardHeader>
-        <CardContent className="space-y-1.5 text-sm text-muted-foreground">
-          <p><MapPin className="inline size-4 mr-1" /><span className="font-medium">Departure:</span> {ride.departure}</p>
-          <p><Navigation className="inline size-4 mr-1" /><span className="font-medium">Arrival:</span> {ride.arrival}</p>
+        <CardContent className="space-y-1.5 text-sm text-green-100">
+          <p><MapPin className="inline size-4 mr-1" /><span className="font-medium text-white">Departure:</span> {ride.departure}</p>
+          <p><Navigation className="inline size-4 mr-1" /><span className="font-medium text-white">Arrival:</span> {ride.arrival}</p>
           {ride.arrival_time && (
-            <p><Clock className="inline size-4 mr-1" /><span className="font-medium">Arrives:</span> {ride.arrival_time}</p>
+            <p><Clock className="inline size-4 mr-1" /><span className="font-medium text-white">Arrives:</span> {ride.arrival_time}</p>
           )}
           {ride.return_departure_time && (
-            <p><Clock className="inline size-4 mr-1" /><span className="font-medium">Return departs:</span> {ride.return_departure_time}</p>
+            <p><Clock className="inline size-4 mr-1" /><span className="font-medium text-white">Return departs:</span> {ride.return_departure_time}</p>
           )}
           {ride.ride_description && (
-            <p><Info className="inline size-4 mr-1" /><span className="font-medium">Notes:</span> {ride.ride_description}</p>
+            <p><Info className="inline size-4 mr-1" /><span className="font-medium text-white">Notes:</span> {ride.ride_description}</p>
           )}
         </CardContent>
       </Card>

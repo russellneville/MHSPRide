@@ -302,7 +302,7 @@ export const NetworkProvider = ({children})=>{
 
   const bookRide = async ({driver , rideId ,
     departure , departure_date , departure_time ,
-    arrival , arrival_date , arrival_time , available_seats} , booked_seats , networkId)=>{
+    arrival , arrival_date , arrival_time , return_departure_time, one_way, available_seats} , booked_seats , networkId)=>{
     try {
       setIsLoading(true)
       const inviteCode = generateInviteCode()
@@ -348,11 +348,12 @@ export const NetworkProvider = ({children})=>{
                 },
                 ride_id : rideId,
                 departure ,
-                departure_date , 
+                departure_date ,
                 departure_time ,
                 arrival ,
                 arrival_date ,
                 arrival_time ,
+                return_departure_time : one_way ? '' : (return_departure_time || ''),
                 booking_status : "booked" ,
                 booked_seats ,
                 networkId ,

@@ -38,6 +38,7 @@
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "csv-parse": "^6.1.0",
+    "dotenv": "^17.3.1",
     "eslint": "^9",
     "eslint-config-next": "15.5.4",
     "tailwindcss": "^4",

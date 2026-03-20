@@ -9,6 +9,7 @@ import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Checkbox } from "../ui/checkbox"
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
 import {
   AlertDialog, AlertDialogAction, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -16,6 +17,8 @@ import {
 import { LOCATIONS } from "@/lib/locations"
 import { estimateArrival } from "@/lib/drive-times"
 import { toLocalDateStr } from "@/lib/utils"
+import { addDoc, collection, serverTimestamp } from "firebase/firestore"
+import { db, auth } from "@/lib/firebaseClient"
 
 const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== "timberline-lodge")
 
@@ -27,6 +30,64 @@ const ARRIVAL_LOCATIONS = [
   { id: "meadows",      name: "Meadows" },
   { id: "tea-cup",      name: "Tea Cup" },
 ]
+
+function SuggestLocationPopover({ context }) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState('')
+  const [done, setDone] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
+  const handleSubmit = async () => {
+    if (!text.trim()) return
+    setSubmitting(true)
+    try {
+      await addDoc(collection(db, 'feedback'), {
+        type: 'location-suggestion',
+        context,
+        message: text.trim(),
+        userId: auth.currentUser?.uid || null,
+        submittedAt: serverTimestamp(),
+      })
+      setDone(true)
+      setText('')
+      setTimeout(() => { setDone(false); setOpen(false) }, 1800)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors">
+          suggest new
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-3 space-y-2" side="bottom" align="start">
+        {done ? (
+          <p className="text-sm text-green-700 dark:text-green-400 font-medium">Thanks! We'll review your suggestion.</p>
+        ) : (
+          <>
+            <p className="text-xs text-muted-foreground">Suggest a new {context.toLowerCase()} location</p>
+            <Input
+              placeholder="Location name…"
+              value={text}
+              onChange={e => setText(e.target.value)}
+              className="h-8 text-sm"
+              onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setOpen(false)}>Cancel</Button>
+              <Button size="sm" className="h-7 text-xs" disabled={!text.trim() || submitting} onClick={handleSubmit}>
+                {submitting ? 'Sending…' : 'Send'}
+              </Button>
+            </div>
+          </>
+        )}
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, locations, selectPlaceholder }) {
   return (
@@ -162,7 +223,10 @@ export default function OfferRidePopup({ networkId }) {
         <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">To Destination</h4>
 
         <div className="space-y-1">
-          <Label>Departure</Label>
+          <div className="flex items-center justify-between">
+            <Label>Departure</Label>
+            <SuggestLocationPopover context="Departure" />
+          </div>
           <LocationPicker
             value={departureSelect}
             onSelectChange={setDepartureSelect}
@@ -175,7 +239,10 @@ export default function OfferRidePopup({ networkId }) {
         </div>
 
         <div className="space-y-1">
-          <Label>Arrival</Label>
+          <div className="flex items-center justify-between">
+            <Label>Arrival</Label>
+            <SuggestLocationPopover context="Arrival" />
+          </div>
           <LocationPicker
             value={arrivalSelect}
             onSelectChange={setArrivalSelect}

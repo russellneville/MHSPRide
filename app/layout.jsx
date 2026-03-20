@@ -6,6 +6,7 @@ import { PopupProvider } from "@/context/PopupContext";
 import { Popup } from "@/components/Popup";
 import { NetworkProvider } from "@/context/NetworksContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import CookieConsent from "@/components/CookieConsent";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,6 +47,7 @@ export default function RootLayout({ children }) {
                           {children}
                           <Popup />
                           <Toaster/>
+                          <CookieConsent />
                     </PopupProvider>
                   </NetworkProvider>
                 </AuthProvider>

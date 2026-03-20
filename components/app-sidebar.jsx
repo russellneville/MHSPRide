@@ -30,7 +30,7 @@ export function AppSidebar({ user, ...props }) {
     { name: "Home", icon: Home, href: "/dashboard" },
     { name: "My Booked Rides", icon: Ticket, href: "/dashboard/bookings" },
     { name: "My Offered Rides", icon: Waypoints, href: "/dashboard/rides" },
-    { name: "Networks", icon: Users, href: "/dashboard/networks" },
+    { name: "Book/Offer Rides", icon: Users, href: "/dashboard/networks" },
     { name: "Profile", icon: User, href: "/dashboard/profile" },
   ]
 

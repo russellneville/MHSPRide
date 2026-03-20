@@ -70,8 +70,11 @@ export default function Header() {
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </Button>
 
-          <Button asChild className="hidden md:inline-flex">
-            <Link href="/register">Get started</Link>
+          <Button asChild className="hidden md:inline-flex bg-red-600 hover:bg-red-700 text-white">
+            <Link href="/register">Sign Up</Link>
+          </Button>
+          <Button asChild className="hidden md:inline-flex bg-green-600 hover:bg-green-700 text-white">
+            <Link href="/login">Sign In</Link>
           </Button>
 
           {/* Mobile Menu Toggle */}
@@ -98,8 +101,11 @@ export default function Header() {
                 {name}
               </Link>
             ))}
-            <Button asChild onClick={() => setMenuOpen(false)}>
-              <Link href="/login">Get started</Link>
+            <Button asChild onClick={() => setMenuOpen(false)} className="bg-red-600 hover:bg-red-700 text-white w-32">
+              <Link href="/register">Sign Up</Link>
+            </Button>
+            <Button asChild onClick={() => setMenuOpen(false)} className="bg-green-600 hover:bg-green-700 text-white w-32">
+              <Link href="/login">Sign In</Link>
             </Button>
           </nav>
         </div>

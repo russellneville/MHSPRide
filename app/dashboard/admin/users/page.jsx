@@ -31,8 +31,6 @@ import {
   getDocs,
   getDoc,
   updateDoc,
-  query,
-  where,
 } from 'firebase/firestore'
 import { logEvent } from '@/lib/activityLog'
 import {
@@ -122,11 +120,11 @@ function UsersContent() {
     setResetting(true)
     try {
       const { uid, mhspNumber, fullname } = resetTarget
-      const membersRef = collection(db, 'members')
-      const q = query(membersRef, where('mhspNumber', '==', String(mhspNumber).trim()))
-      const snap = await getDocs(q)
-      if (!snap.empty) {
-        await updateDoc(snap.docs[0].ref, { claimed: false, claimedBy: null })
+      // Members are keyed by MHSP number as the document ID
+      const memberRef = doc(db, 'members', String(mhspNumber).trim())
+      const memberSnap = await getDoc(memberRef)
+      if (memberSnap.exists()) {
+        await updateDoc(memberRef, { claimed: false, claimedBy: null })
       }
       logEvent({
         type: 'membership.unclaimed',

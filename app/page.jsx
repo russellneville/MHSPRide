@@ -93,6 +93,9 @@ export default function Home() {
                 Sign Up
                 <ChevronRight />
               </Link>
+              <Link href="/login" className="landing-secondary">
+                Log In
+              </Link>
             </div>
 
             <div className="landing-network-pills">

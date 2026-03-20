@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { AlertTriangle, Car, ChevronDown, Clock, Info, MapPin, MoveRight, Navigation, Plus, Search, X } from "lucide-react"
+import { AlertTriangle, Car, ChevronDown, ChevronRight, Clock, Info, MapPin, MoveRight, Navigation, Plus, Search, X } from "lucide-react"
 import Link from "next/link"
 import UserAvatar from "@/components/ui/user-avatar"
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup"
+import { resolveLocation } from "@/lib/locations"
 
 const KNOWN_NETWORKS = [
   { id: "network-HILLPATROL",    name: "Hill Patrol" },
@@ -35,6 +36,7 @@ export default function Dashboard() {
   const [bookings, setBookings] = useState([])
   const [joinedNetworks, setJoinedNetworks] = useState([])
   const [pastPage, setPastPage] = useState(0)
+  const [pastOpen, setPastOpen] = useState(false)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -70,7 +72,16 @@ export default function Dashboard() {
     return s === 'canceled' || s === 'cancled'
   }
 
-  const todayRides = combined.filter(r => r.departure_date === today && !isCanceled(r))
+  const todayRides = combined.filter(r => {
+    if (r.departure_date !== today || isCanceled(r)) return false
+    const now = new Date()
+    const returnTime = r.return_departure_time
+    if (returnTime) {
+      const returnDt = new Date(`${r.departure_date}T${returnTime}`)
+      if (now > returnDt) return false
+    }
+    return true
+  })
 
   const upcoming = combined
     .filter(r => r.departure_date > today && !isCanceled(r))
@@ -79,7 +90,15 @@ export default function Dashboard() {
     )
 
   const past = combined
-    .filter(r => r.departure_date < today)
+    .filter(r => {
+      if (r.departure_date < today) return true
+      if (r.departure_date === today && r.return_departure_time) {
+        const now = new Date()
+        const returnDt = new Date(`${r.departure_date}T${r.return_departure_time}`)
+        return now > returnDt
+      }
+      return false
+    })
     .sort((a, b) =>
       `${b.departure_date}${b.departure_time}`.localeCompare(`${a.departure_date}${a.departure_time}`)
     )
@@ -190,9 +209,9 @@ export default function Dashboard() {
                       }
                     </TableCell>
                     <TableCell className="whitespace-nowrap">{r.departure_date}</TableCell>
-                    <TableCell>{r.departure}</TableCell>
+                    <TableCell>{resolveLocation(r.departure)}</TableCell>
                     <TableCell>{formatTime(r.departure_time)}</TableCell>
-                    <TableCell>{r.arrival}</TableCell>
+                    <TableCell>{resolveLocation(r.arrival)}</TableCell>
                     <TableCell>{formatTime(r.arrival_time)}</TableCell>
                     <TableCell>{formatTime(r.return_departure_time)}</TableCell>
                     <TableCell className="whitespace-nowrap">
@@ -211,53 +230,58 @@ export default function Dashboard() {
         {/* ── Past Rides ──────────────────────────────────── */}
         {past.length > 0 && (
           <section className="space-y-3">
-            <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Past Rides
-            </h4>
-            <Table className="border border-border">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Departure</TableHead>
-                  <TableHead>Arrival</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pagedPast.map((r, i) => {
-                  const status = normalizeStatus(r._type === 'offered' ? r.ride_status : r.booking_status)
-                  return (
-                    <TableRow key={i}>
-                      <TableCell>
-                        {r._type === 'offered'
-                          ? <Badge className="bg-green-100 text-green-800 border-green-300">Offered</Badge>
-                          : <Badge className="bg-blue-100 text-blue-800 border-blue-300">Booked</Badge>
-                        }
-
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">{r.departure_date}</TableCell>
-                      <TableCell>{r.departure}</TableCell>
-                      <TableCell>{r.arrival}</TableCell>
-                      <TableCell>
-                        <Badge variant={status}>{status}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-            {pastPageCount > 1 && (
-              <div className="flex items-center gap-3 text-sm">
-                <Button variant="outline" size="sm" disabled={pastPage === 0} onClick={() => setPastPage(p => p - 1)}>
-                  Previous
-                </Button>
-                <span className="text-muted-foreground">Page {pastPage + 1} of {pastPageCount}</span>
-                <Button variant="outline" size="sm" disabled={pastPage >= pastPageCount - 1} onClick={() => setPastPage(p => p + 1)}>
-                  Next
-                </Button>
-              </div>
-            )}
+            <button
+              className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setPastOpen(o => !o)}
+            >
+              {pastOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+              Past Rides <span className="normal-case font-normal ml-1">({past.length})</span>
+            </button>
+            {pastOpen && <>
+              <Table className="border border-border">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Departure</TableHead>
+                    <TableHead>Arrival</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {pagedPast.map((r, i) => {
+                    const status = normalizeStatus(r._type === 'offered' ? r.ride_status : r.booking_status)
+                    return (
+                      <TableRow key={i}>
+                        <TableCell>
+                          {r._type === 'offered'
+                            ? <Badge className="bg-green-100 text-green-800 border-green-300">Offered</Badge>
+                            : <Badge className="bg-blue-100 text-blue-800 border-blue-300">Booked</Badge>
+                          }
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">{r.departure_date}</TableCell>
+                        <TableCell>{resolveLocation(r.departure)}</TableCell>
+                        <TableCell>{resolveLocation(r.arrival)}</TableCell>
+                        <TableCell>
+                          <Badge variant={status}>{status}</Badge>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+              {pastPageCount > 1 && (
+                <div className="flex items-center gap-3 text-sm">
+                  <Button variant="outline" size="sm" disabled={pastPage === 0} onClick={() => setPastPage(p => p - 1)}>
+                    Previous
+                  </Button>
+                  <span className="text-muted-foreground">Page {pastPage + 1} of {pastPageCount}</span>
+                  <Button variant="outline" size="sm" disabled={pastPage >= pastPageCount - 1} onClick={() => setPastPage(p => p + 1)}>
+                    Next
+                  </Button>
+                </div>
+              )}
+            </>}
           </section>
         )}
 
@@ -284,7 +308,7 @@ function RideUpdatedBanner({ booking, onDismiss }) {
         </button>
       </div>
       <div className="text-sm text-yellow-900 dark:text-yellow-100 space-y-1">
-        <p><span className="font-medium">Route:</span> {r.departure} → {r.arrival}</p>
+        <p><span className="font-medium">Route:</span> {resolveLocation(r.departure)} → {resolveLocation(r.arrival)}</p>
         <p><span className="font-medium">Date:</span> {r.departure_date}</p>
         <p><span className="font-medium">Departs:</span> {formatTime(r.departure_time)}</p>
         {r.arrival_time && <p><span className="font-medium">Arrives:</span> {formatTime(r.arrival_time)}</p>}

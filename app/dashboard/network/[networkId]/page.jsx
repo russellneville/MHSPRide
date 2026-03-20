@@ -13,17 +13,9 @@ import { usePopup } from "@/context/PopupContext";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
 import DriverDetailsPopup from "@/components/popup-forms/DriverDetailsPopup";
 import Link from "next/link";
-import { LOCATIONS, ARRIVAL_LOCATIONS, getLocationName } from "@/lib/locations";
+import { LOCATIONS, resolveLocation } from "@/lib/locations";
 import { formatTime } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
-
-// ── Location resolution ───────────────────────────────────────────────────────
-function resolveLocation(id) {
-  if (!id) return id;
-  return getLocationName(id)
-    || ARRIVAL_LOCATIONS.find(l => l.id === id)?.name
-    || id;
-}
 
 const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== 'timberline-lodge');
 

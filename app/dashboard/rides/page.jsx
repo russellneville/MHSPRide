@@ -17,6 +17,7 @@ import { ChevronDown, ChevronRight, Pencil, Plus } from "lucide-react";
 import { formatTime, toLocalDateStr } from "@/lib/utils";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
+import { resolveLocation } from "@/lib/locations";
 
 const PAGE_SIZE = 25
 
@@ -145,8 +146,8 @@ export default function MyOfferedRides() {
           return (
             <TableRow key={r.id} className={r.departure_date === today ? 'bg-blue-50 dark:bg-blue-950' : ''}>
               <TableCell className="whitespace-nowrap">{networkName}</TableCell>
-              <TableCell>{r.departure}</TableCell>
-              <TableCell>{r.arrival}</TableCell>
+              <TableCell>{resolveLocation(r.departure)}</TableCell>
+              <TableCell>{resolveLocation(r.arrival)}</TableCell>
               <TableCell className="whitespace-nowrap">{r.departure_date} at {formatTime(r.departure_time)}</TableCell>
               <TableCell className="whitespace-nowrap">{r.arrival_date} at {formatTime(r.arrival_time)}</TableCell>
               <TableCell><Badge variant={status}>{status}</Badge></TableCell>

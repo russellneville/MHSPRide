@@ -344,7 +344,13 @@ export const NetworkProvider = ({children})=>{
                 passengerId : userData.id , 
                 driver : {
                   id : driver.id , phone : driver.phone ,
-                  email : driver.email , fullname : driver.fullname
+                  email : driver.email , fullname : driver.fullname,
+                  vehicle_make : driver.vehicle_make || '',
+                  vehicle_model : driver.vehicle_model || '',
+                  vehicle_year : driver.vehicle_year || '',
+                  vehicle_color : driver.vehicle_color || '',
+                  vehicle_plate : driver.vehicle_plate || '',
+                  vehicle_seats : driver.vehicle_seats || '',
                 },
                 ride_id : rideId,
                 departure ,

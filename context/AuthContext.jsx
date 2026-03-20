@@ -78,6 +78,13 @@ export const AuthProvider = ({ children }) => {
 
       toast.success('Account created successfully')
 
+      // Send welcome email (fire-and-forget)
+      fetch('/api/notify-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, fullname }),
+      }).catch(err => console.error('[notify-registration]', err))
+
       const docSnap = await getDoc(doc(db, 'users', user.uid))
       setUser({ uid: user.uid, ...docSnap.data() })
       router.push('/login')

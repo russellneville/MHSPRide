@@ -377,6 +377,18 @@ export const NetworkProvider = ({children})=>{
                 status : 'booked'
               })})
             toast.success('Ride Booked successfully')
+
+            // Send booking emails (fire-and-forget)
+            fetch('/api/notify-booking', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                passenger: { id: userData.id, fullname: userData.fullname, email: userData.email, phone: userData.phone },
+                driver: { fullname: driver.fullname, email: driver.email, phone: driver.phone },
+                ride: { departure, arrival, departure_date, departure_time, arrival_time, return_departure_time: one_way ? '' : (return_departure_time || ''), ride_description: rideData.ride_description },
+                bookedSeats: booked_seats,
+              }),
+            }).catch(err => console.error('[notify-booking]', err))
           }
           else {
             throw new Error('ride already booked')
@@ -622,8 +634,27 @@ const cancelRide = async (rideId)=>{
 
     await updateDoc(rideRef , {ride_status : 'canceled'})
     toast.success('Ride canceled successfully')
-    
-    
+
+    // Notify passengers by email (fire-and-forget)
+    const passengersWithEmail = ridePassengers.filter(p => p.email)
+    if (passengersWithEmail.length > 0) {
+      fetch('/api/notify-cancellation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          passengers: passengersWithEmail.map(p => ({ fullname: p.fullname || '', email: p.email, phone: p.phone || '' })),
+          ride: {
+            departure: rideData.departure,
+            arrival: rideData.arrival,
+            departure_date: rideData.departure_date,
+            departure_time: rideData.departure_time,
+            arrival_time: rideData.arrival_time || '',
+            return_departure_time: rideData.return_departure_time || '',
+            ride_description: rideData.ride_description || '',
+          },
+        }),
+      }).catch(err => console.error('[notify-cancellation]', err))
+    }
   }
   catch (error){
     toast.error(error.message)

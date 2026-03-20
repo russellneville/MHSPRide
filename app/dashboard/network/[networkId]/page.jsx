@@ -138,7 +138,7 @@ export default function NetworkPage() {
             <Button onClick={() => openPopup('Offer ride', <OfferRidePopup networkId={networkId} />)}>
               Offer Ride <Plus className="size-4 ml-1" />
             </Button>
-            {user?.role === 'director' && (
+            {user?.role === 'admin' && (
               <Button variant="destructive" size="icon" onClick={handleDeleteNetwork}>
                 <Trash className="size-4" />
               </Button>

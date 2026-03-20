@@ -1,17 +1,19 @@
 "use client"
 
 import {
+  Activity,
+  BarChart2,
   Car,
+  ClipboardList,
   Home,
   MapPin,
   Settings,
+  Ticket,
   User,
   Users,
   Waypoints,
   ShipWheel,
   PlusCircle,
-  ClipboardList,
-  Ticket,
 } from "lucide-react"
 
 import Image from "next/image"
@@ -21,9 +23,23 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupLabel,
   SidebarHeader,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
   SidebarRail,
+  SidebarSeparator,
 } from "@/components/ui/sidebar"
+
+const ADMIN_MENU = [
+  { name: "Users",        icon: Users,         href: "/dashboard/admin/users" },
+  { name: "Rides",        icon: Car,           href: "/dashboard/admin/rides" },
+  { name: "Bookings",     icon: ClipboardList, href: "/dashboard/admin/bookings" },
+  { name: "Activity Log", icon: Activity,      href: "/dashboard/admin/activity-log" },
+  { name: "Reports",      icon: BarChart2,     href: "/dashboard/admin/reports" },
+]
 
 export function AppSidebar({ user, ...props }) {
   const menu = [
@@ -64,6 +80,25 @@ export function AppSidebar({ user, ...props }) {
       {/* Content */}
       <SidebarContent>
         <NavMain menu={menu} />
+
+        {user?.role === 'admin' && (
+          <>
+            <SidebarSeparator />
+            <SidebarGroup>
+              <SidebarGroupLabel>Admin</SidebarGroupLabel>
+              <SidebarMenu>
+                {ADMIN_MENU.map(item => (
+                  <SidebarMenuItem key={item.name}>
+                    <SidebarMenuButton href={item.href} tooltip={item.name}>
+                      <item.icon />
+                      <span>{item.name}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroup>
+          </>
+        )}
       </SidebarContent>
 
       {/* Mountain photo panel — hidden when collapsed to icon mode */}

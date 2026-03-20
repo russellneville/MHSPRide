@@ -240,7 +240,7 @@ export default function RidePage() {
             {/* RIGHT SIDE */}
             <div className="space-y-4">
             
-              {(isRideDriver || user?.role === "director") && (
+              {(isRideDriver || user?.role === "admin") && (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base font-semibold flex items-center gap-2">

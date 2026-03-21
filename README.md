@@ -136,6 +136,19 @@ The admin pages require updated Firestore security rules. Add an `isAdmin()` hel
 
 ---
 
+## Test data
+
+A seed script generates a full set of synthetic test users, rides, and bookings for local development and QA. Seven pre-registered accounts cover admin access, network-scoped membership, pure riders, pure drivers, a cancellation history, and ride modification with booked passengers. Five unregistered member records support testing the registration flow.
+
+See [`docs/test-data.md`](docs/test-data.md) for account credentials, test scenarios, and usage instructions.
+
+```bash
+node scripts/seedTestData.mjs      # load test data
+node scripts/clearTestData.mjs     # remove test data
+```
+
+---
+
 ## Roster sync
 
 When the MHSP roster changes, update Firestore without disturbing existing accounts:
@@ -183,6 +196,7 @@ MHSPRide/
 │   ├── email.js                # Resend email helpers (registration, booking, cancellation)
 │   └── utils.js                # cn(), toLocalDateStr(), formatTime()
 ├── scripts/                    # Node.js seed/sync/admin scripts (Firebase Admin SDK)
+├── docs/                       # Developer documentation (test data, etc.)
 └── resources/                  # Roster CSVs, implementation docs (gitignored)
 ```
 

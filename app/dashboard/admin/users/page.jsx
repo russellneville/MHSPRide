@@ -63,6 +63,9 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/context/AuthContext'
+import { toast } from 'sonner'
+import { auth as firebaseAuth } from '@/lib/firebaseClient'
+import { sendPasswordResetEmail } from 'firebase/auth'
 
 function formatDate(val) {
   if (!val) return '—'
@@ -211,13 +214,29 @@ function UsersContent() {
                       {formatDate(u.created_at)}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setResetTarget({ uid: u.uid, mhspNumber: u.mhspNumber, fullname: u.fullname })}
-                      >
-                        Reset Membership
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setResetTarget({ uid: u.uid, mhspNumber: u.mhspNumber, fullname: u.fullname })}
+                        >
+                          Reset Membership
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            try {
+                              await sendPasswordResetEmail(firebaseAuth, u.email)
+                              toast.success(`Password reset email sent to ${u.email}`)
+                            } catch (e) {
+                              toast.error(e.message)
+                            }
+                          }}
+                        >
+                          Reset Password
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))

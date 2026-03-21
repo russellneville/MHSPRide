@@ -1,6 +1,6 @@
 'use client';
 import { auth, db, storage } from '@/lib/firebaseClient';
-import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateEmail } from 'firebase/auth';
+import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateEmail, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { logEvent } from '@/lib/activityLog';
@@ -163,6 +163,15 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const resetPassword = async (email) => {
+    try {
+      await sendPasswordResetEmail(auth, email)
+      toast.success('Password reset email sent. Check your inbox.')
+    } catch (error) {
+      toast.error(error.message)
+    }
+  }
+
     const logOut = async ()=>{
         try {
           await signOut(auth)
@@ -174,7 +183,7 @@ export const AuthProvider = ({ children }) => {
 
 
   return (
-    <AuthContext.Provider value={{ isLoading, user, registerUser , loginUser , updateProfile , logOut, uploadPhoto }}>
+    <AuthContext.Provider value={{ isLoading, user, registerUser , loginUser , updateProfile , logOut, uploadPhoto, resetPassword }}>
       {children}
     </AuthContext.Provider>
   );

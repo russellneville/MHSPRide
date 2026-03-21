@@ -887,7 +887,7 @@ async function main() {
   console.log(`  Auth users created   : ${USERS.length}`)
   console.log(`  Rides created        : ${ridesWritten} (${pastRides.length} historical, ${futureRides.length} future)`)
   console.log(`  Bookings created     : ${bookingsWritten}`)
-  console.log(`\nTest accounts: ${testEmail('{1-7}')} / ${PASSWORD}`)
+  console.log(`\nTest accounts: ${testEmail('{1-7}')} / <TEST_PASSWORD>`)
   console.log('Run clearTestData.mjs to remove all test data.')
 }
 

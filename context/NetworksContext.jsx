@@ -3,6 +3,7 @@ import { auth, db } from "@/lib/firebaseClient";
 import { arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { toast } from "sonner";
 import { createContext, useContext, useEffect, useState } from 'react'
+import { logEvent } from '@/lib/activityLog'
 const NetworkContext = createContext()
 
 export const NetworkProvider = ({children})=>{
@@ -25,8 +26,8 @@ export const NetworkProvider = ({children})=>{
       const userData = userDoc.data();
 
 
-      if (userData?.role == 'director'){
-        await setDoc(doc(db , 'networks' , `network-${inviteCode}`) , 
+      if (userData?.role == 'admin'){
+        await setDoc(doc(db , 'networks' , `network-${inviteCode}`) ,
             {
                 ...data , 
                 directorId : auth.currentUser.uid,
@@ -163,9 +164,17 @@ export const NetworkProvider = ({children})=>{
               created_at: new Date()
           })
         toast.success('Ride created successfully')
+        logEvent({
+          type: 'ride.created',
+          message: `Ride created: ${rideData.departure} → ${rideData.arrival} on ${rideData.departure_date}`,
+          userId: auth.currentUser.uid,
+          userName: userData.fullname,
+          mhspNumber: userData.mhspNumber,
+          metadata: { networkId, departure: rideData.departure, arrival: rideData.arrival, departure_date: rideData.departure_date },
+        }).catch(() => {})
       }
-      
-    } 
+
+    }
     catch (error){
         console.log(error)
         toast.error(error.message)
@@ -245,7 +254,7 @@ export const NetworkProvider = ({children})=>{
       const snapshot = await getDoc(docRef)
       const data = snapshot.data();
 
-      if (userData?.role == 'director'){
+      if (userData?.role == 'admin'){
         let updateUsers
         if (role === 'passenger'){
           updateUsers = data.passengers.map(p => p.id === id ? {...p , status : newStatus} : p)
@@ -378,6 +387,15 @@ export const NetworkProvider = ({children})=>{
               })})
             toast.success('Ride Booked successfully')
 
+            logEvent({
+              type: 'booking.created',
+              message: `Booking created: ${departure} → ${arrival} on ${departure_date}`,
+              userId: auth.currentUser.uid,
+              userName: userData.fullname,
+              mhspNumber: userData.mhspNumber,
+              metadata: { bookingId: bookId, rideId, departure, arrival, departure_date, booked_seats },
+            }).catch(() => {})
+
             // Send booking emails (fire-and-forget)
             fetch('/api/notify-booking', {
               method: 'POST',
@@ -500,7 +518,7 @@ const getNetworkList = async ()=>{
                 const networksRef = collection(db , 'networks')
                 let results = [];
 
-                if (userData?.role === 'director'){
+                if (userData?.role === 'admin'){
                   const q = query(networksRef, where("directorId", "==", user.uid));
                   const snapshot = await getDocs(q);
                   results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -597,6 +615,16 @@ const updateRide = async (rideId, updates) => {
     }
 
     toast.success('Ride updated successfully')
+    const updaterDoc = await getDoc(doc(db, 'users', auth.currentUser.uid)).catch(() => null)
+    const updaterData = updaterDoc?.data() || {}
+    logEvent({
+      type: 'ride.updated',
+      message: `Ride updated: ${rideId}`,
+      userId: auth.currentUser.uid,
+      userName: updaterData.fullname,
+      mhspNumber: updaterData.mhspNumber,
+      metadata: { rideId, updates },
+    }).catch(() => {})
   } catch (error) {
     toast.error(error.message)
   } finally {
@@ -634,6 +662,17 @@ const cancelRide = async (rideId)=>{
 
     await updateDoc(rideRef , {ride_status : 'canceled'})
     toast.success('Ride canceled successfully')
+
+    const cancelerDoc = await getDoc(doc(db, 'users', auth.currentUser.uid)).catch(() => null)
+    const cancelerData = cancelerDoc?.data() || {}
+    logEvent({
+      type: 'ride.canceled',
+      message: `Ride canceled: ${rideData.departure} → ${rideData.arrival} on ${rideData.departure_date}`,
+      userId: auth.currentUser.uid,
+      userName: cancelerData.fullname,
+      mhspNumber: cancelerData.mhspNumber,
+      metadata: { rideId, departure: rideData.departure, arrival: rideData.arrival, departure_date: rideData.departure_date },
+    }).catch(() => {})
 
     // Notify passengers by email (fire-and-forget)
     const passengersWithEmail = ridePassengers.filter(p => p.email)
@@ -752,6 +791,19 @@ const changeBookingStatus = async (passengerId  , rideId , bookingId , status)=>
       await updateDoc(rideRef , {available_seats : rideData.available_seats + user.booked_seats})
     }
     toast.success(`Passenger ${status} successfully`)
+
+    if (status === 'canceled' || status === 'declined') {
+      const actorDoc = await getDoc(doc(db, 'users', auth.currentUser.uid)).catch(() => null)
+      const actorData = actorDoc?.data() || {}
+      logEvent({
+        type: 'booking.canceled',
+        message: `Booking ${status}: booking ${bookingId} for ride ${rideId}`,
+        userId: auth.currentUser.uid,
+        userName: actorData.fullname,
+        mhspNumber: actorData.mhspNumber,
+        metadata: { bookingId, rideId, passengerId, status },
+      }).catch(() => {})
+    }
   }
   catch(error){
     toast.error(error.message)

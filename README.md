@@ -22,12 +22,14 @@ MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and ho
 - **Smart arrival time** — auto-filled from a pre-computed drive-time matrix for all pickup/destination pairs
 - **Ride management** — drivers can edit or cancel rides; booked passengers are notified by email on changes
 - **Dashboard** — see today's rides at a glance, upcoming rides, and a paginated ride history
+- **Email notifications** — registration welcome, booking receipts, ride change notices, and cancellations via Resend
+- **Admin panel** — user management, ride oversight, booking management, activity log, and leaderboard reports
 
 ---
 
 ## Current status
 
-Phases 1–5 are complete and the app is functional end-to-end:
+Phases 1–5 and the admin panel are complete. The app is live at [mhspride.com](https://www.mhspride.com).
 
 | Phase | Status |
 |-------|--------|
@@ -36,6 +38,7 @@ Phases 1–5 are complete and the app is functional end-to-end:
 | 3 — Member verification | Complete |
 | 4 — Onboarding & UX | Complete |
 | 5 — Predefined locations & drive times | Complete |
+| Admin panel | Complete |
 | 6 — Gear fields | Not started |
 | 7 — Favorites | Not started |
 | 8 — Pickup negotiation | Not started |
@@ -51,8 +54,9 @@ See `resources/implementation-plan.md` for full details.
 | Frontend | Next.js 15 + Tailwind CSS v4 + shadcn/ui |
 | Backend & DB | Firebase + Firestore |
 | Auth | Firebase Authentication |
+| Storage | Firebase Storage (profile photos) |
 | Email | Resend |
-| Hosting | Google Cloud Platform / Vercel |
+| Hosting | Vercel |
 
 ---
 
@@ -81,7 +85,7 @@ RESEND_API_KEY=
 ```
 
 Firebase values are in **Firebase Console → Project Settings → General → Your apps**.
-Resend API key is from [resend.com](https://resend.com) — used to notify passengers when a ride is edited.
+Resend API key is from [resend.com](https://resend.com) — used for all transactional emails.
 
 ### 3. Seed the database
 
@@ -103,6 +107,32 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000)
+
+---
+
+## Admin panel
+
+Users with `role: 'admin'` see an Admin section in the sidebar with access to:
+
+- **Users** — view all registered users, change roles, reset claimed memberships
+- **Rides** — view, edit, cancel, or delete any ride across all networks
+- **Bookings** — view and cancel any booking
+- **Activity Log** — paginated event log of all key system actions, filterable by type, date range, user, and message text
+- **Reports** — stats cards (total users, rides, bookings), top drivers and top riders leaderboards, route popularity
+
+### Setting up an admin user
+
+Set `role: 'admin'` directly in **Firebase Console → Firestore → users → [uid]**.
+
+To migrate existing `director` role users to `admin`:
+
+```bash
+node scripts/migrateDirectorToAdmin.mjs
+```
+
+### Firestore rules for admin access
+
+The admin pages require updated Firestore security rules. Add an `isAdmin()` helper and update rules for `users`, `members`, `rides`, `bookings`, and add rules for `activity_log`. See the comment block at the top of `app/dashboard/admin/users/page.jsx` for the full rule set to add in **Firebase Console → Firestore → Rules**.
 
 ---
 
@@ -130,26 +160,30 @@ See `scripts/README.md` for full details.
 ```
 MHSPRide/
 ├── app/
-│   ├── api/                    # Server-side API routes (email notifications)
+│   ├── api/                    # Server-side API routes (email, admin actions)
 │   └── dashboard/              # Protected dashboard pages
+│       ├── admin/              # Admin-only pages (users, rides, bookings, logs, reports)
 │       ├── network/[networkId]/ # Network detail, ride list, ride detail, members
 │       ├── rides/              # My Offered Rides
 │       ├── bookings/           # My Booked Rides
 │       ├── profile/            # User profile
 │       └── onboarding/         # First-login wizard
 ├── components/
-│   ├── popup-forms/            # OfferRidePopup, EditRidePopup
+│   ├── popup-forms/            # OfferRidePopup, EditRidePopup, RideDetailsPopup
 │   ├── forms/                  # Registration sub-forms
-│   └── ui/                     # shadcn components + FeedbackWidget
+│   ├── AdminGuard.jsx          # Redirects non-admins away from admin routes
+│   └── ui/                     # shadcn components + FeedbackWidget, CookieConsent
 ├── context/
 │   ├── AuthContext.jsx         # Auth state, profile updates
 │   └── NetworksContext.jsx     # All Firestore ride/booking/network operations
 ├── lib/
-│   ├── locations.js            # 11 pickup locations with coordinates
-│   ├── drive-times.js          # 120-pair static drive-time matrix
-│   └── utils.js                # cn(), toLocalDateStr()
-├── scripts/                    # Node.js seed/sync scripts (Admin SDK)
-└── resources/                  # Roster CSVs, implementation docs
+│   ├── locations.js            # Pickup locations + arrival destinations with coordinates
+│   ├── drive-times.js          # Static drive-time matrix (minutes, no traffic)
+│   ├── activityLog.js          # logEvent() utility — writes to activity_log collection
+│   ├── email.js                # Resend email helpers (registration, booking, cancellation)
+│   └── utils.js                # cn(), toLocalDateStr(), formatTime()
+├── scripts/                    # Node.js seed/sync/admin scripts (Firebase Admin SDK)
+└── resources/                  # Roster CSVs, implementation docs (gitignored)
 ```
 
 ---

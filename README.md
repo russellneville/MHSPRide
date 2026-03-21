@@ -72,20 +72,24 @@ npm install
 
 ### 2. Configure environment variables
 
-Create a `.env` file in the project root:
+Create a `.env.local` file in the project root:
 
 ```env
+# Firebase (Firebase Console → Project Settings → General → Your apps)
 NEXT_PUBLIC_FIREBASE_API_KEY=
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
-RESEND_API_KEY=
-```
 
-Firebase values are in **Firebase Console → Project Settings → General → Your apps**.
-Resend API key is from [resend.com](https://resend.com) — used for all transactional emails.
+# Resend (resend.com) — transactional email
+RESEND_API_KEY=
+
+# Test data seed script (optional — see docs/test-data.md)
+TEST_EMAIL_BASE=you@gmail.com
+TEST_PASSWORD=yourpassword
+```
 
 ### 3. Seed the database
 

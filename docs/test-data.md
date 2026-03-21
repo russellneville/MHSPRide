@@ -4,15 +4,41 @@ Test data for the MHSPRide app. Covers the full member lifecycle: registered use
 
 ---
 
-## Loading test data
+## Prerequisites
 
-Run the seed script with a service account key in place:
+### 1. Firebase service account key
+
+The seed and clear scripts use the Firebase Admin SDK and require a service account key:
+
+1. Go to **Firebase Console → Project Settings → Service accounts**
+2. Click **Generate new private key** and download the JSON file
+3. Save it as `scripts/serviceAccountKey.json`
+
+This file is gitignored and must never be committed.
+
+### 2. Environment variables
+
+Add the following to your `.env.local` file in the project root:
+
+```env
+# Base email for test accounts — test emails become you+TEST1@gmail.com, etc.
+TEST_EMAIL_BASE=you@gmail.com
+
+# Password assigned to all pre-registered test accounts
+TEST_PASSWORD=yourpassword
+```
+
+`TEST_EMAIL_BASE` should be a real email address you can access. Gmail's `+` aliasing means all test emails arrive in the same inbox, distinguished by the `+TEST{N}` suffix.
+
+---
+
+## Loading test data
 
 ```bash
 node scripts/seedTestData.mjs
 ```
 
-The script is idempotent in the sense that it checks for an existing TEST1 member doc before writing. If test data is already loaded it exits with a message rather than duplicating records.
+The script checks for an existing TEST1 member doc. If test data is already loaded it exits rather than duplicating records.
 
 To preview what would be written without touching Firestore:
 
@@ -28,23 +54,23 @@ node scripts/seedTestData.mjs --dry-run
 node scripts/clearTestData.mjs
 ```
 
-The clear script finds all Firestore `users` docs whose `fullname` contains `(test)` (case-insensitive), then deletes the associated rides, bookings, feedback, Auth accounts, and resets any claimed member records.
+Finds all Firestore `users` docs whose `fullname` contains `(test)` (case-insensitive), then deletes associated rides, bookings, feedback, and Firebase Auth accounts, and resets any claimed member records. Real user data is never touched.
 
 ---
 
 ## Pre-registered test accounts
 
-All accounts use password `test123test`.
+All accounts use the password set in `TEST_PASSWORD`. Emails are derived from `TEST_EMAIL_BASE` — e.g. if your base is `you@gmail.com`, the accounts will be `you+TEST1@gmail.com` through `you+TEST7@gmail.com`.
 
-| MHSP# | Name | Email | Role | Networks |
-|-------|------|-------|------|----------|
-| TEST1 | Blaze Whitmore (Test) | russellneville+TEST1@gmail.com | admin | Hill Patrol, Mountain Hosts, Nordic |
-| TEST2 | Sierra Frost (Test) | russellneville+TEST2@gmail.com | member | Mountain Hosts |
-| TEST3 | Jasper Ridgeline (Test) | russellneville+TEST3@gmail.com | member | Hill Patrol, Mountain Hosts, Nordic |
-| TEST4 | Poppy Snowfield (Test) | russellneville+TEST4@gmail.com | member | Hill Patrol |
-| TEST5 | Dale Shredmore (Test) | russellneville+TEST5@gmail.com | member | Hill Patrol, Nordic |
-| TEST6 | Autumn Flakewell (Test) | russellneville+TEST6@gmail.com | member | Hill Patrol |
-| TEST7 | Knox Bergmann (Test) | russellneville+TEST7@gmail.com | member | Hill Patrol, Mountain Hosts |
+| MHSP# | Name | Role | Networks |
+|-------|------|------|----------|
+| TEST1 | Blaze Whitmore (Test) | admin | Hill Patrol, Mountain Hosts, Nordic |
+| TEST2 | Sierra Frost (Test) | member | Mountain Hosts |
+| TEST3 | Jasper Ridgeline (Test) | member | Hill Patrol, Mountain Hosts, Nordic |
+| TEST4 | Poppy Snowfield (Test) | member | Hill Patrol |
+| TEST5 | Dale Shredmore (Test) | member | Hill Patrol, Nordic |
+| TEST6 | Autumn Flakewell (Test) | member | Hill Patrol |
+| TEST7 | Knox Bergmann (Test) | member | Hill Patrol, Mountain Hosts |
 
 ### Vehicles
 
@@ -62,7 +88,7 @@ All accounts use password `test123test`.
 
 ## Unregistered member accounts
 
-Use these MHSP numbers and last names to test the new-user registration flow. These records exist in the `members` collection but have no Firebase Auth account.
+These records exist in Firestore `members` but have no Firebase Auth account. Use them to test the new-user registration flow.
 
 | MHSP# | First Name | Last Name | Approximate Location |
 |-------|------------|-----------|----------------------|
@@ -81,10 +107,9 @@ Use these MHSP numbers and last names to test the new-user registration flow. Th
 The only admin account in the test data. Use this account to:
 
 - Access the Admin panel (Users, Rides, Bookings, Activity Log, Reports)
-- Change user roles
-- Reset claimed memberships
-- View and cancel any ride or booking
-- Verify the Admin panel only appears for users with `role: 'admin'`
+- Change user roles and reset claimed memberships
+- View and cancel any ride or booking across all networks
+- Verify the Admin sidebar section is only visible to `role: 'admin'` users
 
 Also useful for verifying three-network access — Blaze is a member of all three networks.
 
@@ -94,7 +119,7 @@ Also useful for verifying three-network access — Blaze is a member of all thre
 
 A member of Mountain Hosts and no other network. Use this account to:
 
-- Verify that network-scoped access works correctly — no Hill Patrol or Nordic rides appear
+- Verify that network-scoped access works — no Hill Patrol or Nordic rides appear
 - Test the offer ride flow (Sierra has a vehicle)
 - Confirm that joining only one network does not expose rides from other networks
 
@@ -114,10 +139,10 @@ A member of Hill Patrol, Mountain Hosts, and Nordic. Use this account to:
 
 Poppy has no vehicle fields in her user doc. Use this account to:
 
-- Verify the offer ride flow is blocked or prompts for vehicle info
-- Test the booking flow — Poppy appears frequently as a booked passenger in historical and future rides
-- Check that the dashboard shows booked rides but no "My Offered Rides" data
-- Confirm that no vehicle information appears on the profile page
+- Verify that offering a ride prompts for vehicle setup or is blocked
+- Test the booking flow — Poppy appears frequently as a booked passenger in seeded rides
+- Check that the dashboard shows booked rides but no offered ride history
+- Confirm no vehicle information appears on the profile page
 
 ---
 
@@ -127,8 +152,7 @@ Dale offers rides consistently but rarely rides as a passenger. Use this account
 
 - Test the offer ride form end-to-end
 - Test editing a ride (times, seats, pickup location)
-- Manage passengers — accept, decline, cancel
-- View ride history from the driver perspective
+- View the driver ride history
 
 ---
 
@@ -137,20 +161,20 @@ Dale offers rides consistently but rarely rides as a passenger. Use this account
 Four past rides by TEST6 are seeded with `ride_status: 'canceled'`, spread across the last six weeks. Use this account to:
 
 - Test the cancellation flow — offer a new ride and cancel it
-- Verify that canceled rides appear correctly in ride history
-- Check that passengers on canceled rides see the correct `booking_status`
-- Verify that admin reports and the activity log capture cancellations
+- Verify canceled rides appear correctly in ride history
+- Check that passengers on canceled rides see the correct status
+- Verify that cancellations appear in the admin activity log
 
 ---
 
 ### TEST7 — Modifies rides with booked passengers (Knox Bergmann)
 
-Two future rides by TEST7 have `ride_description` notes describing a pickup location change and a time change. TEST4 (Poppy) is booked on both rides. Use this account to:
+Two future rides by TEST7 have `ride_description` notes describing a pickup location change. TEST4 (Poppy) is booked on both. Use this account to:
 
 - Test the edit ride flow when passengers are already booked
-- Verify that booked passengers receive the update notification (check the test email inbox)
-- Confirm that `ride_updated: true` and `update_seen: false` appear on the booking doc after an edit
-- Test the passenger-side "dismiss update" flow logged in to TEST4
+- Verify that booked passengers receive the update notification email
+- Confirm the warning dialog appears when editing a ride with bookings
+- Test the passenger-side view of a modified ride (log in as TEST4)
 
 ---
 
@@ -159,39 +183,39 @@ Two future rides by TEST7 have `ride_description` notes describing a pickup loca
 These records exist in Firestore `members` but have no Auth account. Use them to test the registration flow:
 
 1. Go to the registration page
-2. Enter the MHSP number (e.g. TEST8) and last name (e.g. Avalanche)
+2. Enter the MHSP number (e.g. `TEST8`) and last name (e.g. `Avalanche`)
 3. The app should match the member record and proceed with account creation
-4. After registration, the member doc should be marked `claimed: true` with the new uid in `claimedBy`
+4. After registration, the member doc should be marked `claimed: true`
 
 ---
 
 ## Ride data overview
 
-All ride dates are computed relative to the day the seed script runs, so the data stays current across test environments.
+All ride dates are computed relative to the day the seed script runs, so the data stays current across environments.
 
 | Category | Volume | Status |
 |----------|--------|--------|
 | Past Saturdays (8 weeks) | 2 rides per day | completed |
 | Past Sundays (8 weeks) | 1–2 rides per day | completed |
 | Past weekdays (1 per week, 8 weeks) | 1 ride per day | completed |
-| Autumn's canceled rides | 4 total, spread over last 6 weeks | canceled |
+| Autumn's canceled rides | 4 total, spread over 6 weeks | canceled |
 | Upcoming Saturdays (3 weeks) | 2–3 rides per day | open or full |
 | Upcoming Sundays (3 weeks) | 1–2 rides per day | open |
 | Next week's weekdays | 1 per day | open |
 | Knox modification scenario | 2 future rides | open, with description notes |
 
-Drivers rotate through TEST1, TEST3, TEST5, and TEST7 for Hill Patrol and Nordic rides. TEST2 appears as a driver on Mountain Hosts rides. TEST4 (Poppy) appears as a passenger on most rides.
+Drivers rotate through TEST1, TEST3, TEST5, and TEST7 for Hill Patrol and Nordic rides. TEST2 drives Mountain Hosts rides. TEST4 (Poppy) appears as a passenger on most rides.
 
 ---
 
 ## Notes for testers
 
-**Email notifications** — the test emails use the `russellneville+TEST{N}@gmail.com` format, so all notifications go to the same real Gmail inbox and are distinguishable by the `+TEST{N}` suffix. Check that inbox after testing booking, cancellation, and ride update flows.
+**Email notifications** — because `TEST_EMAIL_BASE` is your own address, all test notification emails arrive in your inbox distinguishable by the `+TEST{N}` suffix. Check that inbox after testing booking, cancellation, and ride update flows.
 
-**Knox modification scenario** — the two Knox rides are seeded with the `ride_description` already showing the update note. To test the full flow, log in as TEST7, find one of those rides under My Offered Rides, and use the Edit Ride form to make a real change. The seeded description is there to show what passengers see when they land on the booking detail page after an update.
+**Knox modification scenario** — the two Knox rides are seeded with a `ride_description` showing the change note. To test the full flow, log in as TEST7, find one of those rides under My Offered Rides, and use the Edit Ride form to make a real change. The pre-seeded description shows what passengers see when they reach the booking detail page.
 
-**Full rides** — some upcoming Saturday rides are seeded with `ride_status: 'full'` (zero available seats). Use these to verify that the Book Ride button is disabled or hidden, and that the ride appears correctly in the "full" state.
+**Full rides** — some upcoming Saturday rides are seeded with `ride_status: 'full'` (zero available seats). Use these to verify the Book Ride button is disabled and the ride renders in the full state.
 
-**Admin vs member view** — log in as TEST1 to see the Admin sidebar entries, then log in as any other test account to confirm those entries are not visible.
+**Admin vs member view** — log in as TEST1 to see the Admin sidebar entries, then log in as any other test account to confirm those entries are absent.
 
-**Clearing** — after testing, `node scripts/clearTestData.mjs` removes all data tied to accounts whose `fullname` contains `(test)`. Real user data is never touched.
+**Clearing** — `node scripts/clearTestData.mjs` removes all data tied to accounts whose `fullname` contains `(test)`. Real user data is never touched.

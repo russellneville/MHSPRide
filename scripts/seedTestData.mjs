@@ -21,6 +21,34 @@ import { initializeApp, cert } from 'firebase-admin/app'
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
 import { createRequire } from 'module'
+import { config } from 'dotenv'
+import { resolve } from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = fileURLToPath(new URL('.', import.meta.url))
+
+// Load .env.local from project root
+config({ path: resolve(__dirname, '../.env.local') })
+
+const EMAIL_BASE = process.env.TEST_EMAIL_BASE
+const PASSWORD   = process.env.TEST_PASSWORD
+
+if (!EMAIL_BASE) {
+  console.error('❌  TEST_EMAIL_BASE is not set in .env.local')
+  console.error('    Add: TEST_EMAIL_BASE=you@gmail.com')
+  process.exit(1)
+}
+if (!PASSWORD) {
+  console.error('❌  TEST_PASSWORD is not set in .env.local')
+  console.error('    Add: TEST_PASSWORD=yourpassword')
+  process.exit(1)
+}
+
+// Derive test email from base: you@gmail.com → you+TEST1@gmail.com
+function testEmail(n) {
+  const [local, domain] = EMAIL_BASE.split('@')
+  return `${local}+TEST${n}@${domain}`
+}
 
 const require = createRequire(import.meta.url)
 const serviceAccount = require('./serviceAccountKey.json')
@@ -129,14 +157,12 @@ function nextBookId() {
 
 // ── Static data ───────────────────────────────────────────────────────────────
 
-const PASSWORD = 'test123test'
-
 const USERS = [
   {
     n: 1,
     mhspNumber: 'TEST1',
     fullname: 'Blaze Whitmore (Test)',
-    email: 'russellneville+TEST1@gmail.com',
+    email: testEmail(1),
     phone: '503-555-0101',
     birthdate: '1985-03-12',
     role: 'admin',
@@ -150,7 +176,7 @@ const USERS = [
     n: 2,
     mhspNumber: 'TEST2',
     fullname: 'Sierra Frost (Test)',
-    email: 'russellneville+TEST2@gmail.com',
+    email: testEmail(2),
     phone: '503-555-0102',
     birthdate: '1991-07-24',
     role: 'member',
@@ -164,7 +190,7 @@ const USERS = [
     n: 3,
     mhspNumber: 'TEST3',
     fullname: 'Jasper Ridgeline (Test)',
-    email: 'russellneville+TEST3@gmail.com',
+    email: testEmail(3),
     phone: '503-555-0103',
     birthdate: '1988-11-05',
     role: 'member',
@@ -178,7 +204,7 @@ const USERS = [
     n: 4,
     mhspNumber: 'TEST4',
     fullname: 'Poppy Snowfield (Test)',
-    email: 'russellneville+TEST4@gmail.com',
+    email: testEmail(4),
     phone: '503-555-0104',
     birthdate: '1995-02-18',
     role: 'member',
@@ -190,7 +216,7 @@ const USERS = [
     n: 5,
     mhspNumber: 'TEST5',
     fullname: 'Dale Shredmore (Test)',
-    email: 'russellneville+TEST5@gmail.com',
+    email: testEmail(5),
     phone: '503-555-0105',
     birthdate: '1979-09-30',
     role: 'member',
@@ -204,7 +230,7 @@ const USERS = [
     n: 6,
     mhspNumber: 'TEST6',
     fullname: 'Autumn Flakewell (Test)',
-    email: 'russellneville+TEST6@gmail.com',
+    email: testEmail(6),
     phone: '503-555-0106',
     birthdate: '1993-06-14',
     role: 'member',
@@ -218,7 +244,7 @@ const USERS = [
     n: 7,
     mhspNumber: 'TEST7',
     fullname: 'Knox Bergmann (Test)',
-    email: 'russellneville+TEST7@gmail.com',
+    email: testEmail(7),
     phone: '503-555-0107',
     birthdate: '1987-04-22',
     role: 'member',
@@ -861,7 +887,7 @@ async function main() {
   console.log(`  Auth users created   : ${USERS.length}`)
   console.log(`  Rides created        : ${ridesWritten} (${pastRides.length} historical, ${futureRides.length} future)`)
   console.log(`  Bookings created     : ${bookingsWritten}`)
-  console.log(`\nTest accounts: russellneville+TEST{1-7}@gmail.com / ${PASSWORD}`)
+  console.log(`\nTest accounts: ${testEmail('{1-7}')} / ${PASSWORD}`)
   console.log('Run clearTestData.mjs to remove all test data.')
 }
 

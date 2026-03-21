@@ -74,8 +74,8 @@ function RidesContent() {
   const { openPopup } = usePopup()
   const [rides, setRides] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filterStatus, setFilterStatus] = useState('')
-  const [filterNetwork, setFilterNetwork] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [filterNetwork, setFilterNetwork] = useState('all')
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo] = useState('')
   const [cancelTarget, setCancelTarget] = useState(null)
@@ -166,8 +166,8 @@ function RidesContent() {
   }
 
   const filtered = rides.filter(r => {
-    if (filterStatus && r.ride_status !== filterStatus) return false
-    if (filterNetwork && r.network_id !== filterNetwork) return false
+    if (filterStatus !== 'all' && r.ride_status !== filterStatus) return false
+    if (filterNetwork !== 'all' && r.network_id !== filterNetwork) return false
     if (filterFrom && r.departure_date < filterFrom) return false
     if (filterTo && r.departure_date > filterTo) return false
     return true
@@ -186,7 +186,7 @@ function RidesContent() {
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All statuses</SelectItem>
+            <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="not started">Not Started</SelectItem>
             <SelectItem value="on progress">In Progress</SelectItem>
             <SelectItem value="finished">Finished</SelectItem>
@@ -199,7 +199,7 @@ function RidesContent() {
             <SelectValue placeholder="All networks" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All networks</SelectItem>
+            <SelectItem value="all">All networks</SelectItem>
             {KNOWN_NETWORKS.map(n => (
               <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>
             ))}
@@ -220,8 +220,8 @@ function RidesContent() {
           onChange={e => setFilterTo(e.target.value)}
           placeholder="To date"
         />
-        {(filterStatus || filterNetwork || filterFrom || filterTo) && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus(''); setFilterNetwork(''); setFilterFrom(''); setFilterTo('') }}>
+        {(filterStatus !== 'all' || filterNetwork !== 'all' || filterFrom || filterTo) && (
+          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('all'); setFilterNetwork('all'); setFilterFrom(''); setFilterTo('') }}>
             Clear
           </Button>
         )}

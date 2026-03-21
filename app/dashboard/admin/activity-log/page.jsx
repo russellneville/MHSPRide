@@ -72,7 +72,7 @@ function ActivityLogContent() {
   const [allLogs, setAllLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
-  const [filterType, setFilterType] = useState('')
+  const [filterType, setFilterType] = useState('all')
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo] = useState('')
   const [userSearch, setUserSearch] = useState('')
@@ -103,7 +103,7 @@ function ActivityLogContent() {
   }
 
   const filtered = allLogs.filter(log => {
-    if (filterType && log.type !== filterType) return false
+    if (filterType !== 'all' && log.type !== filterType) return false
     if (filterFrom || filterTo) {
       let logDate = null
       try { logDate = log.timestamp?.toDate() } catch {}
@@ -133,7 +133,7 @@ function ActivityLogContent() {
             <SelectValue placeholder="All event types" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All event types</SelectItem>
+            <SelectItem value="all">All event types</SelectItem>
             {EVENT_TYPES.map(t => (
               <SelectItem key={t} value={t}>{t}</SelectItem>
             ))}
@@ -164,8 +164,8 @@ function ActivityLogContent() {
           value={messageSearch}
           onChange={e => { setMessageSearch(e.target.value); resetPage() }}
         />
-        {(filterType || filterFrom || filterTo || userSearch || messageSearch) && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterType(''); setFilterFrom(''); setFilterTo(''); setUserSearch(''); setMessageSearch(''); resetPage() }}>
+        {(filterType !== 'all' || filterFrom || filterTo || userSearch || messageSearch) && (
+          <Button variant="ghost" size="sm" onClick={() => { setFilterType('all'); setFilterFrom(''); setFilterTo(''); setUserSearch(''); setMessageSearch(''); resetPage() }}>
             Clear
           </Button>
         )}

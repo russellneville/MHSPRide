@@ -66,7 +66,7 @@ function BookingsContent() {
   const { user: currentUser } = useAuth()
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filterStatus, setFilterStatus] = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo] = useState('')
   const [cancelTarget, setCancelTarget] = useState(null)
@@ -145,7 +145,7 @@ function BookingsContent() {
   }
 
   const filtered = bookings.filter(b => {
-    if (filterStatus && b.booking_status !== filterStatus) return false
+    if (filterStatus !== 'all' && b.booking_status !== filterStatus) return false
     if (filterFrom && b.departure_date < filterFrom) return false
     if (filterTo && b.departure_date > filterTo) return false
     return true
@@ -162,7 +162,7 @@ function BookingsContent() {
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All statuses</SelectItem>
+            <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="booked">Booked</SelectItem>
             <SelectItem value="on progress">In Progress</SelectItem>
             <SelectItem value="finished">Finished</SelectItem>
@@ -182,8 +182,8 @@ function BookingsContent() {
           value={filterTo}
           onChange={e => setFilterTo(e.target.value)}
         />
-        {(filterStatus || filterFrom || filterTo) && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus(''); setFilterFrom(''); setFilterTo('') }}>
+        {(filterStatus !== 'all' || filterFrom || filterTo) && (
+          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('all'); setFilterFrom(''); setFilterTo('') }}>
             Clear
           </Button>
         )}

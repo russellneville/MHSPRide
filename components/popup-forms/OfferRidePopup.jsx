@@ -20,7 +20,7 @@ import { toLocalDateStr } from "@/lib/utils"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { db, auth } from "@/lib/firebaseClient"
 
-const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== "timberline-lodge")
+const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== "timberline-lodge").sort((a, b) => a.name.localeCompare(b.name))
 
 const ARRIVAL_LOCATIONS = [
   { id: "buzz-bowman",  name: "Buzz Bowman Ski Patrol Building" },
@@ -29,7 +29,7 @@ const ARRIVAL_LOCATIONS = [
   { id: "ski-bowl",     name: "Ski Bowl" },
   { id: "meadows",      name: "Meadows" },
   { id: "tea-cup",      name: "Tea Cup" },
-]
+].sort((a, b) => a.name.localeCompare(b.name))
 
 function SuggestLocationPopover({ context }) {
   const [open, setOpen] = useState(false)
@@ -118,7 +118,7 @@ function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, loca
   )
 }
 
-export default function OfferRidePopup({ networkId }) {
+export default function OfferRidePopup({ networkId, onSaved }) {
   const { closePopup } = usePopup()
   const { isLoading, offerRide, getRides } = useNetwork()
   const { user } = useAuth()
@@ -190,6 +190,7 @@ export default function OfferRidePopup({ networkId }) {
         ride_description: rideData.ride_description,
         total_seats: Number(rideData.total_seats),
       }, networkId)
+      onSaved?.()
       closePopup()
     }
   }

@@ -5,7 +5,7 @@ import {
   CalendarClock,
   CarFront,
   ChevronRight,
-  Download,
+  Coffee,
   MapPin,
   Route,
   ShieldCheck,
@@ -72,6 +72,7 @@ export default function Home() {
           <nav className="landing-nav">
             <a href="#home">Home</a>
             <a href="#how-it-works">How It Works</a>
+            <Link href="/contact">Contact</Link>
             <Link href="/login">Log In</Link>
           </nav>
         </header>
@@ -132,6 +133,18 @@ export default function Home() {
                 <p>Network-Based Access</p>
               </div>
             </div>
+
+            <div className="landing-bmc-wrap">
+              <a
+                href="https://buymeacoffee.com/russellneville"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="landing-bmc-btn"
+              >
+                <Coffee size={18} />
+                Support this site
+              </a>
+            </div>
           </aside>
         </div>
       </section>
@@ -152,6 +165,18 @@ export default function Home() {
               <p>{description}</p>
             </article>
           ))}
+        </div>
+
+        <div className="landing-workflow-bmc">
+          <a
+            href="https://buymeacoffee.com/russellneville"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="landing-bmc-btn"
+          >
+            <Coffee size={18} />
+            Support this site
+          </a>
         </div>
       </section>
 

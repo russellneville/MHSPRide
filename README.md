@@ -8,6 +8,8 @@ Built for the patrol, by the patrol.
 
 ---
 
+[Screenshots](docs/screenshots.md)
+
 ## Who it's for
 
 MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and hosting duties. Access is restricted to verified MHSP members — registration requires your patrol ID number and last name.

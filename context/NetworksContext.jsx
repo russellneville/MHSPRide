@@ -518,22 +518,20 @@ const getNetworkList = async ()=>{
                 const networksRef = collection(db , 'networks')
                 let results = [];
 
-                if (userData?.role === 'admin'){
-                  const q = query(networksRef, where("directorId", "==", user.uid));
-                  const snapshot = await getDocs(q);
-                  results = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                } else {
-                  // members can appear in either driversIds or passengersIds
-                  const [driversSnap, passengersSnap] = await Promise.all([
-                    getDocs(query(networksRef, where("driversIds", "array-contains", user.uid))),
-                    getDocs(query(networksRef, where("passengersIds", "array-contains", user.uid))),
-                  ]);
-                  const seen = new Set();
-                  for (const d of [...driversSnap.docs, ...passengersSnap.docs]) {
-                    if (!seen.has(d.id)) {
-                      seen.add(d.id);
-                      results.push({ id: d.id, ...d.data() });
-                    }
+                // Check all ways a user can belong to a network
+                const queries = [
+                  getDocs(query(networksRef, where("passengersIds", "array-contains", user.uid))),
+                  getDocs(query(networksRef, where("driversIds", "array-contains", user.uid))),
+                ];
+                if (userData?.role === 'admin') {
+                  queries.push(getDocs(query(networksRef, where("directorId", "==", user.uid))));
+                }
+                const snaps = await Promise.all(queries);
+                const seen = new Set();
+                for (const d of snaps.flatMap(s => s.docs)) {
+                  if (!seen.has(d.id)) {
+                    seen.add(d.id);
+                    results.push({ id: d.id, ...d.data() });
                   }
                 }
 

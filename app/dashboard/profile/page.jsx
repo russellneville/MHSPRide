@@ -4,17 +4,20 @@ import DashboardLayout from "../dashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@radix-ui/react-label";
 import { Input } from "@/components/ui/input";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import DatePicker from "@/components/ui/date-picker";
 import { toLocalDateStr } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import DriverProfile from "@/components/forms/DriverProfile";
 import { Button } from "@/components/ui/button";
 import DirectorProfile from "@/components/forms/DirectorProfile";
+import { Camera, User } from "lucide-react";
 
 export default function ProfilePage (){
-    const { user , updateProfile , isLoading} = useAuth()
+    const { user , updateProfile , uploadPhoto, isLoading} = useAuth()
     const [date, setDate] = useState(undefined)
+    const [uploading, setUploading] = useState(false)
+    const fileInputRef = useRef(null)
     const [ profile , setProfile ] = useState({
         fullname : '', 
         birthdate : '' , 
@@ -47,6 +50,15 @@ export default function ProfilePage (){
           birthdate: toLocalDateStr(selectedDate),
         }));
     };
+
+    const handlePhotoChange = async (e) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+        setUploading(true)
+        await uploadPhoto(file)
+        setUploading(false)
+        e.target.value = ''
+    }
     return <>
     <DashboardLayout>
         <div className="flex items-center justify-betwee py-3">
@@ -61,6 +73,42 @@ export default function ProfilePage (){
             </CardTitle>
         </CardHeader>
         <CardContent className='space-y-4'>
+            <div className="flex items-center gap-4 pb-2">
+                <div className="relative shrink-0">
+                    {user?.photoURL ? (
+                        <img
+                            src={user.photoURL}
+                            alt="Profile photo"
+                            className="w-16 h-16 rounded-full object-cover border border-border"
+                        />
+                    ) : (
+                        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center border border-border">
+                            <User className="w-7 h-7 text-muted-foreground" />
+                        </div>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow hover:bg-primary/90 transition-colors disabled:opacity-50"
+                        title="Change photo"
+                    >
+                        <Camera className="w-3 h-3" />
+                    </button>
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoChange}
+                    />
+                </div>
+                <div>
+                    <p className="text-sm font-medium">{user?.fullname}</p>
+                    <p className="text-xs text-muted-foreground">{uploading ? 'Uploading…' : 'Click the camera icon to change your photo'}</p>
+                </div>
+            </div>
+
             <div className="space-y-2 flex items-center gap-2 w-full">
                 <div className="w-full mb-0">
                     <Label htmlFor="fullname">Full name</Label>

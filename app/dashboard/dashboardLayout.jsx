@@ -62,16 +62,26 @@ export default function DashboardLayout({ children, banner, headerActions }) {
                 </BreadcrumbItem>
 
                 {segments.filter((_,i)=> i!== 0).map((segment, index) => {
-                  const href = '/' + segments.slice(0, index + 1).join('/')
-                  const isLast = index === segments.length - 1
+                  // Segments that don't have a real page at their computed href
+                  const SEGMENT_MAP = {
+                    network: { label: 'Networks', href: '/dashboard/networks' },
+                    admin:   { label: 'Admin',    href: null }, // no /dashboard/admin page
+                  }
+                  const override = SEGMENT_MAP[segment]
+                  const href = override !== undefined
+                    ? override.href
+                    : '/' + segments.slice(0, index + 2).join('/')
+                  // Filtered array is one shorter than segments (dashboard is skipped),
+                  // so the last filtered index is segments.length - 2
+                  const isLast = index === segments.length - 2
                   const stripped = segment.replace(/^network-/i, '')
-                  const label = stripped.charAt(0).toUpperCase() + stripped.slice(1).toLowerCase()
+                  const label = override?.label ?? (stripped.charAt(0).toUpperCase() + stripped.slice(1).toLowerCase())
 
                   return (
-                    <div key={href} className="flex items-center">
+                    <div key={index} className="flex items-center">
                       <BreadcrumbSeparator />
                       <BreadcrumbItem>
-                        {isLast ? (
+                        {isLast || href === null ? (
                           <span className="text-muted-foreground">{label}</span>
                         ) : (
                           <BreadcrumbLink asChild>

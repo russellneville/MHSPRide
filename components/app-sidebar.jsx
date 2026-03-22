@@ -6,6 +6,7 @@ import {
   Car,
   ClipboardList,
   Home,
+  Mail,
   MapPin,
   Settings,
   Ticket,
@@ -39,6 +40,7 @@ const ADMIN_MENU = [
   { name: "Bookings",     icon: ClipboardList, href: "/dashboard/admin/bookings" },
   { name: "Activity Log", icon: Activity,      href: "/dashboard/admin/activity-log" },
   { name: "Reports",      icon: BarChart2,     href: "/dashboard/admin/reports" },
+  { name: "Settings",     icon: Settings,      href: "/dashboard/admin/settings" },
 ]
 
 export function AppSidebar({ user, ...props }) {
@@ -99,6 +101,18 @@ export function AppSidebar({ user, ...props }) {
             </SidebarGroup>
           </>
         )}
+
+        <SidebarSeparator />
+        <SidebarGroup>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton href="/contact" tooltip="Contact Us">
+                <Mail />
+                <span>Contact Us</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
       </SidebarContent>
 
       {/* Mountain photo panel — hidden when collapsed to icon mode */}

@@ -20,7 +20,7 @@ import { toLocalDateStr } from "@/lib/utils"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { db, auth } from "@/lib/firebaseClient"
 
-const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== "timberline-lodge")
+const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== "timberline-lodge").sort((a, b) => a.name.localeCompare(b.name))
 
 const ARRIVAL_LOCATIONS = [
   { id: "buzz-bowman",  name: "Buzz Bowman Ski Patrol Building" },
@@ -29,7 +29,7 @@ const ARRIVAL_LOCATIONS = [
   { id: "ski-bowl",     name: "Ski Bowl" },
   { id: "meadows",      name: "Meadows" },
   { id: "tea-cup",      name: "Tea Cup" },
-]
+].sort((a, b) => a.name.localeCompare(b.name))
 
 function SuggestLocationPopover({ context }) {
   const [open, setOpen] = useState(false)

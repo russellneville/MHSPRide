@@ -17,7 +17,7 @@ import { LOCATIONS, resolveLocation } from "@/lib/locations";
 import { formatTime } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 
-const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== 'timberline-lodge');
+const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== 'timberline-lodge').sort((a, b) => a.name.localeCompare(b.name));
 
 // ── Status computation (no Firestore writes needed) ───────────────────────────
 function computeRideStatus(ride) {
@@ -118,8 +118,8 @@ export default function NetworkPage() {
   });
 
   // Collect distinct values for filter dropdowns
-  const pickupOptions  = [...new Set(sortedUpcoming.map(r => r.departure).filter(Boolean))];
-  const arrivalOptions = [...new Set(sortedUpcoming.map(r => r.arrival).filter(Boolean))];
+  const pickupOptions  = [...new Set(sortedUpcoming.map(r => r.departure).filter(Boolean))].sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)));
+  const arrivalOptions = [...new Set(sortedUpcoming.map(r => r.arrival).filter(Boolean))].sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)));
   const driverOptions  = [...new Set(sortedUpcoming.map(r => r.driver?.fullname).filter(Boolean))];
 
   return (

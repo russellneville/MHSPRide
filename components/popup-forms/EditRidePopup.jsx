@@ -12,7 +12,7 @@ import { LOCATIONS } from "@/lib/locations"
 import { estimateArrival } from "@/lib/drive-times"
 import { toLocalDateStr } from "@/lib/utils"
 
-const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== "timberline-lodge")
+const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== "timberline-lodge").sort((a, b) => a.name.localeCompare(b.name))
 
 const ARRIVAL_LOCATIONS = [
   { id: "buzz-bowman",  name: "Buzz Bowman Ski Patrol Building" },
@@ -21,7 +21,7 @@ const ARRIVAL_LOCATIONS = [
   { id: "ski-bowl",     name: "Ski Bowl" },
   { id: "meadows",      name: "Meadows" },
   { id: "tea-cup",      name: "Tea Cup" },
-]
+].sort((a, b) => a.name.localeCompare(b.name))
 
 const KNOWN_DEP_IDS  = new Set(DEPARTURE_LOCATIONS.map(l => l.id))
 const KNOWN_ARR_IDS  = new Set(ARRIVAL_LOCATIONS.map(l => l.id))

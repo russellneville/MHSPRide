@@ -3,7 +3,7 @@ import { useNetwork } from "@/context/NetworksContext"
 import DashboardLayout from "./dashboardLayout"
 import { useAuth } from "@/context/AuthContext"
 import { usePopup } from "@/context/PopupContext"
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { formatTime, toLocalDateStr } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -31,24 +31,36 @@ function normalizeStatus(s) {
 export default function Dashboard() {
   const { getRides, getBookings, getNetworkList, dismissRideUpdate } = useNetwork()
   const { user } = useAuth()
-  const { openPopup } = usePopup()
+  const { openPopup, isOpen } = usePopup()
   const [rides, setRides] = useState([])
   const [bookings, setBookings] = useState([])
   const [joinedNetworks, setJoinedNetworks] = useState([])
   const [pastPage, setPastPage] = useState(0)
   const [pastOpen, setPastOpen] = useState(false)
+  const fetchDataRef = useRef(null)
 
   useEffect(() => {
+    if (!user) return
+    let cancelled = false
     const fetchData = async () => {
-      if (!user) return
       const [rideData, bookingData, netList] = await Promise.all([getRides(), getBookings(), getNetworkList()])
+      if (cancelled) return
       setRides(rideData || [])
       setBookings(bookingData || [])
       const ids = new Set((netList || []).map(n => n.id))
       setJoinedNetworks(KNOWN_NETWORKS.filter(n => ids.has(n.id)))
     }
+    fetchDataRef.current = fetchData
     fetchData()
-  }, [user])
+    return () => { cancelled = true }
+  }, [user, isOpen])
+
+  // Refresh when the tab regains focus (e.g. after booking a ride on the detail page)
+  useEffect(() => {
+    const onFocus = () => fetchDataRef.current?.()
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+  }, [])
 
   const today = toLocalDateStr(new Date())
 

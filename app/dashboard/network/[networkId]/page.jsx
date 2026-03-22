@@ -61,6 +61,9 @@ export default function NetworkPage() {
   const [networkData, setNetworkData] = useState(null);
   const [rides, setRides] = useState([]);
   const [pastOpen, setPastOpen] = useState(false);
+  const [ridesKey, setRidesKey] = useState(0);
+
+  const refreshRides = () => setRidesKey(k => k + 1);
 
   // Filters
   const [filterDate, setFilterDate] = useState('');
@@ -79,6 +82,11 @@ export default function NetworkPage() {
       setRides(rideList || []);
     });
   }, [user, networkId]);
+
+  useEffect(() => {
+    if (!ridesKey || !user || !networkId) return;
+    getRidesByNetworkId(networkId).then(rideList => setRides(rideList || []));
+  }, [ridesKey]);
 
   const handleDeleteNetwork = async () => {
     if (confirm('Are you sure you want to delete this network?')) {
@@ -135,7 +143,7 @@ export default function NetworkPage() {
                 <Users className="size-4 mr-1" /> Members
               </Link>
             </Button>
-            <Button onClick={() => openPopup('Offer ride', <OfferRidePopup networkId={networkId} />)}>
+            <Button onClick={() => openPopup('Offer ride', <OfferRidePopup networkId={networkId} onSaved={refreshRides} />)}>
               Offer Ride <Plus className="size-4 ml-1" />
             </Button>
             {user?.role === 'admin' && (
@@ -207,7 +215,7 @@ export default function NetworkPage() {
                 {hasFilters
                   ? 'No rides match your filters.'
                   : <>No upcoming rides. Be the first to{' '}
-                    <button className="text-primary underline" onClick={() => openPopup('Offer ride', <OfferRidePopup networkId={networkId} />)}>
+                    <button className="text-primary underline" onClick={() => openPopup('Offer ride', <OfferRidePopup networkId={networkId} onSaved={refreshRides} />)}>
                       offer one
                     </button>.</>
                 }

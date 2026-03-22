@@ -118,7 +118,7 @@ function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, loca
   )
 }
 
-export default function OfferRidePopup({ networkId }) {
+export default function OfferRidePopup({ networkId, onSaved }) {
   const { closePopup } = usePopup()
   const { isLoading, offerRide, getRides } = useNetwork()
   const { user } = useAuth()
@@ -190,6 +190,7 @@ export default function OfferRidePopup({ networkId }) {
         ride_description: rideData.ride_description,
         total_seats: Number(rideData.total_seats),
       }, networkId)
+      onSaved?.()
       closePopup()
     }
   }

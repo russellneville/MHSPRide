@@ -16,23 +16,9 @@ import Link from "next/link";
 import { LOCATIONS, resolveLocation } from "@/lib/locations";
 import { formatTime } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
+import { computeRideStatus } from "@/lib/rides";
 
 const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== 'timberline-lodge').sort((a, b) => a.name.localeCompare(b.name));
-
-// ── Status computation (no Firestore writes needed) ───────────────────────────
-function computeRideStatus(ride) {
-  if (ride.ride_status === 'canceled' || ride.ride_status === 'canceled') return 'canceled';
-
-  const now = new Date();
-  const departure = new Date(`${ride.departure_date}T${ride.departure_time || '00:00'}`);
-  const arrival = ride.arrival_time
-    ? new Date(`${ride.departure_date}T${ride.arrival_time}`)
-    : new Date(departure.getTime() + 4 * 60 * 60 * 1000); // 4-hour fallback
-
-  if (now < departure) return ride.available_seats > 0 ? 'open' : 'full';
-  if (now <= arrival)  return 'in_progress';
-  return 'completed';
-}
 
 const STATUS_LABEL = {
   open:        'Open',

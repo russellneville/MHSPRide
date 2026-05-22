@@ -6,10 +6,12 @@ import {
   Car,
   ClipboardList,
   Home,
+  List,
   Mail,
   MapPin,
   Settings,
   Ticket,
+  Upload,
   User,
   Users,
   Waypoints,
@@ -35,12 +37,14 @@ import {
 } from "@/components/ui/sidebar"
 
 const ADMIN_MENU = [
-  { name: "Users",        icon: Users,         href: "/dashboard/admin/users" },
-  { name: "Rides",        icon: Car,           href: "/dashboard/admin/rides" },
-  { name: "Bookings",     icon: ClipboardList, href: "/dashboard/admin/bookings" },
-  { name: "Activity Log", icon: Activity,      href: "/dashboard/admin/activity-log" },
-  { name: "Reports",      icon: BarChart2,     href: "/dashboard/admin/reports" },
-  { name: "Settings",     icon: Settings,      href: "/dashboard/admin/settings" },
+  { name: "Users",          icon: Users,         href: "/dashboard/admin/users" },
+  { name: "Roster",         icon: List,          href: "/dashboard/admin/roster" },
+  { name: "Rides",          icon: Car,           href: "/dashboard/admin/rides" },
+  { name: "Bookings",       icon: ClipboardList, href: "/dashboard/admin/bookings" },
+  { name: "Roster Import",  icon: Upload,        href: "/dashboard/admin/roster-import" },
+  { name: "Activity Log",   icon: Activity,      href: "/dashboard/admin/activity-log" },
+  { name: "Reports",        icon: BarChart2,     href: "/dashboard/admin/reports" },
+  { name: "Settings",       icon: Settings,      href: "/dashboard/admin/settings" },
 ]
 
 export function AppSidebar({ user, ...props }) {

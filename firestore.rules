@@ -2,68 +2,83 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Members collection: public read for registration verification,
-    // authenticated users can only update claimed/claimedBy fields
+    function isAdmin() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Members: public read for registration verification;
+    // authenticated users may only flip claimed/claimedBy on unclaimed docs
     match /members/{memberId} {
       allow read: if true;
       allow update: if request.auth != null
+        && resource.data.claimed == false
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['claimed', 'claimedBy']);
       allow create, delete: if false;
     }
 
-    // Users: only accessible by the owning user
+    // Users: owner can read/write their own doc, but cannot change role,
+    // mhspNumber, or created_at (those are set by server-side code only).
+    // Admins can read all user docs for the admin/users page.
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null
+        && (request.auth.uid == userId || isAdmin());
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['role', 'mhspNumber', 'created_at']);
     }
 
-    // Networks: readable by any authenticated user (needed to join),
-    // writable by authenticated members, no client-side creates or deletes
+    // Networks: readable/updatable by any authenticated user; no client-side creates or deletes
     match /networks/{networkId} {
       allow read: if request.auth != null;
       allow update: if request.auth != null;
       allow create, delete: if false;
     }
 
-    // Rides: readable by network members, writable by the driver
+    // Rides: readable by any authenticated user; driver owns create/delete;
+    // any authenticated user can update (needed for passengers booking seats)
     match /rides/{rideId} {
       allow read: if request.auth != null;
-      allow create: if request.auth != null && request.resource.data.driverId == request.auth.uid;
-      allow update: if request.auth != null
-        && (resource.data.driverId == request.auth.uid || request.auth.uid in resource.data.passengersIds);
-      allow delete: if request.auth != null && resource.data.driverId == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.driverId == request.auth.uid;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null
+        && resource.data.driverId == request.auth.uid;
     }
 
-    // Bookings: readable/writable by the passenger or the driver named in the booking
+    // Bookings: readable by passenger, driver, or admin; writable by passenger or driver
     match /bookings/{bookingId} {
       allow read: if request.auth != null
         && (resource.data.passengerId == request.auth.uid
-            || resource.data.driverId == request.auth.uid);
-      allow create: if request.auth != null && request.resource.data.passengerId == request.auth.uid;
+            || resource.data.driver.id == request.auth.uid
+            || isAdmin());
+      allow create: if request.auth != null
+        && request.resource.data.passengerId == request.auth.uid;
       allow update: if request.auth != null
         && (resource.data.passengerId == request.auth.uid
-            || resource.data.driverId == request.auth.uid);
+            || resource.data.driver.id == request.auth.uid);
       allow delete: if false;
     }
 
-    // Feedback: anyone can submit (public contact form + authenticated widget),
-    // only admins can read
+    // Feedback: anyone can submit; admins can read/update/delete
     match /feedback/{id} {
       allow create: if true;
-      allow read, update, delete: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow read, update, delete: if isAdmin();
     }
 
-    // Activity log: admin read/write only
+    // Admin-only collections
     match /activity_log/{id} {
-      allow read, write: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow read, write: if isAdmin();
     }
 
-    // Config: admin read/write only (support_email, etc.)
     match /config/{id} {
-      allow read, write: if request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      allow read, write: if isAdmin();
+    }
+
+    match /import_sessions/{id} {
+      allow read, write: if false;
     }
   }
 }

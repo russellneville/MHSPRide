@@ -90,11 +90,13 @@ export const AuthProvider = ({ children }) => {
       }).catch(() => {})
 
       // Send welcome email (fire-and-forget)
-      fetch('/api/notify-registration', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, fullname }),
-      }).catch(err => console.error('[notify-registration]', err))
+      user.getIdToken().then(token => {
+        fetch('/api/notify-registration', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ email, fullname }),
+        }).catch(err => console.error('[notify-registration]', err))
+      }).catch(() => {})
 
       const docSnap = await getDoc(doc(db, 'users', user.uid))
       setUser({ uid: user.uid, ...docSnap.data() })

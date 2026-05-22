@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
+import { verifyAuthRequest } from '@/lib/adminAuth'
 import { sendBookingReceiptEmail, sendBookingNoticeEmail } from '@/lib/email'
 
 export async function POST(request) {
+  const auth = await verifyAuthRequest(request)
+  if (auth.error) return auth.error
+
   try {
     const { passenger, driver, ride, bookedSeats } = await request.json()
 

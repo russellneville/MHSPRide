@@ -344,13 +344,13 @@ export const NetworkProvider = ({children})=>{
       {
           if (!booked) {
             console.log(userData)
-            await setDoc(doc(db , 'bookings' , bookId) , 
+            await setDoc(doc(db , 'bookings' , bookId) ,
             {
                 passenger : {
                   id : userData.id , phone : userData.phone ,
-                  email : userData.email  , fullname : userData.fullname 
-                } , 
-                passengerId : userData.id , 
+                  email : userData.email  , fullname : userData.fullname
+                } ,
+                passengerId : userData.id ,
                 driver : {
                   id : driver.id , phone : driver.phone ,
                   email : driver.email , fullname : driver.fullname,
@@ -361,6 +361,7 @@ export const NetworkProvider = ({children})=>{
                   vehicle_plate : driver.vehicle_plate || '',
                   vehicle_seats : driver.vehicle_seats || '',
                 },
+                driverId : driver.id ,
                 ride_id : rideId,
                 departure ,
                 departure_date ,
@@ -397,16 +398,18 @@ export const NetworkProvider = ({children})=>{
             }).catch(() => {})
 
             // Send booking emails (fire-and-forget)
-            fetch('/api/notify-booking', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                passenger: { id: userData.id, fullname: userData.fullname, email: userData.email, phone: userData.phone },
-                driver: { fullname: driver.fullname, email: driver.email, phone: driver.phone },
-                ride: { departure, arrival, departure_date, departure_time, arrival_time, return_departure_time: one_way ? '' : (return_departure_time || ''), ride_description: rideData.ride_description },
-                bookedSeats: booked_seats,
-              }),
-            }).catch(err => console.error('[notify-booking]', err))
+            auth.currentUser?.getIdToken().then(token => {
+              fetch('/api/notify-booking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({
+                  passenger: { id: userData.id, fullname: userData.fullname, email: userData.email, phone: userData.phone },
+                  driver: { fullname: driver.fullname, email: driver.email, phone: driver.phone },
+                  ride: { departure, arrival, departure_date, departure_time, arrival_time, return_departure_time: one_way ? '' : (return_departure_time || ''), ride_description: rideData.ride_description },
+                  bookedSeats: booked_seats,
+                }),
+              }).catch(err => console.error('[notify-booking]', err))
+            }).catch(() => {})
           }
           else {
             throw new Error('ride already booked')
@@ -602,9 +605,10 @@ const updateRide = async (rideId, updates) => {
       .filter(p => p.email)
 
     if (emailList.length > 0) {
+      const token = await auth.currentUser?.getIdToken().catch(() => null)
       await fetch('/api/notify-ride-update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
         body: JSON.stringify({
           passengers: emailList,
           ride: { ...existing, ...updates },
@@ -650,13 +654,12 @@ const cancelRide = async (rideId)=>{
     const rideData = rideSnap.data()
     const ridePassengers = rideData.passengers
 
-    ridePassengers.forEach(async (p)=>{
-      const bookingRef = doc(db , 'bookings' , p.booking_id)
+    await Promise.all(ridePassengers.map(async (p) => {
+      const bookingRef = doc(db, 'bookings', p.booking_id)
       const bookingSnap = await getDoc(bookingRef)
-      if (!bookingSnap.exists()) return 
-
-      await updateDoc(bookingRef , {booking_status : 'canceled'})
-    })
+      if (!bookingSnap.exists()) return
+      await updateDoc(bookingRef, { booking_status: 'canceled' })
+    }))
 
     await updateDoc(rideRef , {ride_status : 'canceled'})
     toast.success('Ride canceled successfully')
@@ -675,22 +678,24 @@ const cancelRide = async (rideId)=>{
     // Notify passengers by email (fire-and-forget)
     const passengersWithEmail = ridePassengers.filter(p => p.email)
     if (passengersWithEmail.length > 0) {
-      fetch('/api/notify-cancellation', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          passengers: passengersWithEmail.map(p => ({ fullname: p.fullname || '', email: p.email, phone: p.phone || '' })),
-          ride: {
-            departure: rideData.departure,
-            arrival: rideData.arrival,
-            departure_date: rideData.departure_date,
-            departure_time: rideData.departure_time,
-            arrival_time: rideData.arrival_time || '',
-            return_departure_time: rideData.return_departure_time || '',
-            ride_description: rideData.ride_description || '',
-          },
-        }),
-      }).catch(err => console.error('[notify-cancellation]', err))
+      auth.currentUser?.getIdToken().then(token => {
+        fetch('/api/notify-cancellation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            passengers: passengersWithEmail.map(p => ({ fullname: p.fullname || '', email: p.email, phone: p.phone || '' })),
+            ride: {
+              departure: rideData.departure,
+              arrival: rideData.arrival,
+              departure_date: rideData.departure_date,
+              departure_time: rideData.departure_time,
+              arrival_time: rideData.arrival_time || '',
+              return_departure_time: rideData.return_departure_time || '',
+              ride_description: rideData.ride_description || '',
+            },
+          }),
+        }).catch(err => console.error('[notify-cancellation]', err))
+      }).catch(() => {})
     }
   }
   catch (error){
@@ -712,13 +717,12 @@ const startRide = async (rideId)=>{
     const rideData = rideSnap.data()
     const ridePassengers = rideData.passengers
 
-    ridePassengers.forEach(async (p)=>{
-      const bookingRef = doc(db , 'bookings' , p.booking_id)
+    await Promise.all(ridePassengers.map(async (p) => {
+      const bookingRef = doc(db, 'bookings', p.booking_id)
       const bookingSnap = await getDoc(bookingRef)
-      if (!bookingSnap.exists()) return 
-
-      await updateDoc(bookingRef , {booking_status : 'on progress'})
-    })
+      if (!bookingSnap.exists()) return
+      await updateDoc(bookingRef, { booking_status: 'on progress' })
+    }))
     await updateDoc(rideRef , { ride_status : 'on progress' , started_at : new Date()})
     toast.success('Ride started')
   }
@@ -741,13 +745,12 @@ const finalizeRide = async (rideId) =>{
     const rideData = rideSnap.data()
     const ridePassengers = rideData.passengers
 
-    ridePassengers.forEach(async (p)=>{
-      const bookingRef = doc(db , 'bookings' , p.booking_id)
+    await Promise.all(ridePassengers.map(async (p) => {
+      const bookingRef = doc(db, 'bookings', p.booking_id)
       const bookingSnap = await getDoc(bookingRef)
-      if (!bookingSnap.exists()) return 
-
-      await updateDoc(bookingRef , {booking_status : 'finished'})
-    })
+      if (!bookingSnap.exists()) return
+      await updateDoc(bookingRef, { booking_status: 'finished' })
+    }))
     await updateDoc(rideRef , { ride_status : 'finished' , finished_at : new Date()})
     toast.success('Ride finished , congratulations')
   }

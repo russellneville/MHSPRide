@@ -46,3 +46,4 @@ resources/
 
 # Firebase service account key (never commit — contains private credentials)
 scripts/serviceAccountKey.json
+.envrc

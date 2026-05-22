@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
+import { verifyAuthRequest } from '@/lib/adminAuth'
 import { sendCancellationEmail } from '@/lib/email'
 
 export async function POST(request) {
+  const auth = await verifyAuthRequest(request)
+  if (auth.error) return auth.error
+
   try {
     const { passengers, ride } = await request.json()
     if (!passengers?.length) return NextResponse.json({ ok: true, sent: 0 })

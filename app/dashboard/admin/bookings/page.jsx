@@ -110,22 +110,24 @@ function BookingsContent() {
 
       // Notify cancellation (fire-and-forget)
       if (booking.passenger?.email) {
-        fetch('/api/notify-cancellation', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            passengers: [{ fullname: booking.passenger.fullname || '', email: booking.passenger.email, phone: booking.passenger.phone || '' }],
-            ride: {
-              departure: booking.departure,
-              arrival: booking.arrival,
-              departure_date: booking.departure_date,
-              departure_time: booking.departure_time || '',
-              arrival_time: booking.arrival_time || '',
-              return_departure_time: booking.return_departure_time || '',
-              ride_description: '',
-            },
-          }),
-        }).catch(err => console.error('[notify-cancellation]', err))
+        auth.currentUser?.getIdToken().then(token => {
+          fetch('/api/notify-cancellation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({
+              passengers: [{ fullname: booking.passenger.fullname || '', email: booking.passenger.email, phone: booking.passenger.phone || '' }],
+              ride: {
+                departure: booking.departure,
+                arrival: booking.arrival,
+                departure_date: booking.departure_date,
+                departure_time: booking.departure_time || '',
+                arrival_time: booking.arrival_time || '',
+                return_departure_time: booking.return_departure_time || '',
+                ride_description: '',
+              },
+            }),
+          }).catch(err => console.error('[notify-cancellation]', err))
+        }).catch(() => {})
       }
 
       logEvent({

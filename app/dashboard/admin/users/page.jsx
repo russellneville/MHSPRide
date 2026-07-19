@@ -64,8 +64,6 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/context/AuthContext'
 import { toast } from 'sonner'
-import { auth as firebaseAuth } from '@/lib/firebaseClient'
-import { sendPasswordResetEmail } from 'firebase/auth'
 
 function formatDate(val) {
   if (!val) return '—'
@@ -227,8 +225,22 @@ function UsersContent() {
                           size="sm"
                           onClick={async () => {
                             try {
-                              await sendPasswordResetEmail(firebaseAuth, u.email)
+                              const token = await auth.currentUser.getIdToken()
+                              const res = await fetch('/api/reset-password', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ email: u.email, adminInitiated: true }),
+                              })
+                              if (!res.ok) throw new Error('Could not send reset email')
                               toast.success(`Password reset email sent to ${u.email}`)
+                              logEvent({
+                                type: 'admin.password_reset_requested',
+                                message: `Password reset requested for ${u.fullname}`,
+                                userId: auth.currentUser?.uid,
+                                userName: currentUser?.fullname,
+                                mhspNumber: currentUser?.mhspNumber,
+                                metadata: { targetUserId: u.uid, targetUserName: u.fullname },
+                              }).catch(() => {})
                             } catch (e) {
                               toast.error(e.message)
                             }

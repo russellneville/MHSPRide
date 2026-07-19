@@ -43,6 +43,10 @@ export async function POST(request) {
       )
     )
 
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') console.error(`[notify-ride-update] ${passengers[i]?.email} failed:`, r.reason)
+    })
+
     const sent = results.filter(r => r.status === 'fulfilled').length
     return NextResponse.json({ ok: true, sent })
   } catch (error) {

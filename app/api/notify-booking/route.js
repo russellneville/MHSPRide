@@ -14,6 +14,11 @@ export async function POST(request) {
       sendBookingNoticeEmail({ driver, passenger, ride, bookedSeats }),
     ])
 
+    const labels = ['receipt->passenger', 'notice->driver']
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') console.error(`[notify-booking] ${labels[i]} failed:`, r.reason)
+    })
+
     const sent = results.filter(r => r.status === 'fulfilled').length
     return NextResponse.json({ ok: true, sent })
   } catch (error) {

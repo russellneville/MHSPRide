@@ -2,19 +2,19 @@
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Cookie, X } from "lucide-react"
-
-const STORAGE_KEY = 'mhspride_cookie_consent'
+import { COOKIE_CONSENT_STORAGE_KEY, COOKIE_CONSENT_CHANGED_EVENT } from "@/lib/cookieConsent"
 
 export default function CookieConsent() {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
+    const stored = localStorage.getItem(COOKIE_CONSENT_STORAGE_KEY)
     if (!stored) setVisible(true)
   }, [])
 
   const accept = (level) => {
-    localStorage.setItem(STORAGE_KEY, level)
+    localStorage.setItem(COOKIE_CONSENT_STORAGE_KEY, level)
+    window.dispatchEvent(new Event(COOKIE_CONSENT_CHANGED_EVENT))
     setVisible(false)
   }
 

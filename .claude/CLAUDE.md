@@ -25,6 +25,7 @@ All outbound email goes through `lib/email.js` (Resend, `from: noreply@mhspride.
 
 - Admin-page actions that mutate state log to the `activity_log` collection via `lib/activityLog.js`'s `logEvent()`, fire-and-forget (`.catch(() => {})`). Follow this pattern for new admin actions.
 - PR template lives at `.github/PULL_REQUEST_TEMPLATE.md` (ISSUE / DESCRIPTION / TESTING).
+- Before making a commit, check whether `README.md` needs updating (new/changed admin features, setup steps, env vars, etc.) and update it if so.
 
 ## Useful Claude Code skills for this repo
 

@@ -1,7 +1,7 @@
 'use client';
 import { auth, db, storage } from '@/lib/firebaseClient';
 import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateEmail } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { logEvent } from '@/lib/activityLog';
 
@@ -11,23 +11,38 @@ import { toast } from 'sonner';
 
 const AuthContext = createContext();
 
+const SUSPENDED_MESSAGE = 'Your account has been suspended. Please contact an MHSPRide admin.'
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [suspendedMessage, setSuspendedMessage] = useState(null);
   const router = useRouter();
 
     useEffect(() => {
-      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      let unsubDoc = null;
+
+      const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+        if (unsubDoc) { unsubDoc(); unsubDoc = null }
+
         if (firebaseUser) {
-          const docSnap = await getDoc(doc(db, "users", firebaseUser.uid));
-          setUser({ uid: firebaseUser.uid, ...docSnap.data() });
+          unsubDoc = onSnapshot(doc(db, "users", firebaseUser.uid), (docSnap) => {
+            const data = docSnap.data()
+            if (data?.suspended) {
+              signOut(auth)
+              setSuspendedMessage(SUSPENDED_MESSAGE)
+            } else {
+              setUser({ uid: firebaseUser.uid, ...data });
+            }
+            setIsLoading(false)
+          });
         } else {
           setUser(null);
+          setIsLoading(false)
         }
-        setIsLoading(false)
       });
 
-  return () => unsubscribe();
+  return () => { unsubscribe(); if (unsubDoc) unsubDoc() }
 }, []);
 
 
@@ -112,7 +127,16 @@ export const AuthProvider = ({ children }) => {
   const loginUser = async ({email , password})=>{
     try {
       setIsLoading(true)
-      await signInWithEmailAndPassword(auth , email , password)
+      setSuspendedMessage(null)
+      const { user: fbUser } = await signInWithEmailAndPassword(auth , email , password)
+
+      const docSnap = await getDoc(doc(db, 'users', fbUser.uid))
+      if (docSnap.data()?.suspended) {
+        await signOut(auth)
+        setSuspendedMessage(SUSPENDED_MESSAGE)
+        return
+      }
+
       toast.success('User login successfully')
       router.push('/dashboard')
     }
@@ -190,7 +214,7 @@ export const AuthProvider = ({ children }) => {
 
 
   return (
-    <AuthContext.Provider value={{ isLoading, user, registerUser , loginUser , updateProfile , logOut, uploadPhoto, resetPassword }}>
+    <AuthContext.Provider value={{ isLoading, user, registerUser , loginUser , updateProfile , logOut, uploadPhoto, resetPassword, suspendedMessage }}>
       {children}
     </AuthContext.Provider>
   );

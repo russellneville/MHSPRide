@@ -120,7 +120,7 @@ Open [http://localhost:3000](http://localhost:3000)
 
 Users with `role: 'admin'` see an Admin section in the sidebar with access to:
 
-- **Users** — view all registered users, change roles, reset claimed memberships
+- **Users** — view all registered users, change roles, reset claimed memberships, suspend/unsuspend accounts (suspended users are force-logged-out, blocked from logging back in, and notified by email)
 - **Rides** — view, edit, cancel, or delete any ride across all networks
 - **Bookings** — view and cancel any booking
 - **Activity Log** — paginated event log of all key system actions, filterable by type, date range, user, and message text

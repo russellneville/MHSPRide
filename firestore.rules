@@ -2,9 +2,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isSuspended() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('suspended', false) == true;
+    }
+
     function isAdmin() {
       return request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        && !isSuspended();
     }
 
     // Members: public read for registration verification;
@@ -12,51 +18,58 @@ service cloud.firestore {
     match /members/{memberId} {
       allow read: if true;
       allow update: if request.auth != null
+        && !isSuspended()
         && resource.data.claimed == false
         && request.resource.data.diff(resource.data).affectedKeys()
             .hasOnly(['claimed', 'claimedBy']);
       allow create, delete: if false;
     }
 
-    // Users: owner can read/write their own doc, but cannot change role,
-    // mhspNumber, or created_at (those are set by server-side code only).
-    // Admins can read all user docs for the admin/users page.
+    // Users: owner can read their own doc even while suspended (so the app can
+    // detect it and self-log-out with a message instead of a permission error).
+    // Owner cannot change role, mhspNumber, created_at, or suspended (server/admin only),
+    // and cannot write at all while suspended. Admins can read all user docs.
     match /users/{userId} {
       allow read: if request.auth != null
         && (request.auth.uid == userId || isAdmin());
       allow write: if request.auth != null
         && request.auth.uid == userId
+        && !isSuspended()
         && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['role', 'mhspNumber', 'created_at']);
+            .hasAny(['role', 'mhspNumber', 'created_at', 'suspended']);
     }
 
-    // Networks: readable/updatable by any authenticated user; no client-side creates or deletes
+    // Networks: readable/updatable by any authenticated, non-suspended user; no client-side creates or deletes
     match /networks/{networkId} {
-      allow read: if request.auth != null;
-      allow update: if request.auth != null;
+      allow read: if request.auth != null && !isSuspended();
+      allow update: if request.auth != null && !isSuspended();
       allow create, delete: if false;
     }
 
-    // Rides: readable by any authenticated user; driver owns create/delete;
-    // any authenticated user can update (needed for passengers booking seats)
+    // Rides: readable by any authenticated, non-suspended user; driver owns create/delete;
+    // any authenticated, non-suspended user can update (needed for passengers booking seats)
     match /rides/{rideId} {
-      allow read: if request.auth != null;
+      allow read: if request.auth != null && !isSuspended();
       allow create: if request.auth != null
+        && !isSuspended()
         && request.resource.data.driverId == request.auth.uid;
-      allow update: if request.auth != null;
+      allow update: if request.auth != null && !isSuspended();
       allow delete: if request.auth != null
+        && !isSuspended()
         && resource.data.driverId == request.auth.uid;
     }
 
-    // Bookings: readable by passenger, driver, or admin; writable by passenger or driver
+    // Bookings: readable by passenger, driver, or admin; writable by passenger or driver (unless suspended)
     match /bookings/{bookingId} {
       allow read: if request.auth != null
         && (resource.data.passengerId == request.auth.uid
             || resource.data.driver.id == request.auth.uid
             || isAdmin());
       allow create: if request.auth != null
+        && !isSuspended()
         && request.resource.data.passengerId == request.auth.uid;
       allow update: if request.auth != null
+        && !isSuspended()
         && (resource.data.passengerId == request.auth.uid
             || resource.data.driver.id == request.auth.uid);
       allow delete: if false;

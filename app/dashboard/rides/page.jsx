@@ -91,7 +91,7 @@ export default function MyOfferedRides() {
   }
 
   const openOffer = (networkId) => {
-    openPopup('Offer ride', <OfferRidePopup networkId={networkId} />)
+    openPopup('Offer ride', <OfferRidePopup networkId={networkId} onSaved={fetchRides} />)
   }
 
   const OfferButton = () => {

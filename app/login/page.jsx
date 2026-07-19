@@ -15,7 +15,7 @@ export default function Login() {
   })
   const [mounted, setMounted] = useState(false);
   const [validationError , setValidationErrors] = useState({})
-  const { isLoading , loginUser , user, resetPassword } = useAuth()
+  const { isLoading , loginUser , user, resetPassword, suspendedMessage } = useAuth()
   const [forgotMode, setForgotMode] = useState(false)
   const [resetEmail, setResetEmail] = useState('')
   const router = useRouter()
@@ -36,6 +36,18 @@ export default function Login() {
   const handleLogin = async ()=>{
     if (!validateForm()) return ;
     await loginUser(loginForm)
+  }
+
+  const handleSubmit = e => {
+    e.preventDefault()
+    if (forgotMode) {
+      if (!resetEmail.trim()) return
+      resetPassword(resetEmail)
+      setForgotMode(false)
+      setResetEmail('')
+    } else {
+      handleLogin()
+    }
   }
   useEffect(() => setMounted(true), []);
 
@@ -80,47 +92,57 @@ export default function Login() {
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="space-y-5">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email address</Label>
-            <Input id="email" type="email" placeholder="you@example.com" onChange={handleChange} value={loginForm.email}/>
-            {validationError.email && <p className="text-red-500 text-sm">{validationError.email}</p>}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input id="password" type="password" placeholder="*********" onChange={handleChange} value={loginForm.password}/>
-            {validationError.password && <p className="text-red-500 text-sm">{validationError.password}</p>}
-          </div>
-
-          {forgotMode ? (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">Enter your email address and we'll send you a link to reset your password.</p>
-              <Input
-                type="email"
-                placeholder="you@example.com"
-                value={resetEmail}
-                onChange={e => setResetEmail(e.target.value)}
-              />
-              <div className="flex gap-2">
-                <Button className="flex-1" onClick={() => { resetPassword(resetEmail); setForgotMode(false); setResetEmail('') }} disabled={!resetEmail.trim()}>
-                  Send Reset Link
-                </Button>
-                <Button variant="outline" onClick={() => { setForgotMode(false); setResetEmail('') }}>
-                  Cancel
-                </Button>
-              </div>
+        <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {suspendedMessage ? (
+            <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/40 dark:border-red-900 p-4">
+              <p className="text-center font-bold text-red-700 dark:text-red-400">{suspendedMessage}</p>
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between text-sm">
-                <button type="button" onClick={() => setForgotMode(true)} className="text-blue-600 hover:underline dark:text-blue-400">
-                  Forgot password?
-                </button>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email address</Label>
+                <Input id="email" type="email" placeholder="you@example.com" onChange={handleChange} value={loginForm.email}/>
+                {validationError.email && <p className="text-red-500 text-sm">{validationError.email}</p>}
               </div>
-              <Button className={`w-full mt-2 ${isLoading ? 'opacity-75' : 'opacity-100'}`} onClick={handleLogin} disabled={isLoading}>{isLoading ? 'Logging in...' : 'Log In'}</Button>
+
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
+                <Input id="password" type="password" placeholder="*********" onChange={handleChange} value={loginForm.password}/>
+                {validationError.password && <p className="text-red-500 text-sm">{validationError.password}</p>}
+              </div>
+
+              {forgotMode ? (
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">Enter your email address and we'll send you a link to reset your password.</p>
+                  <Input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={resetEmail}
+                    onChange={e => setResetEmail(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <Button type="submit" className="flex-1" disabled={!resetEmail.trim()}>
+                      Send Reset Link
+                    </Button>
+                    <Button type="button" variant="outline" onClick={() => { setForgotMode(false); setResetEmail('') }}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between text-sm">
+                    <button type="button" onClick={() => setForgotMode(true)} className="text-blue-600 hover:underline dark:text-blue-400">
+                      Forgot password?
+                    </button>
+                  </div>
+                  <Button type="submit" className={`w-full mt-2 ${isLoading ? 'opacity-75' : 'opacity-100'}`} disabled={isLoading}>{isLoading ? 'Logging in...' : 'Log In'}</Button>
+                </>
+              )}
             </>
           )}
+        </form>
         </CardContent>
 
         <CardFooter className="text-sm text-center text-muted-foreground">

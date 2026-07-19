@@ -1,24 +1,5 @@
-/*
- * FIRESTORE RULES NOTE:
- * The admin pages require the following Firestore security rules additions:
- *
- * match /users/{userId} {
- *   allow read: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
- *   allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
- * }
- * match /members/{memberId} {
- *   allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
- * }
- * match /rides/{rideId} {
- *   allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
- * }
- * match /bookings/{bookingId} {
- *   allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
- * }
- * match /activity_log/{logId} {
- *   allow read, write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
- * }
- */
+// See firestore.rules for the security rules this page depends on (admin access, and the
+// suspended-user restrictions described there).
 'use client'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/app/dashboard/dashboardLayout'
@@ -88,6 +69,8 @@ function UsersContent() {
   const [search, setSearch] = useState('')
   const [resetTarget, setResetTarget] = useState(null) // { uid, mhspNumber, fullname }
   const [resetting, setResetting] = useState(false)
+  const [suspendTarget, setSuspendTarget] = useState(null) // { uid, fullname, email, role, suspended }
+  const [suspending, setSuspending] = useState(false)
 
   useEffect(() => {
     fetchUsers()
@@ -141,6 +124,46 @@ function UsersContent() {
     }
   }
 
+  async function handleSuspendToggle() {
+    if (!suspendTarget) return
+    setSuspending(true)
+    try {
+      const { uid, fullname, email, role, suspended } = suspendTarget
+      const nextSuspended = !suspended
+      const updates = { suspended: nextSuspended }
+      if (nextSuspended && role === 'admin') {
+        updates.role = 'member'
+      }
+
+      await updateDoc(doc(db, 'users', uid), updates)
+      setUsers(prev => prev.map(u => u.uid === uid ? { ...u, ...updates } : u))
+
+      logEvent({
+        type: nextSuspended ? 'admin.user_suspended' : 'admin.user_unsuspended',
+        message: `${fullname} ${nextSuspended ? 'suspended' : 'unsuspended'}${updates.role ? ' (demoted from admin)' : ''}`,
+        userId: auth.currentUser?.uid,
+        userName: currentUser?.fullname,
+        mhspNumber: currentUser?.mhspNumber,
+        metadata: { targetUserId: uid, targetUserName: fullname },
+      }).catch(() => {})
+
+      auth.currentUser.getIdToken().then(token => {
+        fetch('/api/admin/notify-suspension', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ email, fullname, suspended: nextSuspended }),
+        }).catch(err => console.error('[notify-suspension]', err))
+      }).catch(() => {})
+
+      toast.success(`${fullname} ${nextSuspended ? 'suspended' : 'unsuspended'}`)
+    } catch (e) {
+      toast.error(e.message)
+    } finally {
+      setSuspending(false)
+      setSuspendTarget(null)
+    }
+  }
+
   const filtered = users.filter(u => {
     if (!search) return true
     const s = search.toLowerCase()
@@ -191,7 +214,12 @@ function UsersContent() {
               ) : (
                 filtered.map(u => (
                   <TableRow key={u.uid}>
-                    <TableCell className="font-medium">{u.fullname || '—'}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {u.fullname || '—'}
+                        {u.suspended && <Badge variant="destructive">Suspended</Badge>}
+                      </div>
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.email || '—'}</TableCell>
                     <TableCell>{u.mhspNumber || '—'}</TableCell>
                     <TableCell>
@@ -248,6 +276,22 @@ function UsersContent() {
                         >
                           Reset Password
                         </Button>
+                        {u.uid !== currentUser?.uid && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={u.suspended ? '' : 'text-red-600 hover:text-red-600'}
+                            onClick={() => setSuspendTarget({
+                              uid: u.uid,
+                              fullname: u.fullname,
+                              email: u.email,
+                              role: u.role,
+                              suspended: !!u.suspended,
+                            })}
+                          >
+                            {u.suspended ? 'Unsuspend' : 'Suspend'}
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -270,6 +314,39 @@ function UsersContent() {
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleResetMembership} disabled={resetting}>
               {resetting ? 'Resetting…' : 'Reset'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!suspendTarget} onOpenChange={open => { if (!open) setSuspendTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {suspendTarget?.suspended
+                ? `Unsuspend ${suspendTarget?.fullname}?`
+                : suspendTarget?.role === 'admin'
+                  ? 'You are suspending an admin'
+                  : `Suspend ${suspendTarget?.fullname}?`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {suspendTarget?.suspended
+                ? `${suspendTarget?.fullname} will regain access immediately and be notified by email.`
+                : suspendTarget?.role === 'admin'
+                  ? `Set this user to a 'member' and suspend them?`
+                  : `${suspendTarget?.fullname} will be logged out immediately, unable to log back in, and notified by email.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSuspendToggle} disabled={suspending}>
+              {suspending
+                ? 'Working…'
+                : suspendTarget?.suspended
+                  ? 'Unsuspend'
+                  : suspendTarget?.role === 'admin'
+                    ? 'Demote & Suspend'
+                    : 'Suspend'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

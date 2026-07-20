@@ -12,7 +12,7 @@ export default function CookieConsent() {
     if (!stored) setVisible(true)
   }, [])
 
-  const accept = (level) => {
+  const choose = (level) => {
     localStorage.setItem(COOKIE_CONSENT_STORAGE_KEY, level)
     window.dispatchEvent(new Event(COOKIE_CONSENT_CHANGED_EVENT))
     setVisible(false)
@@ -29,7 +29,7 @@ export default function CookieConsent() {
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground">This site uses cookies</p>
           <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-            We use essential cookies to keep the site running. With your permission, we also use analytics cookies to understand how the site is used so we can improve it. No data is sold or shared with third parties.
+            We use essential cookies to keep the site running, and analytics cookies to understand how the site is used so we can improve it. No data is sold or shared with third parties. You can opt out of analytics at any time.
           </p>
         </div>
 
@@ -38,19 +38,19 @@ export default function CookieConsent() {
             size="sm"
             variant="outline"
             className="text-xs h-8"
-            onClick={() => accept('necessary')}
+            onClick={() => choose('necessary')}
           >
-            Necessary only
+            Opt out of analytics
           </Button>
           <Button
             size="sm"
             className="text-xs h-8"
-            onClick={() => accept('necessary+analytics')}
+            onClick={() => choose('necessary+analytics')}
           >
-            Accept all
+            Got it
           </Button>
           <button
-            onClick={() => accept('necessary+analytics')}
+            onClick={() => choose('necessary+analytics')}
             className="text-muted-foreground hover:text-foreground transition-colors p-1"
             aria-label="Dismiss"
           >

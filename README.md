@@ -85,6 +85,10 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
 
+# Google Analytics (GA4 measurement ID) — only loads in production, and only
+# after a visitor accepts analytics cookies in the cookie consent banner
+NEXT_PUBLIC_GA_MEASUREMENT_ID=
+
 # Resend (resend.com) — transactional email
 RESEND_API_KEY=
 

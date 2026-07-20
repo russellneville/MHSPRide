@@ -8,20 +8,13 @@ export function Popup() {
 
     if (!isOpen) return null;
 
-
-  const handleContentClick = (e) => {
-    e.stopPropagation();
-  };
-
   return (
     <div
       className="fixed w-full min-h-screen p-5 flex justify-center items-center top-0 inset-0 z-50 bg-black/50"
-      onClick={closePopup} 
     >
       {/* Popup */}
       <div
         className="bg-background border shadow-lg rounded-lg w-4/5 sm:max-w-lg max-h-full overflow-y-auto"
-        onClick={handleContentClick}
       >
         {/* Popup Header */}
         <div className="flex items-center justify-between p-4 border-b">

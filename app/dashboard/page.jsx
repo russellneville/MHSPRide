@@ -337,7 +337,8 @@ function RideUpdatedBanner({ booking, onDismiss }) {
 function TodayRideCard({ ride }) {
   const isOffering = ride._type === 'offered'
   const networkId  = ride.network_id || ride.networkId
-  const href       = networkId ? `/dashboard/network/${networkId}/rides/${ride.id}` : '#'
+  const rideId     = isOffering ? ride.id : ride.ride_id
+  const href       = networkId && rideId ? `/dashboard/network/${networkId}/rides/${rideId}` : '#'
 
   const now       = new Date()
   const departure = new Date(`${ride.departure_date}T${ride.departure_time || '00:00'}`)

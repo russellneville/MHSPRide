@@ -1,3 +1,4 @@
+import Script from "next/script";
 import { Geist, Geist_Mono, Poppins } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
@@ -8,6 +9,7 @@ import { NetworkProvider } from "@/context/NetworksContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import CookieConsent from "@/components/CookieConsent";
 import Analytics from "@/components/Analytics";
+import { COOKIE_CONSENT_STORAGE_KEY } from "@/lib/cookieConsent";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -49,6 +51,25 @@ export default function RootLayout({ children }) {
                           <Popup />
                           <Toaster/>
                           <CookieConsent />
+                          {process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID && (
+                            <Script
+                              id="ga-consent-default"
+                              strategy="beforeInteractive"
+                              dangerouslySetInnerHTML={{
+                                __html: `
+                                  window.dataLayer = window.dataLayer || [];
+                                  function gtag(){dataLayer.push(arguments);}
+                                  var consent = localStorage.getItem('${COOKIE_CONSENT_STORAGE_KEY}');
+                                  gtag('consent', 'default', {
+                                    'analytics_storage': consent === 'necessary' ? 'denied' : 'granted',
+                                    'ad_storage': 'denied',
+                                    'ad_user_data': 'denied',
+                                    'ad_personalization': 'denied'
+                                  });
+                                `,
+                              }}
+                            />
+                          )}
                           <Analytics />
                     </PopupProvider>
                   </NetworkProvider>

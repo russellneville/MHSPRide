@@ -49,6 +49,10 @@ export default function Login() {
       handleLogin()
     }
   }
+
+  const cardDescription = forgotMode
+    ? "Enter your email address and we'll send you a link to reset your password."
+    : "Log in to access your dashboard and stay updated."
   useEffect(() => setMounted(true), []);
 
 
@@ -86,9 +90,9 @@ export default function Login() {
               width={130}
             />
           </div>
-          <CardTitle className="text-2xl font-semibold">Welcome Back</CardTitle>
+          <CardTitle className="text-2xl font-semibold">{forgotMode ? 'Reset Password' : 'Welcome Back'}</CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
-            Log in to access your dashboard and stay updated.
+            {cardDescription}
           </CardDescription>
         </CardHeader>
 
@@ -97,6 +101,25 @@ export default function Login() {
           {suspendedMessage ? (
             <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/40 dark:border-red-900 p-4">
               <p className="text-center font-bold text-red-700 dark:text-red-400">{suspendedMessage}</p>
+            </div>
+          ) : forgotMode ? (
+            <div className="space-y-3">
+              <Label htmlFor="resetEmail">Email address</Label>
+              <Input
+                id="resetEmail"
+                type="email"
+                placeholder="you@example.com"
+                value={resetEmail}
+                onChange={e => setResetEmail(e.target.value)}
+              />
+              <div className="flex gap-2">
+                <Button type="submit" className="flex-1" disabled={!resetEmail.trim()}>
+                  Send Reset Link
+                </Button>
+                <Button type="button" variant="outline" onClick={() => { setForgotMode(false); setResetEmail('') }}>
+                  Cancel
+                </Button>
+              </div>
             </div>
           ) : (
             <>
@@ -112,34 +135,12 @@ export default function Login() {
                 {validationError.password && <p className="text-red-500 text-sm">{validationError.password}</p>}
               </div>
 
-              {forgotMode ? (
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">Enter your email address and we'll send you a link to reset your password.</p>
-                  <Input
-                    type="email"
-                    placeholder="you@example.com"
-                    value={resetEmail}
-                    onChange={e => setResetEmail(e.target.value)}
-                  />
-                  <div className="flex gap-2">
-                    <Button type="submit" className="flex-1" disabled={!resetEmail.trim()}>
-                      Send Reset Link
-                    </Button>
-                    <Button type="button" variant="outline" onClick={() => { setForgotMode(false); setResetEmail('') }}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="flex items-center justify-between text-sm">
-                    <button type="button" onClick={() => setForgotMode(true)} className="text-blue-600 hover:underline dark:text-blue-400">
-                      Forgot password?
-                    </button>
-                  </div>
-                  <Button type="submit" className={`w-full mt-2 ${isLoading ? 'opacity-75' : 'opacity-100'}`} disabled={isLoading}>{isLoading ? 'Logging in...' : 'Log In'}</Button>
-                </>
-              )}
+              <div className="flex items-center justify-between text-sm">
+                <button type="button" onClick={() => setForgotMode(true)} className="text-blue-600 hover:underline dark:text-blue-400">
+                  Forgot password?
+                </button>
+              </div>
+              <Button type="submit" className={`w-full mt-2 ${isLoading ? 'opacity-75' : 'opacity-100'}`} disabled={isLoading}>{isLoading ? 'Logging in...' : 'Log In'}</Button>
             </>
           )}
         </form>

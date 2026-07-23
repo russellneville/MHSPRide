@@ -31,6 +31,14 @@ function primaryClassification(classifications) {
   return classifications[0].replace(/\s+\d{4}-\d{2}-\d{2}$/, '').trim()
 }
 
+function isActiveStatus(status) {
+  return (status || '').trim().toLowerCase() === 'active'
+}
+
+function googleMapsUrl(latitude, longitude) {
+  return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+}
+
 function statusVariant(status) {
   if (!status) return 'secondary'
   const s = status.toLowerCase()
@@ -43,7 +51,7 @@ export default function RosterPage() {
   const [members, setMembers]   = useState([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
-  const [activeFilter, setActiveFilter] = useState('active') // 'active' | 'inactive' | 'all'
+  const [activeFilter, setActiveFilter] = useState('active') // 'active' | 'inactive' | 'registered' | 'all'
   const [page, setPage]         = useState(1)
 
   useEffect(() => {
@@ -65,15 +73,26 @@ export default function RosterPage() {
     const q = search.trim().toLowerCase()
 
     return members.filter(m => {
-      // Active filter
-      if (activeFilter === 'active'   && m.active === false) return false
-      if (activeFilter === 'inactive' && m.active !== false) return false
+      // A member doc can be superseded — either genuinely removed from the roster,
+      // or replaced by a new MHSP# after a classification-driven renumbering (e.g.
+      // Apprentice -> full-status promotion). Either way it's not a live, distinct
+      // person and should never show up here, regardless of its stale Status text —
+      // unlike the Status filter below, this applies under every filter including "All".
+      if (m.active === false) return false
+
+      // Status filter — based on the roster Status text, not the internal
+      // `active` flag (which only tracks whether the member is still present
+      // in the most recently imported roster CSV, not their Status value).
+      if (activeFilter === 'active'     && !isActiveStatus(m.status)) return false
+      if (activeFilter === 'inactive'   && isActiveStatus(m.status)) return false
+      if (activeFilter === 'registered' && !m.claimed) return false
 
       // Search
       if (!q) return true
-      const matchName   = (m.lastName  || '').toLowerCase().startsWith(q)
-      const matchMhsp   = (m.mhspNumber || '').toLowerCase().startsWith(q)
-      return matchName || matchMhsp
+      const matchName  = (m.lastName   || '').toLowerCase().startsWith(q)
+      const matchMhsp  = (m.mhspNumber || '').toLowerCase().startsWith(q)
+      const matchEmail = (m.email      || '').toLowerCase().includes(q)
+      return matchName || matchMhsp || matchEmail
     })
   }, [members, search, activeFilter])
 
@@ -108,7 +127,7 @@ export default function RosterPage() {
           {/* Controls */}
           <div className="flex gap-3">
             <Input
-              placeholder="Search by last name or MHSP #…"
+              placeholder="Search by last name, MHSP #, or email…"
               value={search}
               onChange={handleSearch}
               className="max-w-xs"
@@ -120,6 +139,7 @@ export default function RosterPage() {
               <SelectContent>
                 <SelectItem value="active">Active</SelectItem>
                 <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="registered">Registered</SelectItem>
                 <SelectItem value="all">All</SelectItem>
               </SelectContent>
             </Select>
@@ -136,15 +156,17 @@ export default function RosterPage() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>MHSP #</TableHead>
+                      <TableHead>Troopiter Email</TableHead>
                       <TableHead>Classification</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Registered</TableHead>
+                      <TableHead>Lat/Lon</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {pageRows.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                           No members match your search.
                         </TableCell>
                       </TableRow>
@@ -158,6 +180,9 @@ export default function RosterPage() {
                               {m.lastName}, {m.firstName}
                             </TableCell>
                             <TableCell className="font-mono text-sm">{m.mhspNumber}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                              {m.email || '—'}
+                            </TableCell>
                             <TableCell className="text-sm text-muted-foreground">
                               {primary
                                 ? <>{primary}{extra > 0 && <span className="ml-1 text-xs">+{extra}</span>}</>
@@ -172,6 +197,20 @@ export default function RosterPage() {
                               {m.claimed
                                 ? <Badge variant="default" className="text-xs">Registered</Badge>
                                 : <span className="text-muted-foreground text-sm">—</span>}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs whitespace-nowrap">
+                              {m.latitude != null && m.longitude != null
+                                ? (
+                                  <a
+                                    href={googleMapsUrl(m.latitude, m.longitude)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:underline dark:text-blue-400"
+                                  >
+                                    {m.latitude.toFixed(5)}, {m.longitude.toFixed(5)}
+                                  </a>
+                                )
+                                : <span className="text-muted-foreground">—</span>}
                             </TableCell>
                           </TableRow>
                         )

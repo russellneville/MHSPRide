@@ -79,7 +79,11 @@ export async function POST(request, { params }) {
 
     const batch = db.batch()
     batch.set(db.collection('members').doc(newId), newDoc)
-    batch.update(db.collection('members').doc(oldId), { active: false })
+    // Clear claimed/claimedBy on the superseded doc — the claim (if any) is being
+    // migrated to newId below. Leaving it set would let this doc's now-stale
+    // claimed:true resurface (e.g. in the admin roster page, or wrongly block a
+    // future member from registering if this MHSP# is ever reissued).
+    batch.update(db.collection('members').doc(oldId), { active: false, claimed: false, claimedBy: null })
     await batch.commit()
 
     // Migrate the user account if claimed

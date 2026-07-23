@@ -128,6 +128,8 @@ Users with `role: 'admin'` see an Admin section in the sidebar with access to:
 - **Users** — view all registered users, change roles, reset claimed memberships, suspend/unsuspend accounts (suspended users are force-logged-out, blocked from logging back in, and notified by email)
 - **Rides** — view, edit, cancel, or delete any ride across all networks
 - **Bookings** — view and cancel any booking
+- **Roster** — browse the imported MHSP roster: search by name/MHSP#/email, filter by status or registration, click a member's coordinates to open them in Google Maps
+- **Roster Import** — upload a Troopiter CSV export, preview detected renames/new members/field updates/deactivations before anything is written, then commit (see [Roster import matching](#roster-import-matching) below)
 - **Activity Log** — paginated event log of all key system actions, filterable by type, date range, user, and message text
 - **Reports** — stats cards (total users, rides, bookings), top drivers and top riders leaderboards, route popularity
 
@@ -146,6 +148,12 @@ node scripts/migrateDirectorToAdmin.mjs
 The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuspended()` helpers, and rules for `users`, `members`, `rides`, `bookings`, `activity_log`, `rate_limits`, `registration_verifications`). `firebase.json`/`.firebaserc` link this directory to the `mhspride` project, so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months).
 
 `members` is admin-read-only — registration no longer reads it from the client at all. The whole membership-verification/code/account-creation flow runs server-side through `app/api/register/verify-membership`, `verify-code`, and `complete` (Admin SDK), so there's no client path that can enumerate or read roster data pre-signup.
+
+### Roster import matching
+
+**MHSP# is not a stable identity.** Troopiter issues a brand-new MHSP# on a classification-driven promotion (e.g. Apprentice → full-status), not just on a genuine roster ID correction. The admin Roster Import flow (`lib/rosterDiff.js`) accounts for this: an incoming CSV row with an MHSP# that isn't in Firestore yet is matched against existing member docs by **last name + Troopiter email**, not by number. This search spans both the current import's newly-removed docs and every already-inactive doc in Firestore, so a promotion still gets linked correctly even if the old number disappeared in an earlier, separate import. A match is applied as an "ID change" (rename) — carrying over classifications/claimed-account state to the new doc and clearing them from the old one — rather than creating an orphaned duplicate. Rows with no email, or no matching candidate, fall through to a genuine new-member/deactivation as before. Members whose MHSP# doesn't change between imports are unaffected — same direct-match path as always.
+
+Member docs that get superseded this way are kept (`active: false`, not deleted) for history, but are excluded from the Roster page under every filter — they'd otherwise still show their last real Status text and look like a live second person. `scripts/repairSupersededMemberClaims.mjs` is a one-time (dry-run by default) repair for docs orphaned before this fix shipped.
 
 ---
 
@@ -185,6 +193,8 @@ node scripts/clearTestData.mjs     # remove test data
 ---
 
 ## Roster sync
+
+> **Prefer the admin panel's Roster Import page for anything involving a member's MHSP# changing.** This CLI path (`diffRoster.mjs`/`syncMembers.mjs`) does a raw ID-based diff with no rename detection at all — a classification-driven MHSP# reassignment looks like a plain delete+add here, which will orphan a duplicate member doc (see [Roster import matching](#roster-import-matching)). It's fine for updates where nobody's MHSP# changes.
 
 When the MHSP roster changes, update Firestore without disturbing existing accounts:
 

@@ -81,9 +81,14 @@ service cloud.firestore {
       allow read, update, delete: if isAdmin();
     }
 
-    // Admin-only collections
+    // Activity log: any authenticated, non-suspended user may log their own actions;
+    // only admins can read the log or modify/delete existing entries
     match /activity_log/{id} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow create: if request.auth != null
+        && !isSuspended()
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
     }
 
     match /config/{id} {

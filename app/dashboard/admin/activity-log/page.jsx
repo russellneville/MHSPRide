@@ -42,6 +42,8 @@ function badgeVariant(type) {
   if (type.startsWith('admin.'))    return 'destructive'    // red
   if (type.startsWith('feedback.')) return 'outline'
   if (type.startsWith('membership.')) return 'secondary'
+  if (type.startsWith('member.'))   return 'secondary'
+  if (type.startsWith('network.'))  return 'default'
   return 'secondary'
 }
 
@@ -53,8 +55,23 @@ const EVENT_TYPES = [
   'booking.created',
   'booking.canceled',
   'user.registered',
+  'user.login',
+  'user.logout',
+  'user.login_failed',
+  'user.password_reset_requested',
+  'user.profile_updated',
+  'network.created',
+  'network.joined',
+  'network.deleted',
+  'network.member_status_changed',
   'admin.role_changed',
+  'admin.password_reset_requested',
+  'admin.user_suspended',
+  'admin.user_unsuspended',
+  'admin.settings_updated',
   'membership.unclaimed',
+  'member.id_changed',
+  'member.deactivated',
   'feedback.submitted',
 ]
 

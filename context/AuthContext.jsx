@@ -131,17 +131,42 @@ export const AuthProvider = ({ children }) => {
       const { user: fbUser } = await signInWithEmailAndPassword(auth , email , password)
 
       const docSnap = await getDoc(doc(db, 'users', fbUser.uid))
-      if (docSnap.data()?.suspended) {
+      const userData = docSnap.data()
+      if (userData?.suspended) {
+        // Suspended accounts can't write to activity_log themselves (same rule that
+        // blocks all their other writes), so log via the admin-backed API route
+        // while the session token is still valid, before signing out.
+        const token = await fbUser.getIdToken().catch(() => null)
+        fetch('/api/log-auth-event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
+          body: JSON.stringify({ email, reason: 'suspended' }),
+        }).catch(() => {})
         await signOut(auth)
         setSuspendedMessage(SUSPENDED_MESSAGE)
         return
       }
 
       toast.success('User login successfully')
+      logEvent({
+        type: 'user.login',
+        message: `User logged in: ${userData?.fullname || email}`,
+        userId: fbUser.uid,
+        userName: userData?.fullname,
+        mhspNumber: userData?.mhspNumber,
+        metadata: { email },
+      }).catch(() => {})
       router.push('/dashboard')
     }
     catch(error){
       toast.error(error.message)
+      // No authenticated session exists at this point, so this can't go through
+      // the client Firestore SDK (activity_log requires auth) — use the API route.
+      fetch('/api/log-auth-event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, reason: error.code || 'unknown' }),
+      }).catch(() => {})
     }
     finally {
       setIsLoading(false)
@@ -155,6 +180,14 @@ export const AuthProvider = ({ children }) => {
       await updateDoc (userRef , data)
       setUser(prev => ({ ...prev, ...data }))
       toast.success('User updated successfully')
+      logEvent({
+        type: 'user.profile_updated',
+        message: `Profile updated: ${user?.fullname || auth.currentUser.uid}`,
+        userId: auth.currentUser.uid,
+        userName: user?.fullname,
+        mhspNumber: user?.mhspNumber,
+        metadata: { fields: Object.keys(data) },
+      }).catch(() => {})
     }
     catch (error){
       toast.error(error.message)
@@ -198,6 +231,11 @@ export const AuthProvider = ({ children }) => {
       })
       if (!res.ok) throw new Error('Could not send reset email')
       toast.success('Password reset email sent. Check your inbox.')
+      logEvent({
+        type: 'user.password_reset_requested',
+        message: `Self-service password reset requested: ${email}`,
+        metadata: { email },
+      }).catch(() => {})
     } catch (error) {
       toast.error(error.message)
     }
@@ -205,6 +243,17 @@ export const AuthProvider = ({ children }) => {
 
     const logOut = async ()=>{
         try {
+          // Log while the session is still valid — activity_log writes require
+          // an authenticated request, so this must happen before signOut clears it.
+          if (user) {
+            await logEvent({
+              type: 'user.logout',
+              message: `User logged out: ${user.fullname || user.uid}`,
+              userId: user.uid,
+              userName: user.fullname,
+              mhspNumber: user.mhspNumber,
+            }).catch(() => {})
+          }
           await signOut(auth)
         }
         catch(error){

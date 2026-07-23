@@ -98,5 +98,10 @@ service cloud.firestore {
     match /import_sessions/{id} {
       allow read, write: if false;
     }
+
+    // Rate limit counters: Admin SDK only, never touched by client SDKs
+    match /rate_limits/{id} {
+      allow read, write: if false;
+    }
   }
 }

@@ -44,6 +44,7 @@ function badgeVariant(type) {
   if (type.startsWith('membership.')) return 'secondary'
   if (type.startsWith('member.'))   return 'secondary'
   if (type.startsWith('network.'))  return 'default'
+  if (type.startsWith('security.')) return 'destructive'
   return 'secondary'
 }
 
@@ -73,6 +74,7 @@ const EVENT_TYPES = [
   'member.id_changed',
   'member.deactivated',
   'feedback.submitted',
+  'security.rate_limit_exceeded',
 ]
 
 export default function AdminActivityLogPage() {

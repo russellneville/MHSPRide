@@ -43,7 +43,7 @@ export default function NetworksPage() {
   return (
     <DashboardLayout>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-semibold">Networks</h3>
+        <h3 className="text-xl font-semibold">Book/Offer Rides</h3>
         {user?.role === "admin" && (
           <Button onClick={() => openPopup("Create new Network", <NetworkPopup />)}>
             Create Network

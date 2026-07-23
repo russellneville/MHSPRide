@@ -2,6 +2,7 @@
 import { useNetwork } from "@/context/NetworksContext";
 import DashboardLayout from "../dashboardLayout";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { usePopup } from "@/context/PopupContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -14,9 +15,11 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ChevronDown, ChevronRight, Pencil, Plus } from "lucide-react";
-import { formatTime, toLocalDateStr } from "@/lib/utils";
+import { formatDate, formatTime, toLocalDateStr } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
+import RideRowCard from "@/components/cards/ride-row-card";
 import { resolveLocation } from "@/lib/locations";
 
 const PAGE_SIZE = 25
@@ -37,9 +40,11 @@ function isCanceled(r) {
 
 export default function MyOfferedRides() {
   const { getRides, getNetworkList } = useNetwork()
+  const router = useRouter()
   const { openPopup } = usePopup()
   const { user } = useAuth()
   const [rides, setRides] = useState([])
+  const [loaded, setLoaded] = useState(false)
   const [joinedNetworks, setJoinedNetworks] = useState([])
   const [networkMap, setNetworkMap] = useState({})
   const [pastOpen, setPastOpen] = useState(false)
@@ -49,7 +54,7 @@ export default function MyOfferedRides() {
   const [warnRide, setWarnRide] = useState(null)
 
   const fetchRides = async () => {
-    getRides().then(data => setRides(data || []))
+    getRides().then(data => { setRides(data || []); setLoaded(true) })
   }
 
   useEffect(() => {
@@ -125,45 +130,84 @@ export default function MyOfferedRides() {
     )
   }
 
-  const RideTable = ({ rows, allowEdit }) => (
-    <Table className="border border-border overflow-x-auto">
-      <TableHeader>
-        <TableRow>
-          <TableHead>Network</TableHead>
-          <TableHead>Departure</TableHead>
-          <TableHead>Arrival</TableHead>
-          <TableHead>Departure date</TableHead>
-          <TableHead>Arrival date</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Riders</TableHead>
-          {allowEdit && <TableHead />}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+  const rideHref = (r) => r.network_id && r.id ? `/dashboard/network/${r.network_id}/rides/${r.id}` : null
+
+  const RideList = ({ rows, allowEdit }) => (
+    <>
+      {/* Mobile cards */}
+      <div className="space-y-2 md:hidden">
         {rows.map(r => {
           const status = normalizeStatus(r.ride_status)
           const networkName = networkMap[r.network_id] || (r.network_id ? r.network_id.replace(/^network-/i, '') : '—')
+          const href = rideHref(r)
           return (
-            <TableRow key={r.id} className={r.departure_date === today ? 'bg-blue-50 dark:bg-blue-950' : ''}>
-              <TableCell className="whitespace-nowrap">{networkName}</TableCell>
-              <TableCell>{resolveLocation(r.departure)}</TableCell>
-              <TableCell>{resolveLocation(r.arrival)}</TableCell>
-              <TableCell className="whitespace-nowrap">{r.departure_date} at {formatTime(r.departure_time)}</TableCell>
-              <TableCell className="whitespace-nowrap">{r.arrival_date} at {formatTime(r.arrival_time)}</TableCell>
-              <TableCell><Badge variant={status}>{status}</Badge></TableCell>
-              <TableCell className="whitespace-nowrap">{(r.total_seats || 0) - (r.available_seats || 0)} of {r.total_seats || 0}</TableCell>
-              {allowEdit && (
-                <TableCell>
-                  <Button variant="ghost" size="icon" onClick={() => handleEditClick(r)}>
-                    <Pencil className="size-4" />
-                  </Button>
-                </TableCell>
+            <RideRowCard
+              key={r.id}
+              departure={r.departure}
+              arrival={r.arrival}
+              date={r.departure_date}
+              time={r.departure_time}
+              highlight={r.departure_date === today}
+              details={<>
+                <p className="text-sm text-muted-foreground">{networkName} · {(r.total_seats || 0) - (r.available_seats || 0)} of {r.total_seats || 0} seats booked</p>
+                {r.return_departure_time && <p className="text-sm text-muted-foreground">Return departs {formatTime(r.return_departure_time)}</p>}
+              </>}
+              badges={<Badge variant={status}>{status}</Badge>}
+              onClick={href ? () => router.push(href) : undefined}
+              action={allowEdit && (
+                <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditClick(r) }}>
+                  <Pencil className="size-4" />
+                </Button>
               )}
-            </TableRow>
+            />
           )
         })}
-      </TableBody>
-    </Table>
+      </div>
+      {/* Desktop table */}
+      <div className="hidden md:block">
+        <Table className="border border-border">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Network</TableHead>
+              <TableHead>Route</TableHead>
+              <TableHead>Date &amp; Time</TableHead>
+              <TableHead>Return</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Seats booked</TableHead>
+              {allowEdit && <TableHead />}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map(r => {
+              const status = normalizeStatus(r.ride_status)
+              const networkName = networkMap[r.network_id] || (r.network_id ? r.network_id.replace(/^network-/i, '') : '—')
+              const href = rideHref(r)
+              return (
+                <TableRow
+                  key={r.id}
+                  className={`${href ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''} ${r.departure_date === today ? 'bg-blue-50 dark:bg-blue-950' : ''}`}
+                  onClick={() => href && router.push(href)}
+                >
+                  <TableCell className="whitespace-nowrap">{networkName}</TableCell>
+                  <TableCell>{resolveLocation(r.departure)} → {resolveLocation(r.arrival)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{formatDate(r.departure_date)} at {formatTime(r.departure_time)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{formatTime(r.return_departure_time)}</TableCell>
+                  <TableCell><Badge variant={status}>{status}</Badge></TableCell>
+                  <TableCell className="whitespace-nowrap">{(r.total_seats || 0) - (r.available_seats || 0)} of {r.total_seats || 0}</TableCell>
+                  {allowEdit && (
+                    <TableCell>
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditClick(r) }}>
+                        <Pencil className="size-4" />
+                      </Button>
+                    </TableCell>
+                  )}
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   )
 
   return (
@@ -180,9 +224,15 @@ export default function MyOfferedRides() {
             <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Upcoming and Current Rides {upcoming.length > 0 && <span className="text-foreground ml-1">({upcoming.length})</span>}
             </h4>
-            {upcoming.length === 0
+            {!loaded ? (
+              <div className="space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ) : upcoming.length === 0
               ? <p className="text-sm text-muted-foreground">No upcoming rides.</p>
-              : <RideTable rows={upcoming} allowEdit />
+              : <RideList rows={upcoming} allowEdit />
             }
           </section>
 
@@ -199,7 +249,7 @@ export default function MyOfferedRides() {
 
               {pastOpen && (
                 <div className="space-y-3">
-                  <RideTable rows={pagedPast} allowEdit={false} />
+                  <RideList rows={pagedPast} allowEdit={false} />
                   {pastPageCount > 1 && (
                     <div className="flex items-center gap-3 text-sm">
                       <Button variant="outline" size="sm" disabled={pastPage === 0} onClick={() => setPastPage(p => p - 1)}>Previous</Button>

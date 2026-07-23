@@ -35,6 +35,10 @@ function isActiveStatus(status) {
   return (status || '').trim().toLowerCase() === 'active'
 }
 
+function googleMapsUrl(latitude, longitude) {
+  return `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`
+}
+
 function statusVariant(status) {
   if (!status) return 'secondary'
   const s = status.toLowerCase()
@@ -149,12 +153,13 @@ export default function RosterPage() {
                       <TableHead>Classification</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Registered</TableHead>
+                      <TableHead>Lat/Lon</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {pageRows.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                           No members match your search.
                         </TableCell>
                       </TableRow>
@@ -185,6 +190,20 @@ export default function RosterPage() {
                               {m.claimed
                                 ? <Badge variant="default" className="text-xs">Registered</Badge>
                                 : <span className="text-muted-foreground text-sm">—</span>}
+                            </TableCell>
+                            <TableCell className="font-mono text-xs whitespace-nowrap">
+                              {m.latitude != null && m.longitude != null
+                                ? (
+                                  <a
+                                    href={googleMapsUrl(m.latitude, m.longitude)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:underline dark:text-blue-400"
+                                  >
+                                    {m.latitude.toFixed(5)}, {m.longitude.toFixed(5)}
+                                  </a>
+                                )
+                                : <span className="text-muted-foreground">—</span>}
                             </TableCell>
                           </TableRow>
                         )

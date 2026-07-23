@@ -21,9 +21,7 @@ export default function DatePicker({ id, date, setDate , disabled}) {
           selected={date}
           captionLayout="dropdown"
           onSelect={(date) => setDate(date)}
-          disabled={disabled && {
-            before: new Date(),
-          }}
+          disabled={disabled}
         />
       </PopoverContent>
     </Popover>

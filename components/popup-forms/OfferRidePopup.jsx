@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Label } from "../ui/label"
 import { Input } from "../ui/input"
 import DatePicker from "../ui/date-picker"
@@ -16,7 +16,7 @@ import {
 } from "../ui/alert-dialog"
 import { LOCATIONS } from "@/lib/locations"
 import { estimateArrival } from "@/lib/drive-times"
-import { toLocalDateStr } from "@/lib/utils"
+import { formatDate, toLocalDateStr } from "@/lib/utils"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { db, auth } from "@/lib/firebaseClient"
 
@@ -130,6 +130,7 @@ export default function OfferRidePopup({ networkId, onSaved }) {
   const [arrivalOther, setArrivalOther] = useState('')
   const [date, setDate] = useState(undefined)
   const [oneWay, setOneWay] = useState(false)
+  const [takenDates, setTakenDates] = useState([])
   const [rideData, setRideData] = useState({
     departure_time: '',
     arrival_time: '',
@@ -139,13 +140,20 @@ export default function OfferRidePopup({ networkId, onSaved }) {
   })
   const [validationError, setValidationErrors] = useState({})
 
-  const effectiveDeparture = departureOther.trim()
-    ? departureOther.trim().toLowerCase()
-    : departureSelect
+  // Days the driver already offers a ride get disabled in the date picker
+  useEffect(() => {
+    getRides().then(rides => {
+      const taken = (rides || [])
+        .filter(r => r.ride_status !== 'canceled' && r.ride_status !== 'cancled')
+        .map(r => r.departure_date)
+        .filter(Boolean)
+      setTakenDates([...new Set(taken)])
+    })
+  }, [])
 
-  const effectiveArrival = arrivalOther.trim()
-    ? arrivalOther.trim().toLowerCase()
-    : arrivalSelect
+  const effectiveDeparture = departureOther.trim() || departureSelect
+
+  const effectiveArrival = arrivalOther.trim() || arrivalSelect
 
   const handleChange = (e) => {
     const updated = { ...rideData, [e.target.id]: e.target.value }
@@ -162,7 +170,8 @@ export default function OfferRidePopup({ networkId, onSaved }) {
     if (!effectiveArrival) newErrors.arrival = "Arrival is required"
     if (!date) newErrors.date = "Date is required"
     if (!rideData.departure_time) newErrors.departure_time = "Departure time is required"
-    if (!rideData.total_seats || Number(rideData.total_seats) < 1) newErrors.total_seats = "Number of riders is required"
+    if (!oneWay && !rideData.return_departure_time) newErrors.return_departure_time = "Return time is required — or mark the trip one way"
+    if (!rideData.total_seats || Number(rideData.total_seats) < 1) newErrors.total_seats = "Number of seats is required"
     setValidationErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -197,27 +206,6 @@ export default function OfferRidePopup({ networkId, onSaved }) {
 
   return (
     <div className="space-y-5">
-
-      {/* ── Number of riders ────────────────────────────── */}
-      <div className="space-y-1">
-        <Label>Number of riders</Label>
-        <Select
-          value={rideData.total_seats ? String(rideData.total_seats) : ''}
-          onValueChange={(v) => setRideData(prev => ({ ...prev, total_seats: v }))}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select" />
-          </SelectTrigger>
-          <SelectContent>
-            {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
-              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {validationError.total_seats && <p className="text-red-500 text-sm">{validationError.total_seats}</p>}
-      </div>
-
-      <div className="border-t border-border" />
 
       {/* ── To Destination ─────────────────────────────── */}
       <div className="space-y-3">
@@ -258,7 +246,14 @@ export default function OfferRidePopup({ networkId, onSaved }) {
         <div className="flex items-start gap-2">
           <div className="flex-1 space-y-1">
             <Label>Date</Label>
-            <DatePicker date={date} setDate={setDate} disabled={{ before: new Date() }} />
+            <DatePicker
+              date={date}
+              setDate={setDate}
+              disabled={[{ before: new Date() }, ...takenDates.map(d => new Date(d + 'T12:00:00'))]}
+            />
+            {takenDates.length > 0 && (
+              <p className="text-xs text-muted-foreground">Days you already offer a ride are unavailable.</p>
+            )}
             {validationError.date && <p className="text-red-500 text-sm">{validationError.date}</p>}
           </div>
           <div className="flex-1 space-y-1">
@@ -291,8 +286,28 @@ export default function OfferRidePopup({ networkId, onSaved }) {
           <div className="space-y-1">
             <Label htmlFor="return_departure_time">Return departure time</Label>
             <Input type="time" id="return_departure_time" onChange={handleChange} value={rideData.return_departure_time} />
+            {validationError.return_departure_time && <p className="text-red-500 text-sm">{validationError.return_departure_time}</p>}
           </div>
         )}
+      </div>
+
+      {/* ── Seats available ────────────────────────────── */}
+      <div className="space-y-1 border-t border-border pt-4">
+        <Label>Seats available</Label>
+        <Select
+          value={rideData.total_seats ? String(rideData.total_seats) : ''}
+          onValueChange={(v) => setRideData(prev => ({ ...prev, total_seats: v }))}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder="Select" />
+          </SelectTrigger>
+          <SelectContent>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map(n => (
+              <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {validationError.total_seats && <p className="text-red-500 text-sm">{validationError.total_seats}</p>}
       </div>
 
       {/* ── Notes ──────────────────────────────────────── */}
@@ -319,7 +334,7 @@ export default function OfferRidePopup({ networkId, onSaved }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Ride already offered that day</AlertDialogTitle>
             <AlertDialogDescription>
-              You already have a ride offered on {toLocalDateStr(date)}. Only one offered ride per day is allowed.
+              You already have a ride offered on {formatDate(toLocalDateStr(date))}. Only one offered ride per day is allowed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

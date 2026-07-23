@@ -52,6 +52,7 @@ export default function RidePage() {
   const [rideLoaded, setRideLoaded] = useState(false);
   const [seatsToBook, setSeatsToBook] = useState(1);
   const [showEditWarn, setShowEditWarn] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showDayConflict, setShowDayConflict] = useState(false);
   const [existingBookings, setExistingBookings] = useState([]);
 
@@ -320,12 +321,37 @@ export default function RidePage() {
                     >
                       Edit ride <Pencil className="size-4 ml-1" />
                     </Button>
-                    <Button variant="destructive" onClick={handleCancelRide} disabled={isLoading}>
+                    <Button variant="destructive" onClick={() => setShowCancelConfirm(true)} disabled={isLoading}>
                       Cancel ride <X className="size-4 ml-1" />
                     </Button>
                   </CardContent>
                 </Card>
               )}
+
+              <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel this ride?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {(() => {
+                        const booked = (rideData?.total_seats || 0) - (rideData?.available_seats || 0)
+                        return booked > 0
+                          ? `This cancels the ride and its ${booked} booked seat${booked !== 1 ? 's' : ''}. Passengers will be notified by email, but you should also contact them directly. This cannot be undone.`
+                          : 'This removes the ride from the network. This cannot be undone.'
+                      })()}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep ride</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-white hover:bg-destructive/90"
+                      onClick={() => { setShowCancelConfirm(false); handleCancelRide() }}
+                    >
+                      Cancel ride
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
 
               <AlertDialog open={showEditWarn} onOpenChange={setShowEditWarn}>
                 <AlertDialogContent>

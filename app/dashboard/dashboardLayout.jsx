@@ -64,8 +64,9 @@ export default function DashboardLayout({ children, banner, headerActions }) {
                 {segments.filter((_,i)=> i!== 0).map((segment, index) => {
                   // Segments that don't have a real page at their computed href
                   const SEGMENT_MAP = {
-                    network: { label: 'Networks', href: '/dashboard/networks' },
-                    admin:   { label: 'Admin',    href: null }, // no /dashboard/admin page
+                    network:  { label: 'Book/Offer Rides', href: '/dashboard/networks' },
+                    networks: { label: 'Book/Offer Rides', href: '/dashboard/networks' },
+                    admin:    { label: 'Admin',            href: null }, // no /dashboard/admin page
                   }
                   const override = SEGMENT_MAP[segment]
                   const href = override !== undefined

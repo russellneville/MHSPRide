@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { formatTime, toLocalDateStr } from "@/lib/utils";
+import { formatDate, formatTime, toLocalDateStr } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import RideDetailsPopup from "@/components/popup-forms/RideDetailsPopup";
 import { resolveLocation } from "@/lib/locations";
@@ -29,6 +30,7 @@ export default function MyBookedRides() {
   const { user } = useAuth()
   const { openPopup } = usePopup()
   const [bookings, setBookings] = useState([])
+  const [loaded, setLoaded] = useState(false)
   const [pastOpen, setPastOpen] = useState(false)
   const [pastPage, setPastPage] = useState(0)
 
@@ -46,6 +48,7 @@ export default function MyBookedRides() {
         }, {})
       )
       setBookings(deduped)
+      setLoaded(true)
     }
     if (user) fetchBookings()
   }, [user]);
@@ -95,7 +98,7 @@ export default function MyBookedRides() {
               onClick={() => handleRowClick(b)}
             >
               <TableCell>{statusBadge(status)}</TableCell>
-              <TableCell className="whitespace-nowrap">{b.departure_date} at {formatTime(b.departure_time)}</TableCell>
+              <TableCell className="whitespace-nowrap">{formatDate(b.departure_date)} at {formatTime(b.departure_time)}</TableCell>
               <TableCell>{resolveLocation(b.departure)}</TableCell>
               <TableCell>{resolveLocation(b.arrival)}</TableCell>
               <TableCell>{b.driver?.fullname || '—'}</TableCell>
@@ -114,7 +117,7 @@ export default function MyBookedRides() {
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-semibold">My Booked Rides</h3>
             <Button asChild>
-              <Link href="/dashboard/networks">Find Rides</Link>
+              <Link href="/dashboard/networks">Book Ride</Link>
             </Button>
           </div>
 
@@ -123,7 +126,13 @@ export default function MyBookedRides() {
             <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Upcoming and Current Rides {upcoming.length > 0 && <span className="text-foreground ml-1">({upcoming.length})</span>}
             </h4>
-            {upcoming.length === 0
+            {!loaded ? (
+              <div className="space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ) : upcoming.length === 0
               ? <p className="text-sm text-muted-foreground">No upcoming bookings.</p>
               : <BookingTable rows={upcoming} />
             }

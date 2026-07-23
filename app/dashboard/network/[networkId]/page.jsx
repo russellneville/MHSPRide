@@ -14,7 +14,8 @@ import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
 import DriverDetailsPopup from "@/components/popup-forms/DriverDetailsPopup";
 import Link from "next/link";
 import { LOCATIONS, resolveLocation } from "@/lib/locations";
-import { formatTime } from "@/lib/utils";
+import { formatDate, formatTime } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { computeRideStatus } from "@/lib/rides";
 
@@ -81,7 +82,15 @@ export default function NetworkPage() {
     }
   };
 
-  if (!networkData) return <DashboardLayout><p className="p-6 text-muted-foreground">Loading…</p></DashboardLayout>;
+  if (!networkData) return (
+    <DashboardLayout>
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-24 w-full" />
+      </div>
+    </DashboardLayout>
+  );
 
   // Annotate each ride with computed status
   const annotated = rides.map(r => ({ ...r, _status: computeRideStatus(r) }));
@@ -265,7 +274,7 @@ function RideCard({ ride, networkId, muted }) {
             </div>
             <div className="text-sm text-muted-foreground flex items-center gap-1">
               <Clock className="size-3.5" />
-              <span className="font-bold text-foreground">{ride.departure_date}</span>
+              <span className="font-bold text-foreground">{formatDate(ride.departure_date)}</span>
               <span>at</span>
               <span className="font-bold text-foreground">{formatTime(ride.departure_time)}</span>
             </div>

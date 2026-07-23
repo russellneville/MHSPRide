@@ -14,7 +14,8 @@ import {
   AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { ChevronDown, ChevronRight, Pencil, Plus } from "lucide-react";
-import { formatTime, toLocalDateStr } from "@/lib/utils";
+import { formatDate, formatTime, toLocalDateStr } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
 import { resolveLocation } from "@/lib/locations";
@@ -40,6 +41,7 @@ export default function MyOfferedRides() {
   const { openPopup } = usePopup()
   const { user } = useAuth()
   const [rides, setRides] = useState([])
+  const [loaded, setLoaded] = useState(false)
   const [joinedNetworks, setJoinedNetworks] = useState([])
   const [networkMap, setNetworkMap] = useState({})
   const [pastOpen, setPastOpen] = useState(false)
@@ -49,7 +51,7 @@ export default function MyOfferedRides() {
   const [warnRide, setWarnRide] = useState(null)
 
   const fetchRides = async () => {
-    getRides().then(data => setRides(data || []))
+    getRides().then(data => { setRides(data || []); setLoaded(true) })
   }
 
   useEffect(() => {
@@ -148,8 +150,8 @@ export default function MyOfferedRides() {
               <TableCell className="whitespace-nowrap">{networkName}</TableCell>
               <TableCell>{resolveLocation(r.departure)}</TableCell>
               <TableCell>{resolveLocation(r.arrival)}</TableCell>
-              <TableCell className="whitespace-nowrap">{r.departure_date} at {formatTime(r.departure_time)}</TableCell>
-              <TableCell className="whitespace-nowrap">{r.arrival_date} at {formatTime(r.arrival_time)}</TableCell>
+              <TableCell className="whitespace-nowrap">{formatDate(r.departure_date)} at {formatTime(r.departure_time)}</TableCell>
+              <TableCell className="whitespace-nowrap">{formatDate(r.arrival_date)} at {formatTime(r.arrival_time)}</TableCell>
               <TableCell><Badge variant={status}>{status}</Badge></TableCell>
               <TableCell className="whitespace-nowrap">{(r.total_seats || 0) - (r.available_seats || 0)} of {r.total_seats || 0}</TableCell>
               {allowEdit && (
@@ -180,7 +182,13 @@ export default function MyOfferedRides() {
             <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Upcoming and Current Rides {upcoming.length > 0 && <span className="text-foreground ml-1">({upcoming.length})</span>}
             </h4>
-            {upcoming.length === 0
+            {!loaded ? (
+              <div className="space-y-2">
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+                <Skeleton className="h-9 w-full" />
+              </div>
+            ) : upcoming.length === 0
               ? <p className="text-sm text-muted-foreground">No upcoming rides.</p>
               : <RideTable rows={upcoming} allowEdit />
             }

@@ -32,7 +32,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { usePopup } from "@/context/PopupContext";
-import { formatTime } from "@/lib/utils";
+import { formatDate as formatDateStr, formatTime } from "@/lib/utils";
+import { resolveLocation } from "@/lib/locations";
+import { Skeleton } from "@/components/ui/skeleton";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -47,6 +49,7 @@ export default function RidePage() {
   const { openPopup } = usePopup();
 
   const [rideData, setRideData] = useState(null);
+  const [rideLoaded, setRideLoaded] = useState(false);
   const [seatsToBook, setSeatsToBook] = useState(1);
   const [showEditWarn, setShowEditWarn] = useState(false);
   const [showDayConflict, setShowDayConflict] = useState(false);
@@ -56,6 +59,7 @@ export default function RidePage() {
   const fetchRide = async () => {
     const data = await getRide(rideId, networkId);
     setRideData(data);
+    setRideLoaded(true);
   };
 
   useEffect(() => {
@@ -147,8 +151,8 @@ export default function RidePage() {
                   </div>
                   <div>
                     <CardTitle className="text-lg font-semibold flex items-center gap-3 flex-wrap">
-                      {rideData.departure} <MoveRight className="size-4" />{" "}
-                      {rideData.arrival}
+                      {resolveLocation(rideData.departure)} <MoveRight className="size-4" />{" "}
+                      {resolveLocation(rideData.arrival)}
                       {inProgress && (
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-800 border border-green-300">
                           In Progress
@@ -157,7 +161,7 @@ export default function RidePage() {
                     </CardTitle>
                     <p className="text-sm text-muted-foreground flex items-center gap-1">
                       <Clock className="size-4" />
-                      {rideData.departure_date} at {formatTime(rideData.departure_time)}
+                      {formatDateStr(rideData.departure_date)} at {formatTime(rideData.departure_time)}
                     </p>
                   </div>
                 </CardHeader>
@@ -166,12 +170,12 @@ export default function RidePage() {
                   <p>
                     <MapPin className="inline size-4 mr-1" />{" "}
                     <span className="font-medium">Departure:</span>{" "}
-                    {rideData.departure}
+                    {resolveLocation(rideData.departure)}
                   </p>
                   <p>
                     <Navigation className="inline size-4 mr-1" />{" "}
                     <span className="font-medium">Arrival:</span>{" "}
-                    {rideData.arrival}
+                    {resolveLocation(rideData.arrival)}
                   </p>
                   {rideData.arrival_time && (
                     <p>
@@ -458,6 +462,14 @@ export default function RidePage() {
             </div>
           </div>
         </div>
+      ) : !rideLoaded ? (
+        <div className="space-y-4 p-3 md:p-6">
+          <Skeleton className="h-8 w-48" />
+          <div className="grid grid-cols-1 md:grid-cols-[7fr_3fr] gap-5">
+            <Skeleton className="h-64 w-full" />
+            <Skeleton className="h-40 w-full" />
+          </div>
+        </div>
       ) : (
         <p className="text-center p-5 text-muted-foreground">Ride not found.</p>
       )}
@@ -467,7 +479,7 @@ export default function RidePage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Ride already booked that day</AlertDialogTitle>
             <AlertDialogDescription>
-              You already have a booked ride on {rideData?.departure_date}. Only one ride per day is allowed.
+              You already have a booked ride on {formatDateStr(rideData?.departure_date)}. Only one ride per day is allowed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

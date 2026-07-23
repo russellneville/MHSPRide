@@ -1,4 +1,4 @@
-import { formatTime } from "@/lib/utils"
+import { formatDate, formatTime } from "@/lib/utils"
 import { resolveLocation } from "@/lib/locations"
 import { Calendar, Car, Clock, MapPin, MoveRight, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -30,7 +30,7 @@ export default function RideDetailsPopup({ booking }) {
         <div className="flex flex-wrap gap-4 text-muted-foreground">
           <span className="flex items-center gap-1">
             <Calendar className="size-3.5" />
-            {booking.departure_date}
+            {formatDate(booking.departure_date)}
           </span>
           <span className="flex items-center gap-1">
             <Clock className="size-3.5" />

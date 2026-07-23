@@ -143,7 +143,7 @@ node scripts/migrateDirectorToAdmin.mjs
 
 ### Firestore rules for admin access
 
-The admin pages require updated Firestore security rules. Add an `isAdmin()` helper and update rules for `users`, `members`, `rides`, `bookings`, and add rules for `activity_log`. See the comment block at the top of `app/dashboard/admin/users/page.jsx` for the full rule set to add in **Firebase Console → Firestore → Rules**.
+The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuspended()` helpers, and rules for `users`, `members`, `rides`, `bookings`, `activity_log`). `firebase.json`/`.firebaserc` link this directory to the `mhspride` project, so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months).
 
 ---
 

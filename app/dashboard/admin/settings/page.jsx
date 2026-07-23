@@ -9,8 +9,11 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
+import { useAuth } from '@/context/AuthContext'
+import { logEvent } from '@/lib/activityLog'
 
 export default function AdminSettingsPage() {
+  const { user } = useAuth()
   const [supportEmail, setSupportEmail] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -30,6 +33,14 @@ export default function AdminSettingsPage() {
     try {
       await setDoc(doc(db, 'config', 'site'), { support_email: supportEmail.trim() }, { merge: true })
       toast.success('Settings saved')
+      logEvent({
+        type: 'admin.settings_updated',
+        message: `Support email updated to ${supportEmail.trim()}`,
+        userId: user?.uid,
+        userName: user?.fullname,
+        mhspNumber: user?.mhspNumber,
+        metadata: { support_email: supportEmail.trim() },
+      }).catch(() => {})
     } catch (err) {
       console.error('[settings]', err)
       toast.error('Failed to save settings')

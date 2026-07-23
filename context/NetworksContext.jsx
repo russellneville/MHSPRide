@@ -39,6 +39,14 @@ export const NetworkProvider = ({children})=>{
                 created_at : new Date()
             })
         toast.success('Network created successfully')
+        logEvent({
+          type: 'network.created',
+          message: `Network created: ${data.name || inviteCode}`,
+          userId: auth.currentUser.uid,
+          userName: userData.fullname,
+          mhspNumber: userData.mhspNumber,
+          metadata: { networkId: `network-${inviteCode}`, name: data.name },
+        }).catch(() => {})
       }
       else {
         throw new Error('You do not have permission to create network')
@@ -95,6 +103,14 @@ export const NetworkProvider = ({children})=>{
     });
 
     toast.success("Network joined successfully");
+    logEvent({
+      type: 'network.joined',
+      message: `${userData.fullname} joined network: ${networkData.name || id}`,
+      userId: uid,
+      userName: userData.fullname,
+      mhspNumber: userData.mhspNumber,
+      metadata: { networkId: id, name: networkData.name },
+    }).catch(() => {})
   } catch (error) {
     console.error(error);
     toast.error(error.message);
@@ -266,6 +282,16 @@ export const NetworkProvider = ({children})=>{
         
         await updateDoc(docRef , {[`${role}s`] : updateUsers})
         toast.success('User status changed successfully')
+
+        const targetMember = (role === 'passenger' ? data.passengers : data.drivers)?.find(p => p.id === id)
+        logEvent({
+          type: 'network.member_status_changed',
+          message: `${targetMember?.fullname || id} (${role}) set to ${newStatus} in network ${data.name || networkId}`,
+          userId: auth.currentUser.uid,
+          userName: userData.fullname,
+          mhspNumber: userData.mhspNumber,
+          metadata: { networkId, memberId: id, role, newStatus },
+        }).catch(() => {})
       }
       else {
         throw new Error('You do not have permission to change status')
@@ -551,8 +577,22 @@ const getNetworkList = async ()=>{
 
 const deleteNetwork = async (id) => {
   try {
+    const networkSnap = await getDoc(doc(db, "networks", id))
+    const networkData = networkSnap.data()
+
     await deleteDoc(doc(db, "networks", id));
     toast.success("Network deleted successfully");
+
+    const actorDoc = await getDoc(doc(db, 'users', auth.currentUser.uid)).catch(() => null)
+    const actorData = actorDoc?.data() || {}
+    logEvent({
+      type: 'network.deleted',
+      message: `Network deleted: ${networkData?.name || id}`,
+      userId: auth.currentUser.uid,
+      userName: actorData.fullname,
+      mhspNumber: actorData.mhspNumber,
+      metadata: { networkId: id, name: networkData?.name },
+    }).catch(() => {})
   } catch (err) {
     toast.error(err.message);
   }

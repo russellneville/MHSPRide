@@ -13,15 +13,11 @@ service cloud.firestore {
         && !isSuspended();
     }
 
-    // Members: public read for registration verification;
-    // authenticated users may only flip claimed/claimedBy on unclaimed docs
+    // Members: admin read/update only. Registration verification and claiming go
+    // through Admin SDK routes now (app/api/register/*); the remaining client write
+    // path is the admin "reset membership" action (app/dashboard/admin/users).
     match /members/{memberId} {
-      allow read: if true;
-      allow update: if request.auth != null
-        && !isSuspended()
-        && resource.data.claimed == false
-        && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['claimed', 'claimedBy']);
+      allow read, update: if isAdmin();
       allow create, delete: if false;
     }
 
@@ -101,6 +97,11 @@ service cloud.firestore {
 
     // Rate limit counters: Admin SDK only, never touched by client SDKs
     match /rate_limits/{id} {
+      allow read, write: if false;
+    }
+
+    // Registration verification codes: Admin SDK only, never touched by client SDKs
+    match /registration_verifications/{id} {
       allow read, write: if false;
     }
   }

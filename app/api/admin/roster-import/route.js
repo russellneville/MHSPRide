@@ -31,9 +31,13 @@ export async function POST(request) {
     return NextResponse.json({ error: 'No valid MHSP Number rows found in CSV' }, { status: 400 })
   }
 
-  // Fetch only active members — inactive docs are already retired and must not re-enter the diff
+  // Fetch every member, including inactive ones — computeDiff searches inactive docs
+  // as rename candidates, since Troopiter can reassign a member's MHSP# (e.g. on an
+  // Apprentice -> full-status promotion) in a way that doesn't land in the same
+  // import as the old number's disappearance. Without inactive docs in the pool,
+  // that kind of promotion silently creates an orphaned duplicate instead of a match.
   const db = getAdminDb()
-  const membersSnap = await db.collection('members').where('active', '==', true).get()
+  const membersSnap = await db.collection('members').get()
   const firestoreMembers = membersSnap.docs.map(doc => ({
     id: doc.id,
     ...doc.data(),

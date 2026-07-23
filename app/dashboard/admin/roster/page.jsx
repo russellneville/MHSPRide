@@ -73,6 +73,13 @@ export default function RosterPage() {
     const q = search.trim().toLowerCase()
 
     return members.filter(m => {
+      // A member doc can be superseded — either genuinely removed from the roster,
+      // or replaced by a new MHSP# after a classification-driven renumbering (e.g.
+      // Apprentice -> full-status promotion). Either way it's not a live, distinct
+      // person and should never show up here, regardless of its stale Status text —
+      // unlike the Status filter below, this applies under every filter including "All".
+      if (m.active === false) return false
+
       // Status filter — based on the roster Status text, not the internal
       // `active` flag (which only tracks whether the member is still present
       // in the most recently imported roster CSV, not their Status value).

@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/firebaseAdmin'
 import { sendSupportEmail } from '@/lib/email'
 import { FieldValue } from 'firebase-admin/firestore'
+import { recordAttempt, getClientIp } from '@/lib/rateLimit'
+
+const CONTACT_IP_LIMIT = { limit: 5, windowMs: 60 * 60 * 1000 }
 
 export async function POST(request) {
   try {
@@ -12,6 +15,23 @@ export async function POST(request) {
     }
 
     const db = getAdminDb()
+
+    const ip = getClientIp(request)
+    const rateResult = await recordAttempt({ key: `contact:ip:${ip}`, ...CONTACT_IP_LIMIT })
+    if (rateResult.blocked) {
+      if (rateResult.crossedThreshold) {
+        await db.collection('activity_log').add({
+          type: 'security.rate_limit_exceeded',
+          message: `Contact form rate limit exceeded for IP ${ip}`,
+          userId: null,
+          userName: null,
+          userMhspHex: null,
+          metadata: { ip, scope: 'contact_ip' },
+          timestamp: FieldValue.serverTimestamp(),
+        })
+      }
+      return NextResponse.json({ ok: false, error: 'Too many requests, please try again later' }, { status: 429 })
+    }
 
     await db.collection('feedback').add({
       name: name.trim(),

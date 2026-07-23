@@ -35,6 +35,10 @@ export default function ContactPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
+      if (res.status === 429) {
+        setError('Too many submissions. Please wait and try again later.')
+        return
+      }
       if (!res.ok) throw new Error('Submission failed')
       setSubmitted(true)
     } catch {

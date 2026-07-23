@@ -50,6 +50,15 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoading(true)
 
+      // Guard against account-creation spam / membership-check enumeration before
+      // touching Firestore or Firebase Auth at all. Fails open on network error.
+      const guard = await fetch('/api/register-guard', { method: 'POST' })
+        .then(r => r.json())
+        .catch(() => ({ ok: true, blocked: false }))
+      if (guard.blocked) {
+        throw new Error('Too many registration attempts from this network. Please try again later.')
+      }
+
       // Step 1: Verify MHSP membership
       const memberRef = doc(db, 'members', String(mhspNumber).trim())
       const memberSnap = await getDoc(memberRef)
@@ -128,6 +137,21 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoading(true)
       setSuspendedMessage(null)
+
+      // Ask before attempting — blocks in the UI without ever calling Firebase
+      // if this email/IP is in cooldown from recent failures. Fails open.
+      const guard = await fetch('/api/login-guard', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      }).then(r => r.json()).catch(() => ({ ok: true, blocked: false }))
+
+      if (guard.blocked) {
+        const mins = guard.retryAfterMs ? Math.ceil(guard.retryAfterMs / 60000) : null
+        toast.error(mins ? `Too many login attempts. Try again in ${mins} min.` : 'Too many login attempts. Please wait and try again.')
+        return
+      }
+
       const { user: fbUser } = await signInWithEmailAndPassword(auth , email , password)
 
       const docSnap = await getDoc(doc(db, 'users', fbUser.uid))
@@ -229,6 +253,10 @@ export const AuthProvider = ({ children }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
+      if (res.status === 429) {
+        toast.error('Too many reset requests for this email. Please wait and try again later.')
+        return
+      }
       if (!res.ok) throw new Error('Could not send reset email')
       toast.success('Password reset email sent. Check your inbox.')
       logEvent({

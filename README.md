@@ -143,7 +143,25 @@ node scripts/migrateDirectorToAdmin.mjs
 
 ### Firestore rules for admin access
 
-The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuspended()` helpers, and rules for `users`, `members`, `rides`, `bookings`, `activity_log`). `firebase.json`/`.firebaserc` link this directory to the `mhspride` project, so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months).
+The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuspended()` helpers, and rules for `users`, `members`, `rides`, `bookings`, `activity_log`, `rate_limits`). `firebase.json`/`.firebaserc` link this directory to the `mhspride` project, so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months).
+
+---
+
+## Rate limiting
+
+Unauthenticated endpoints that could otherwise be pummeled by a scripter are gated by `lib/rateLimit.js` — fixed-window counters (Admin SDK, `rate_limits` collection, never touched by client SDKs). Every threshold crossing logs a `security.rate_limit_exceeded` event to the Activity Log, once per window (not on every subsequent blocked attempt).
+
+| Surface | Limit | Notes |
+|---|---|---|
+| Login failures, per email | 5 / 15 min | Login/registration go straight from the browser to Firebase Auth (never touch our server), so this is an app-layer gate — `app/api/login-guard` is asked before attempting sign-in and blocks in the UI if tripped, never calling Firebase. It does **not** stop someone scripting directly against Firebase's REST API; the recommended complementary defense is enabling Firebase Auth's reCAPTCHA-based abuse protection in the Firebase Console. |
+| Login failures, per IP | 20 / hour | Coarser net for credential stuffing across many emails from one source. |
+| Password reset, per email | 3 / hour | Self-service only — admin-initiated resets are already authenticated and logged separately. |
+| Password reset, per IP | 10 / hour | |
+| Registration attempts, per IP | 5 / hour | `app/api/register-guard` — every attempt counts, not just failures. |
+| Contact form, per IP | 5 / hour | |
+| `app/api/log-auth-event`, per IP | 30 / hour | This route is itself public (it logs failed logins, which by definition can happen with no authenticated session) — without its own limit, anyone could POST fake failures for a victim's email and trip their login cooldown. This bounds the blast radius rather than eliminating it. |
+
+`rate_limits` documents (`{key}__{windowIndex}`) carry an `expiresAt` field for an optional Firestore TTL policy (`gcloud firestore fields ttls update expiresAt --collection-group=rate_limits`) — without it the collection just grows slowly.
 
 ---
 
@@ -204,6 +222,7 @@ MHSPRide/
 │   ├── locations.js            # Pickup locations + arrival destinations with coordinates
 │   ├── drive-times.js          # Static drive-time matrix (minutes, no traffic)
 │   ├── activityLog.js          # logEvent() utility — writes to activity_log collection
+│   ├── rateLimit.js            # Fixed-window rate limiting — writes to rate_limits collection
 │   ├── email.js                # Resend email helpers (registration, booking, cancellation)
 │   └── utils.js                # cn(), toLocalDateStr(), formatTime()
 ├── scripts/                    # Node.js seed/sync/admin scripts (Firebase Admin SDK)

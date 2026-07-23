@@ -1,6 +1,6 @@
 'use client';
 import { auth, db, storage } from '@/lib/firebaseClient';
-import { createUserWithEmailAndPassword, onAuthStateChanged, signInWithEmailAndPassword, signOut, updateEmail } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, updateEmail } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { logEvent } from '@/lib/activityLog';
@@ -46,88 +46,82 @@ export const AuthProvider = ({ children }) => {
 }, []);
 
 
-  const registerUser = async ({ email, password, fullname, lastName, mhspNumber, birthdate, phone }) => {
+  // Step 1 of registration: server-side match on MHSP#/last name/Troopiter email.
+  // On success a code is emailed and a short-lived verification token is returned.
+  const verifyMembership = async ({ mhspNumber, lastName, troopiterEmail }) => {
     try {
       setIsLoading(true)
-
-      // Guard against account-creation spam / membership-check enumeration before
-      // touching Firestore or Firebase Auth at all. Fails open on network error.
-      const guard = await fetch('/api/register-guard', { method: 'POST' })
-        .then(r => r.json())
-        .catch(() => ({ ok: true, blocked: false }))
-      if (guard.blocked) {
-        throw new Error('Too many registration attempts from this network. Please try again later.')
-      }
-
-      // Step 1: Verify MHSP membership
-      const memberRef = doc(db, 'members', String(mhspNumber).trim())
-      const memberSnap = await getDoc(memberRef)
-
-      if (!memberSnap.exists()) {
-        throw new Error('MHSP member number not found.')
-      }
-
-      const memberData = memberSnap.data()
-
-      if (memberData.lastName.toLowerCase().trim() !== lastName.toLowerCase().trim()) {
-        throw new Error('Last name does not match our records.')
-      }
-
-      if (memberData.claimed) {
-        throw new Error('This membership has already been registered.')
-      }
-
-      // Step 2: Create Firebase Auth account
-      const { user } = await createUserWithEmailAndPassword(auth, email, password)
-
-      // Step 3: Create user document with member data copied over
-      await setDoc(doc(db, 'users', user.uid), {
-        email,
-        fullname,
-        phone,
-        birthdate,
-        bio: '',
-        role: 'member',
-        mhspNumber: String(mhspNumber).trim(),
-        classifications: memberData.classifications || [],
-        latitude: memberData.latitude || null,
-        longitude: memberData.longitude || null,
-        created_at: new Date(),
+      const res = await fetch('/api/register/verify-membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mhspNumber, lastName, troopiterEmail }),
       })
+      const data = await res.json()
+      if (!data.ok) {
+        toast.error(data.error || 'Could not verify membership.')
+        return { ok: false, error: data.error }
+      }
+      return { ok: true, token: data.token }
+    } catch (error) {
+      console.error('[verifyMembership]', error)
+      toast.error('Something went wrong. Please try again.')
+      return { ok: false }
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
-      // Step 4: Claim the member record
-      await updateDoc(memberRef, {
-        claimed: true,
-        claimedBy: user.uid,
+  // Step 2: check the emailed code against the verification token from step 1.
+  const verifyRegistrationCode = async ({ token, code }) => {
+    try {
+      setIsLoading(true)
+      const res = await fetch('/api/register/verify-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, code }),
       })
+      const data = await res.json()
+      if (!data.ok) {
+        toast.error(data.error || 'Incorrect code.')
+        return { ok: false, expired: !!data.expired, locked: !!data.locked, error: data.error }
+      }
+      return { ok: true }
+    } catch (error) {
+      console.error('[verifyRegistrationCode]', error)
+      toast.error('Something went wrong. Please try again.')
+      return { ok: false }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Step 3/4: create the account server-side (Admin SDK), then sign in on the
+  // client to establish the session and continue into vehicle/network onboarding.
+  const completeRegistration = async ({ token, email, password, fullname, phone, birthdate }) => {
+    try {
+      setIsLoading(true)
+      const res = await fetch('/api/register/complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, email, password, fullname, phone, birthdate }),
+      })
+      const data = await res.json()
+      if (!data.ok) {
+        toast.error(data.error || 'Could not create account.')
+        return { ok: false, expired: !!data.expired, error: data.error }
+      }
 
       toast.success('Account created successfully')
-
-      // Log registration event (fire-and-forget)
-      logEvent({
-        type: 'user.registered',
-        message: `New user registered: ${fullname}`,
-        userId: user.uid,
-        userName: fullname,
-        mhspNumber: String(mhspNumber).trim(),
-        metadata: { email },
-      }).catch(() => {})
-
-      // Send welcome email (fire-and-forget)
-      user.getIdToken().then(token => {
-        fetch('/api/notify-registration', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ email, fullname }),
-        }).catch(err => console.error('[notify-registration]', err))
-      }).catch(() => {})
-
-      const docSnap = await getDoc(doc(db, 'users', user.uid))
-      setUser({ uid: user.uid, ...docSnap.data() })
-      router.push('/login')
+      const { user: fbUser } = await signInWithEmailAndPassword(auth, email, password)
+      const docSnap = await getDoc(doc(db, 'users', fbUser.uid))
+      setUser({ uid: fbUser.uid, ...docSnap.data() })
+      router.push('/dashboard/onboarding')
+      return { ok: true }
     } catch (error) {
-      console.error('[registerUser]', error.code, error.message, error)
-      toast.error(error.message)
+      console.error('[completeRegistration]', error)
+      toast.error('Account was created but signing in failed. Please log in.')
+      router.push('/login')
+      return { ok: false }
     } finally {
       setIsLoading(false)
     }
@@ -291,7 +285,7 @@ export const AuthProvider = ({ children }) => {
 
 
   return (
-    <AuthContext.Provider value={{ isLoading, user, registerUser , loginUser , updateProfile , logOut, uploadPhoto, resetPassword, suspendedMessage }}>
+    <AuthContext.Provider value={{ isLoading, user, verifyMembership, verifyRegistrationCode, completeRegistration, loginUser , updateProfile , logOut, uploadPhoto, resetPassword, suspendedMessage }}>
       {children}
     </AuthContext.Provider>
   );

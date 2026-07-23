@@ -12,7 +12,7 @@ Built for the patrol, by the patrol.
 
 ## Who it's for
 
-MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and hosting duties. Access is restricted to verified MHSP members — registration requires your patrol ID number and last name.
+MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and hosting duties. Access is restricted to verified MHSP members — registration requires your patrol ID number, last name, and Troopiter email, confirmed with an emailed one-time verification code.
 
 ---
 
@@ -24,7 +24,7 @@ MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and ho
 - **Smart arrival time** — auto-filled from a pre-computed drive-time matrix for all pickup/destination pairs
 - **Ride management** — drivers can edit or cancel rides; booked passengers are notified by email on changes
 - **Dashboard** — see today's rides at a glance, upcoming rides, and a paginated ride history
-- **Email notifications** — registration welcome, booking receipts, ride change notices, and cancellations via Resend
+- **Email notifications** — registration verification codes and welcome email, booking receipts, ride change notices, and cancellations via Resend
 - **Admin panel** — user management, ride oversight, booking management, activity log, and leaderboard reports
 
 ---
@@ -143,7 +143,9 @@ node scripts/migrateDirectorToAdmin.mjs
 
 ### Firestore rules for admin access
 
-The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuspended()` helpers, and rules for `users`, `members`, `rides`, `bookings`, `activity_log`, `rate_limits`). `firebase.json`/`.firebaserc` link this directory to the `mhspride` project, so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months).
+The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuspended()` helpers, and rules for `users`, `members`, `rides`, `bookings`, `activity_log`, `rate_limits`, `registration_verifications`). `firebase.json`/`.firebaserc` link this directory to the `mhspride` project, so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months).
+
+`members` is admin-read-only — registration no longer reads it from the client at all. The whole membership-verification/code/account-creation flow runs server-side through `app/api/register/verify-membership`, `verify-code`, and `complete` (Admin SDK), so there's no client path that can enumerate or read roster data pre-signup.
 
 ---
 
@@ -153,13 +155,17 @@ Unauthenticated endpoints that could otherwise be pummeled by a scripter are gat
 
 | Surface | Limit | Notes |
 |---|---|---|
-| Login failures, per email | 5 / 15 min | Login/registration go straight from the browser to Firebase Auth (never touch our server), so this is an app-layer gate — `app/api/login-guard` is asked before attempting sign-in and blocks in the UI if tripped, never calling Firebase. It does **not** stop someone scripting directly against Firebase's REST API; the recommended complementary defense is enabling Firebase Auth's reCAPTCHA-based abuse protection in the Firebase Console. |
+| Login failures, per email | 5 / 15 min | Login goes straight from the browser to Firebase Auth (never touches our server), so this is an app-layer gate — `app/api/login-guard` is asked before attempting sign-in and blocks in the UI if tripped, never calling Firebase. It does **not** stop someone scripting directly against Firebase's REST API; the recommended complementary defense is enabling Firebase Auth's reCAPTCHA-based abuse protection in the Firebase Console. |
 | Login failures, per IP | 20 / hour | Coarser net for credential stuffing across many emails from one source. |
 | Password reset, per email | 3 / hour | Self-service only — admin-initiated resets are already authenticated and logged separately. |
 | Password reset, per IP | 10 / hour | |
-| Registration attempts, per IP | 5 / hour | `app/api/register-guard` — every attempt counts, not just failures. |
+| Registration attempts, per IP | 5 / hour | Shared across `app/api/register/verify-membership` and `app/api/register/complete` — every attempt counts, not just failures. |
+| Registration attempts, per Troopiter email | 3 / hour | `app/api/register/verify-membership` — bounds how many verification-code emails one inbox can be sent. |
+| Registration code checks, per IP | 20 / hour | `app/api/register/verify-code` — secondary guard on top of the 5-attempt-per-code cap below. |
 | Contact form, per IP | 5 / hour | |
 | `app/api/log-auth-event`, per IP | 30 / hour | This route is itself public (it logs failed logins, which by definition can happen with no authenticated session) — without its own limit, anyone could POST fake failures for a victim's email and trip their login cooldown. This bounds the blast radius rather than eliminating it. |
+
+Registration is a two-secret flow on top of the table above: membership match (MHSP#/last name/Troopiter email) gets you a one-time 6-character code emailed to that address, capped at 5 incorrect guesses per code (tracked on the `registration_verifications` doc itself, not `rate_limits`) before it logs `security.registration_code_exceeded` and forces a restart.
 
 `rate_limits` documents (`{key}__{windowIndex}`) carry an `expiresAt` field for an optional Firestore TTL policy (`gcloud firestore fields ttls update expiresAt --collection-group=rate_limits`) — without it the collection just grows slowly.
 

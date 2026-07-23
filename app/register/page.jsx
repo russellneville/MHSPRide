@@ -1,13 +1,20 @@
 'use client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import RegisterMemberForm from "@/components/forms/RegisterMemberForm";
+import VerifyCodeForm from "@/components/forms/VerifyCodeForm";
+import AccountSetupForm from "@/components/forms/AccountSetupForm";
 import { useAuth } from "@/context/AuthContext";
+
+const STEP_LABELS = {
+  1: "Verify your MHSP membership",
+  2: "Enter your verification code",
+  3: "Set up your account",
+  4: "Terms of use",
+}
 
 export default function Register() {
   const [currStep, setCurrStep] = useState(1)
@@ -15,6 +22,7 @@ export default function Register() {
     fullname: '',
     lastName: '',
     mhspNumber: '',
+    troopiterEmail: '',
     birthdate: '',
     email: '',
     password: '',
@@ -22,56 +30,114 @@ export default function Register() {
     phone: '',
   })
   const [validationError, setValidationErrors] = useState({})
-  const { registerUser, isLoading } = useAuth()
+  const [verificationToken, setVerificationToken] = useState(null)
+  const [code, setCode] = useState('')
+  const [codeError, setCodeError] = useState('')
+  const { verifyMembership, verifyRegistrationCode, completeRegistration, isLoading } = useAuth()
 
-  const validateForm = () => {
+  const validateStep1 = () => {
+    const newErrors = {}
+    if (!registerForm.mhspNumber.trim()) newErrors.mhspNumber = "MHSP member number is required"
+    if (!registerForm.lastName.trim()) newErrors.lastName = "Last name is required"
+    if (!registerForm.troopiterEmail.trim()) newErrors.troopiterEmail = "Troopiter email is required"
+    else if (!/^\S+@\S+\.\S+$/.test(registerForm.troopiterEmail)) newErrors.troopiterEmail = "Invalid email address"
+
+    setValidationErrors(newErrors)
+    return Object.keys(newErrors).length === 0
+  }
+
+  const validateStep3 = () => {
     const newErrors = {}
 
-    if (currStep === 1) {
-      if (!registerForm.mhspNumber.trim()) newErrors.mhspNumber = "MHSP member number is required"
-      if (!registerForm.lastName.trim()) newErrors.lastName = "Last name is required"
-      if (!registerForm.fullname.trim()) newErrors.fullname = "Full name is required"
-      if (!registerForm.phone.trim()) newErrors.phone = "Phone number is required"
-      if (!registerForm.birthdate.trim()) {
-        newErrors.birthdate = "Date of birth is required"
-      } else {
-        const today = new Date()
-        const birthDate = new Date(registerForm.birthdate + 'T12:00:00')
-        const age = today.getFullYear() - birthDate.getFullYear()
-        const monthDiff = today.getMonth() - birthDate.getMonth()
-        const dayDiff = today.getDate() - birthDate.getDate()
-        const actualAge = monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age
-        if (actualAge < 18) newErrors.birthdate = "You must be at least 18 years old"
-      }
+    if (!registerForm.email.trim()) newErrors.email = "Email is required"
+    else if (!/^\S+@\S+\.\S+$/.test(registerForm.email)) newErrors.email = "Invalid email address"
+    if (!registerForm.password.trim()) newErrors.password = "Password is required"
+    else if (registerForm.password.length < 8)
+      newErrors.password = "Password must be at least 8 characters"
+    else if (registerForm.password !== registerForm.confirmpassword)
+      newErrors.confirmpassword = "Passwords do not match"
+
+    if (!registerForm.fullname.trim()) newErrors.fullname = "Full name is required"
+    if (!registerForm.phone.trim()) newErrors.phone = "Phone number is required"
+    if (!registerForm.birthdate.trim()) {
+      newErrors.birthdate = "Date of birth is required"
     } else {
-      if (!registerForm.email.trim()) newErrors.email = "Email is required"
-      else if (!/^\S+@\S+\.\S+$/.test(registerForm.email)) newErrors.email = "Invalid email address"
-      if (!registerForm.password.trim()) newErrors.password = "Password is required"
-      else if (registerForm.password.length < 8)
-        newErrors.password = "Password must be at least 8 characters"
-      else if (registerForm.password !== registerForm.confirmpassword)
-        newErrors.confirmpassword = "Passwords do not match"
+      const today = new Date()
+      const birthDate = new Date(registerForm.birthdate + 'T12:00:00')
+      const age = today.getFullYear() - birthDate.getFullYear()
+      const monthDiff = today.getMonth() - birthDate.getMonth()
+      const dayDiff = today.getDate() - birthDate.getDate()
+      const actualAge = monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age
+      if (actualAge < 18) newErrors.birthdate = "You must be at least 18 years old"
     }
 
     setValidationErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
-  const handleChange = (e) => {
-    setRegisterForm(prev => ({ ...prev, [e.target.id]: e.target.value }))
+  const resetToStart = () => {
+    setVerificationToken(null)
+    setCode('')
+    setCodeError('')
+    setCurrStep(1)
   }
 
-  const handleNextStep = () => {
-    if (validateForm()) {
-      setCurrStep(s => s + 1)
+  const handleStep1Next = async () => {
+    if (!validateStep1()) return
+    const result = await verifyMembership({
+      mhspNumber: registerForm.mhspNumber,
+      lastName: registerForm.lastName,
+      troopiterEmail: registerForm.troopiterEmail,
+    })
+    if (result.ok) {
+      setVerificationToken(result.token)
+      setRegisterForm(prev => ({ ...prev, email: prev.email || prev.troopiterEmail }))
+      setCode('')
+      setCodeError('')
+      setCurrStep(2)
+    }
+  }
+
+  const handleStep2Next = async () => {
+    if (!code.trim()) {
+      setCodeError('Enter the code sent to your email')
+      return
+    }
+    const result = await verifyRegistrationCode({ token: verificationToken, code })
+    if (result.ok) {
+      setCodeError('')
+      setCurrStep(3)
+    } else if (result.locked || result.expired) {
+      resetToStart()
+    } else {
+      setCodeError(result.error || 'Incorrect code.')
+    }
+  }
+
+  const handleStep3Next = () => {
+    if (validateStep3()) setCurrStep(4)
+  }
+
+  const handlePrevStep = () => {
+    if (currStep === 2) {
+      resetToStart()
+    } else {
+      setCurrStep(s => s - 1)
     }
   }
 
   const handleAcceptTerms = () => {
-    registerUser(registerForm)
+    completeRegistration({
+      token: verificationToken,
+      email: registerForm.email,
+      password: registerForm.password,
+      fullname: registerForm.fullname,
+      phone: registerForm.phone,
+      birthdate: registerForm.birthdate,
+    }).then(result => {
+      if (result.expired) resetToStart()
+    })
   }
-
-  const handlePrevStep = () => setCurrStep(s => s - 1)
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 md:px-16 lg:px-20 py-10">
@@ -82,10 +148,7 @@ export default function Register() {
           </div>
           <CardTitle className="text-2xl font-semibold">Create Account</CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
-            {currStep < 3
-              ? `Step ${currStep} of 3 — ${currStep === 1 ? "Verify your MHSP membership" : "Set up your login"}`
-              : "Step 3 of 3 — Terms of use"
-            }
+            {`Step ${currStep} of 4 — ${STEP_LABELS[currStep]}`}
           </CardDescription>
         </CardHeader>
 
@@ -98,34 +161,37 @@ export default function Register() {
             />
           )}
 
-          {currStep === 2 && <>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
-              <Input id="email" type="email" placeholder="you@example.com" onChange={handleChange} value={registerForm.email} />
-              {validationError.email && <p className="text-red-500 text-sm">{validationError.email}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" type="password" placeholder="*********" onChange={handleChange} value={registerForm.password} />
-              {validationError.password && <p className="text-red-500 text-sm">{validationError.password}</p>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmpassword">Confirm Password</Label>
-              <Input id="confirmpassword" type="password" placeholder="*********" onChange={handleChange} value={registerForm.confirmpassword} />
-              {validationError.confirmpassword && <p className="text-red-500 text-sm">{validationError.confirmpassword}</p>}
-            </div>
-          </>}
+          {currStep === 2 && (
+            <VerifyCodeForm
+              code={code}
+              setCode={setCode}
+              error={codeError}
+              onStartOver={resetToStart}
+            />
+          )}
 
-          {currStep < 3 && (
+          {currStep === 3 && (
+            <AccountSetupForm
+              setRegisterForm={setRegisterForm}
+              registerForm={registerForm}
+              errors={validationError}
+            />
+          )}
+
+          {currStep < 4 && (
             <div className="flex items-center gap-4">
               <Button variant="outline" disabled={currStep === 1} onClick={handlePrevStep} className="flex-1">Previous</Button>
-              <Button disabled={isLoading} className="flex-1" onClick={handleNextStep}>
-                Next
+              <Button
+                disabled={isLoading}
+                className="flex-1"
+                onClick={currStep === 1 ? handleStep1Next : currStep === 2 ? handleStep2Next : handleStep3Next}
+              >
+                {isLoading ? 'Please wait...' : 'Next'}
               </Button>
             </div>
           )}
 
-          {currStep === 3 && (
+          {currStep === 4 && (
             <>
               <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-4 max-h-72 overflow-y-auto text-sm text-muted-foreground leading-relaxed">
                 <p className="font-semibold text-foreground text-base">MHSPRide Terms of Use</p>
@@ -174,7 +240,7 @@ export default function Register() {
               </div>
 
               <div className="flex items-center gap-4 pt-2">
-                <Button variant="outline" className="flex-1" onClick={() => setCurrStep(2)}>
+                <Button variant="outline" className="flex-1" onClick={() => setCurrStep(3)}>
                   Back
                 </Button>
                 <Button

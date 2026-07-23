@@ -75,6 +75,7 @@ const EVENT_TYPES = [
   'member.deactivated',
   'feedback.submitted',
   'security.rate_limit_exceeded',
+  'security.registration_code_exceeded',
 ]
 
 export default function AdminActivityLogPage() {

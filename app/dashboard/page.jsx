@@ -3,6 +3,7 @@ import { useNetwork } from "@/context/NetworksContext"
 import DashboardLayout from "./dashboardLayout"
 import { useAuth } from "@/context/AuthContext"
 import { usePopup } from "@/context/PopupContext"
+import { useRouter } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { formatDate, formatTime, toLocalDateStr } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -15,6 +16,7 @@ import Link from "next/link"
 import UserAvatar from "@/components/ui/user-avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup"
+import RideRowCard from "@/components/cards/ride-row-card"
 import { resolveLocation } from "@/lib/locations"
 
 const KNOWN_NETWORKS = [
@@ -29,8 +31,27 @@ function normalizeStatus(s) {
   return s === 'cancled' ? 'canceled' : (s || '—')
 }
 
+function rideHref(r) {
+  const networkId = r.network_id || r.networkId
+  const rideId = r._type === 'offered' ? r.id : r.ride_id
+  return networkId && rideId ? `/dashboard/network/${networkId}/rides/${rideId}` : null
+}
+
+function typeBadge(r) {
+  return r._type === 'offered'
+    ? <Badge className="bg-green-100 text-green-800 border-green-300">Offered</Badge>
+    : <Badge className="bg-blue-100 text-blue-800 border-blue-300">Booked</Badge>
+}
+
+function seatsText(r) {
+  return r._type === 'offered'
+    ? `${(r.total_seats || 0) - (r.available_seats || 0)} of ${r.total_seats || 0} booked`
+    : `${r.booked_seats || 1} seat${(r.booked_seats || 1) !== 1 ? 's' : ''}`
+}
+
 export default function Dashboard() {
   const { getRides, getBookings, getNetworkList, dismissRideUpdate } = useNetwork()
+  const router = useRouter()
   const { user } = useAuth()
   const { openPopup, isOpen } = usePopup()
   const [rides, setRides] = useState([])
@@ -141,7 +162,9 @@ export default function Dashboard() {
   const headerActions = (
     <div className="flex items-center gap-2">
       <Button variant="outline" size="sm" asChild>
-        <Link href="/dashboard/networks"><Search className="size-4 mr-1" /> Book Ride</Link>
+        <Link href={joinedNetworks.length === 1 ? `/dashboard/network/${joinedNetworks[0].id}` : "/dashboard/networks"}>
+          <Search className="size-4 mr-1" /> Book Ride
+        </Link>
       </Button>
       {joinedNetworks.length === 1 && (
         <Button size="sm" onClick={() => openOffer(joinedNetworks[0].id)}>
@@ -206,46 +229,60 @@ export default function Dashboard() {
             </div>
           ) : upcoming.length === 0 ? (
             <p className="text-sm text-muted-foreground">No upcoming rides. <Link href="/dashboard/networks" className="text-primary underline">Browse your networks</Link> to offer or book one.</p>
-          ) : (
-            <Table className="border border-border">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Departure</TableHead>
-                  <TableHead>Departs</TableHead>
-                  <TableHead>Arrival</TableHead>
-                  <TableHead>Arrives</TableHead>
-                  <TableHead>Return</TableHead>
-                  <TableHead>Riders</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {upcoming.map((r, i) => (
-                  <TableRow key={i}>
-                    <TableCell>
-                      {r._type === 'offered'
-                        ? <Badge className="bg-green-100 text-green-800 border-green-300">Offered</Badge>
-                        : <Badge className="bg-blue-100 text-blue-800 border-blue-300">Booked</Badge>
-                      }
-                    </TableCell>
-                    <TableCell className="whitespace-nowrap">{formatDate(r.departure_date)}</TableCell>
-                    <TableCell>{resolveLocation(r.departure)}</TableCell>
-                    <TableCell>{formatTime(r.departure_time)}</TableCell>
-                    <TableCell>{resolveLocation(r.arrival)}</TableCell>
-                    <TableCell>{formatTime(r.arrival_time)}</TableCell>
-                    <TableCell>{formatTime(r.return_departure_time)}</TableCell>
-                    <TableCell className="whitespace-nowrap">
-                      {r._type === 'offered'
-                        ? `${(r.total_seats || 0) - (r.available_seats || 0)} of ${r.total_seats || 0}`
-                        : `${r.booked_seats || 1} seat${(r.booked_seats || 1) !== 1 ? 's' : ''}`
-                      }
-                    </TableCell>
+          ) : (<>
+            {/* Mobile cards */}
+            <div className="space-y-2 md:hidden">
+              {upcoming.map((r, i) => (
+                <RideRowCard
+                  key={i}
+                  departure={r.departure}
+                  arrival={r.arrival}
+                  date={r.departure_date}
+                  time={r.departure_time}
+                  details={r.return_departure_time && (
+                    <p className="text-sm text-muted-foreground">Return departs {formatTime(r.return_departure_time)}</p>
+                  )}
+                  badges={<>
+                    {typeBadge(r)}
+                    <Badge variant="outline">{seatsText(r)}</Badge>
+                  </>}
+                  onClick={rideHref(r) ? () => router.push(rideHref(r)) : undefined}
+                />
+              ))}
+            </div>
+            {/* Desktop table */}
+            <div className="hidden md:block">
+              <Table className="border border-border">
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Date &amp; Time</TableHead>
+                    <TableHead>Route</TableHead>
+                    <TableHead>Return</TableHead>
+                    <TableHead>Seats</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+                </TableHeader>
+                <TableBody>
+                  {upcoming.map((r, i) => {
+                    const href = rideHref(r)
+                    return (
+                      <TableRow
+                        key={i}
+                        className={href ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}
+                        onClick={() => href && router.push(href)}
+                      >
+                        <TableCell>{typeBadge(r)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{formatDate(r.departure_date)} at {formatTime(r.departure_time)}</TableCell>
+                        <TableCell>{resolveLocation(r.departure)} → {resolveLocation(r.arrival)}</TableCell>
+                        <TableCell>{formatTime(r.return_departure_time)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{seatsText(r)}</TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </>)}
         </section>
 
         {/* ── Past Rides ──────────────────────────────────── */}
@@ -259,38 +296,52 @@ export default function Dashboard() {
               Past Rides <span className="normal-case font-normal ml-1">({past.length})</span>
             </button>
             {pastOpen && <>
-              <Table className="border border-border">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Departure</TableHead>
-                    <TableHead>Arrival</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {pagedPast.map((r, i) => {
-                    const status = normalizeStatus(r._type === 'offered' ? r.ride_status : r.booking_status)
-                    return (
-                      <TableRow key={i}>
-                        <TableCell>
-                          {r._type === 'offered'
-                            ? <Badge className="bg-green-100 text-green-800 border-green-300">Offered</Badge>
-                            : <Badge className="bg-blue-100 text-blue-800 border-blue-300">Booked</Badge>
-                          }
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap">{formatDate(r.departure_date)}</TableCell>
-                        <TableCell>{resolveLocation(r.departure)}</TableCell>
-                        <TableCell>{resolveLocation(r.arrival)}</TableCell>
-                        <TableCell>
-                          <Badge variant={status}>{status}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
+              {/* Mobile cards */}
+              <div className="space-y-2 md:hidden">
+                {pagedPast.map((r, i) => {
+                  const status = normalizeStatus(r._type === 'offered' ? r.ride_status : r.booking_status)
+                  return (
+                    <RideRowCard
+                      key={i}
+                      departure={r.departure}
+                      arrival={r.arrival}
+                      date={r.departure_date}
+                      badges={<>
+                        {typeBadge(r)}
+                        <Badge variant={status}>{status}</Badge>
+                      </>}
+                    />
+                  )
+                })}
+              </div>
+              {/* Desktop table */}
+              <div className="hidden md:block">
+                <Table className="border border-border">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Route</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pagedPast.map((r, i) => {
+                      const status = normalizeStatus(r._type === 'offered' ? r.ride_status : r.booking_status)
+                      return (
+                        <TableRow key={i}>
+                          <TableCell>{typeBadge(r)}</TableCell>
+                          <TableCell className="whitespace-nowrap">{formatDate(r.departure_date)}</TableCell>
+                          <TableCell>{resolveLocation(r.departure)} → {resolveLocation(r.arrival)}</TableCell>
+                          <TableCell>
+                            <Badge variant={status}>{status}</Badge>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
               {pastPageCount > 1 && (
                 <div className="flex items-center gap-3 text-sm">
                   <Button variant="outline" size="sm" disabled={pastPage === 0} onClick={() => setPastPage(p => p - 1)}>

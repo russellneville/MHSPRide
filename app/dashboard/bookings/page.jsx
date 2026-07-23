@@ -2,6 +2,7 @@
 import { useNetwork } from "@/context/NetworksContext";
 import DashboardLayout from "../dashboardLayout";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { usePopup } from "@/context/PopupContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,6 +13,7 @@ import { formatDate, formatTime, toLocalDateStr } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import Link from "next/link";
 import RideDetailsPopup from "@/components/popup-forms/RideDetailsPopup";
+import RideRowCard from "@/components/cards/ride-row-card";
 import { resolveLocation } from "@/lib/locations";
 
 const PAGE_SIZE = 25
@@ -25,10 +27,17 @@ function isCanceled(b) {
   return s === 'canceled'
 }
 
+function bookingHref(b) {
+  const networkId = b.networkId || b.network_id
+  return networkId && b.ride_id ? `/dashboard/network/${networkId}/rides/${b.ride_id}` : null
+}
+
 export default function MyBookedRides() {
-  const { getBookings } = useNetwork()
+  const { getBookings, getNetworkList } = useNetwork()
+  const router = useRouter()
   const { user } = useAuth()
   const { openPopup } = usePopup()
+  const [joinedNetworkIds, setJoinedNetworkIds] = useState([])
   const [bookings, setBookings] = useState([])
   const [loaded, setLoaded] = useState(false)
   const [pastOpen, setPastOpen] = useState(false)
@@ -50,7 +59,10 @@ export default function MyBookedRides() {
       setBookings(deduped)
       setLoaded(true)
     }
-    if (user) fetchBookings()
+    if (user) {
+      fetchBookings()
+      getNetworkList().then(list => setJoinedNetworkIds((list || []).map(n => n.id)))
+    }
   }, [user]);
 
   const today = toLocalDateStr(new Date())
@@ -72,42 +84,74 @@ export default function MyBookedRides() {
     return <Badge variant="secondary">{status}</Badge>
   }
 
+  // Navigate to the full ride page when the booking references one;
+  // fall back to the details popup for older bookings that don't.
   const handleRowClick = (b) => {
-    openPopup(`${resolveLocation(b.departure)} → ${resolveLocation(b.arrival)}`, <RideDetailsPopup booking={b} />)
+    const href = bookingHref(b)
+    if (href) {
+      router.push(href)
+    } else {
+      openPopup(`${resolveLocation(b.departure)} → ${resolveLocation(b.arrival)}`, <RideDetailsPopup booking={b} />)
+    }
   }
 
-  const BookingTable = ({ rows }) => (
-    <Table className="border border-border overflow-x-auto">
-      <TableHeader>
-        <TableRow>
-          <TableHead>Status</TableHead>
-          <TableHead>Date</TableHead>
-          <TableHead>Departure</TableHead>
-          <TableHead>Arrival</TableHead>
-          <TableHead>Driver</TableHead>
-          <TableHead>Return Departs</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
+  const BookingList = ({ rows }) => (
+    <>
+      {/* Mobile cards */}
+      <div className="space-y-2 md:hidden">
         {rows.map(b => {
           const status = normalizeStatus(b.booking_status)
           return (
-            <TableRow
+            <RideRowCard
               key={b.id}
-              className={`cursor-pointer hover:bg-muted/50 transition-colors ${b.departure_date === today ? 'bg-blue-50 dark:bg-blue-950' : ''}`}
+              departure={b.departure}
+              arrival={b.arrival}
+              date={b.departure_date}
+              time={b.departure_time}
+              highlight={b.departure_date === today}
+              details={<>
+                {b.driver?.fullname && <p className="text-sm text-muted-foreground">Driver: {b.driver.fullname}</p>}
+                {b.return_departure_time && <p className="text-sm text-muted-foreground">Return departs {formatTime(b.return_departure_time)}</p>}
+              </>}
+              badges={statusBadge(status)}
               onClick={() => handleRowClick(b)}
-            >
-              <TableCell>{statusBadge(status)}</TableCell>
-              <TableCell className="whitespace-nowrap">{formatDate(b.departure_date)} at {formatTime(b.departure_time)}</TableCell>
-              <TableCell>{resolveLocation(b.departure)}</TableCell>
-              <TableCell>{resolveLocation(b.arrival)}</TableCell>
-              <TableCell>{b.driver?.fullname || '—'}</TableCell>
-              <TableCell className="whitespace-nowrap">{formatTime(b.return_departure_time)}</TableCell>
-            </TableRow>
+            />
           )
         })}
-      </TableBody>
-    </Table>
+      </div>
+      {/* Desktop table */}
+      <div className="hidden md:block">
+        <Table className="border border-border">
+          <TableHeader>
+            <TableRow>
+              <TableHead>Status</TableHead>
+              <TableHead>Date &amp; Time</TableHead>
+              <TableHead>Route</TableHead>
+              <TableHead>Driver</TableHead>
+              <TableHead>Return Departs</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map(b => {
+              const status = normalizeStatus(b.booking_status)
+              return (
+                <TableRow
+                  key={b.id}
+                  className={`cursor-pointer hover:bg-muted/50 transition-colors ${b.departure_date === today ? 'bg-blue-50 dark:bg-blue-950' : ''}`}
+                  onClick={() => handleRowClick(b)}
+                >
+                  <TableCell>{statusBadge(status)}</TableCell>
+                  <TableCell className="whitespace-nowrap">{formatDate(b.departure_date)} at {formatTime(b.departure_time)}</TableCell>
+                  <TableCell>{resolveLocation(b.departure)} → {resolveLocation(b.arrival)}</TableCell>
+                  <TableCell>{b.driver?.fullname || '—'}</TableCell>
+                  <TableCell className="whitespace-nowrap">{formatTime(b.return_departure_time)}</TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </div>
+    </>
   )
 
   return (
@@ -117,7 +161,9 @@ export default function MyBookedRides() {
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-semibold">My Booked Rides</h3>
             <Button asChild>
-              <Link href="/dashboard/networks">Book Ride</Link>
+              <Link href={joinedNetworkIds.length === 1 ? `/dashboard/network/${joinedNetworkIds[0]}` : "/dashboard/networks"}>
+                Book Ride
+              </Link>
             </Button>
           </div>
 
@@ -134,7 +180,7 @@ export default function MyBookedRides() {
               </div>
             ) : upcoming.length === 0
               ? <p className="text-sm text-muted-foreground">No upcoming bookings.</p>
-              : <BookingTable rows={upcoming} />
+              : <BookingList rows={upcoming} />
             }
           </section>
 
@@ -151,7 +197,7 @@ export default function MyBookedRides() {
 
               {pastOpen && (
                 <div className="space-y-3">
-                  <BookingTable rows={pagedPast} />
+                  <BookingList rows={pagedPast} />
                   {pastPageCount > 1 && (
                     <div className="flex items-center gap-3 text-sm">
                       <Button variant="outline" size="sm" disabled={pastPage === 0} onClick={() => setPastPage(p => p - 1)}>

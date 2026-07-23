@@ -136,6 +136,7 @@ export default function RosterPage() {
                     <TableRow>
                       <TableHead>Name</TableHead>
                       <TableHead>MHSP #</TableHead>
+                      <TableHead>Troopiter Email</TableHead>
                       <TableHead>Classification</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Registered</TableHead>
@@ -144,7 +145,7 @@ export default function RosterPage() {
                   <TableBody>
                     {pageRows.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                           No members match your search.
                         </TableCell>
                       </TableRow>
@@ -158,6 +159,9 @@ export default function RosterPage() {
                               {m.lastName}, {m.firstName}
                             </TableCell>
                             <TableCell className="font-mono text-sm">{m.mhspNumber}</TableCell>
+                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                              {m.email || '—'}
+                            </TableCell>
                             <TableCell className="text-sm text-muted-foreground">
                               {primary
                                 ? <>{primary}{extra > 0 && <span className="ml-1 text-xs">+{extra}</span>}</>

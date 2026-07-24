@@ -137,7 +137,7 @@ export default function RideDetailsPopup({ booking, onCanceled }) {
           <div className="border-t border-border" />
           {canCancelBooking(booking) ? (
             <Button
-              variant="destructive"
+              variant="cancel"
               className="w-full"
               disabled={isLoading}
               onClick={() => setShowCancelConfirm(true)}
@@ -165,7 +165,7 @@ export default function RideDetailsPopup({ booking, onCanceled }) {
           <AlertDialogFooter>
             <AlertDialogCancel>Keep booking</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
+              variant="cancel"
               onClick={() => { setShowCancelConfirm(false); handleCancelBooking() }}
             >
               Cancel booking

@@ -11,6 +11,7 @@ import {
   deleteDoc,
 } from 'firebase/firestore'
 import { logEvent } from '@/lib/activityLog'
+import { computeRideStatus } from '@/lib/rides'
 import { resolveLocation } from '@/lib/locations'
 import { formatTime, toLocalDateStr } from '@/lib/utils'
 import {
@@ -45,6 +46,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/context/AuthContext'
 import { usePopup } from '@/context/PopupContext'
 import EditRidePopup from '@/components/popup-forms/EditRidePopup'
+import AdminRideDetailsPopup from '@/components/popup-forms/AdminRideDetailsPopup'
+
+const PAGE_SIZE = 25
 
 const KNOWN_NETWORKS = [
   { id: 'network-HILLPATROL',    name: 'Hill Patrol' },
@@ -54,9 +58,24 @@ const KNOWN_NETWORKS = [
 
 const STATUS_VARIANTS = {
   'not started': 'secondary',
-  'on progress': 'default',
+  'in progress': 'default',
   'finished':    'outline',
   'canceled':    'destructive',
+}
+
+// Maps the time-derived computeRideStatus() result onto the admin page's display labels.
+// Status is computed from ride timing rather than the stored ride_status field, since
+// that field only updates when a driver manually clicks Start/Finish and often never does.
+const DISPLAY_STATUS = {
+  open:        'not started',
+  full:        'not started',
+  in_progress: 'in progress',
+  completed:   'finished',
+  canceled:    'canceled',
+}
+
+function displayStatus(ride) {
+  return DISPLAY_STATUS[computeRideStatus(ride)]
 }
 
 export default function AdminRidesPage() {
@@ -74,6 +93,7 @@ function RidesContent() {
   const { openPopup } = usePopup()
   const [rides, setRides] = useState([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(0)
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterNetwork, setFilterNetwork] = useState('all')
   const [filterFrom, setFilterFrom] = useState('')
@@ -81,6 +101,8 @@ function RidesContent() {
   const [cancelTarget, setCancelTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [acting, setActing] = useState(false)
+
+  function resetPage() { setPage(0) }
 
   useEffect(() => {
     fetchRides()
@@ -167,13 +189,22 @@ function RidesContent() {
     }
   }
 
-  const filtered = rides.filter(r => {
-    if (filterStatus !== 'all' && r.ride_status !== filterStatus) return false
-    if (filterNetwork !== 'all' && r.network_id !== filterNetwork) return false
-    if (filterFrom && r.departure_date < filterFrom) return false
-    if (filterTo && r.departure_date > filterTo) return false
-    return true
-  })
+  const filtered = rides
+    .filter(r => {
+      if (filterStatus !== 'all' && displayStatus(r) !== filterStatus) return false
+      if (filterNetwork !== 'all' && r.network_id !== filterNetwork) return false
+      if (filterFrom && r.departure_date < filterFrom) return false
+      if (filterTo && r.departure_date > filterTo) return false
+      return true
+    })
+    .sort((a, b) => {
+      const aKey = `${a.departure_date}T${a.departure_time || '00:00'}`
+      const bKey = `${b.departure_date}T${b.departure_time || '00:00'}`
+      return bKey.localeCompare(aKey)
+    })
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
+  const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
   const networkName = (id) => KNOWN_NETWORKS.find(n => n.id === id)?.name || id || '—'
 
@@ -183,20 +214,20 @@ function RidesContent() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
-        <Select value={filterStatus} onValueChange={setFilterStatus}>
+        <Select value={filterStatus} onValueChange={v => { setFilterStatus(v); resetPage() }}>
           <SelectTrigger className="w-36 h-9 text-sm">
             <SelectValue placeholder="All statuses" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="not started">Not Started</SelectItem>
-            <SelectItem value="on progress">In Progress</SelectItem>
+            <SelectItem value="in progress">In Progress</SelectItem>
             <SelectItem value="finished">Finished</SelectItem>
             <SelectItem value="canceled">Canceled</SelectItem>
           </SelectContent>
         </Select>
 
-        <Select value={filterNetwork} onValueChange={setFilterNetwork}>
+        <Select value={filterNetwork} onValueChange={v => { setFilterNetwork(v); resetPage() }}>
           <SelectTrigger className="w-40 h-9 text-sm">
             <SelectValue placeholder="All networks" />
           </SelectTrigger>
@@ -212,18 +243,18 @@ function RidesContent() {
           type="date"
           className="w-38 h-9 text-sm"
           value={filterFrom}
-          onChange={e => setFilterFrom(e.target.value)}
+          onChange={e => { setFilterFrom(e.target.value); resetPage() }}
           placeholder="From date"
         />
         <Input
           type="date"
           className="w-38 h-9 text-sm"
           value={filterTo}
-          onChange={e => setFilterTo(e.target.value)}
+          onChange={e => { setFilterTo(e.target.value); resetPage() }}
           placeholder="To date"
         />
         {(filterStatus !== 'all' || filterNetwork !== 'all' || filterFrom || filterTo) && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('all'); setFilterNetwork('all'); setFilterFrom(''); setFilterTo('') }}>
+          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('all'); setFilterNetwork('all'); setFilterFrom(''); setFilterTo(''); resetPage() }}>
             Clear
           </Button>
         )}
@@ -236,6 +267,7 @@ function RidesContent() {
           ))}
         </div>
       ) : (
+        <>
         <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
@@ -251,17 +283,25 @@ function RidesContent() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {paginated.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No rides found.
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map(ride => {
+                paginated.map(ride => {
                   const isEmpty = ride.available_seats === ride.total_seats
+                  const status = displayStatus(ride)
                   return (
-                    <TableRow key={ride.id}>
+                    <TableRow
+                      key={ride.id}
+                      className="cursor-pointer"
+                      onClick={() => openPopup(
+                        'Ride details',
+                        <AdminRideDetailsPopup ride={ride} status={status} networkName={networkName(ride.network_id)} />
+                      )}
+                    >
                       <TableCell className="text-sm whitespace-nowrap">
                         {ride.departure_date}<br />
                         <span className="text-muted-foreground">{formatTime(ride.departure_time)}</span>
@@ -274,11 +314,11 @@ function RidesContent() {
                         {ride.available_seats}/{ride.total_seats}
                       </TableCell>
                       <TableCell>
-                        <Badge variant={STATUS_VARIANTS[ride.ride_status] || 'secondary'}>
-                          {ride.ride_status}
+                        <Badge variant={STATUS_VARIANTS[status] || 'secondary'}>
+                          {status}
                         </Badge>
                       </TableCell>
-                      <TableCell>
+                      <TableCell onClick={e => e.stopPropagation()}>
                         <div className="flex gap-1 flex-wrap">
                           <Button
                             variant="outline"
@@ -287,9 +327,9 @@ function RidesContent() {
                           >
                             Edit
                           </Button>
-                          {ride.ride_status !== 'canceled' && (
+                          {status !== 'canceled' && (
                             <Button
-                              variant="destructive"
+                              variant="cancel"
                               size="sm"
                               onClick={() => setCancelTarget(ride)}
                             >
@@ -315,6 +355,34 @@ function RidesContent() {
             </TableBody>
           </Table>
         </div>
+
+        {/* Pagination */}
+        <div className="flex items-center justify-between text-sm text-muted-foreground">
+          <span>
+            {filtered.length === 0
+              ? 'No rides'
+              : `Showing ${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, filtered.length)} of ${filtered.length}`}
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page === 0}
+              onClick={() => setPage(p => p - 1)}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page >= totalPages - 1}
+              onClick={() => setPage(p => p + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+        </>
       )}
 
       {/* Cancel dialog */}

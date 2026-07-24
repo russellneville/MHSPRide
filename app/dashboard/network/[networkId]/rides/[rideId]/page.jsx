@@ -329,7 +329,7 @@ export default function RidePage() {
                     >
                       Edit ride <Pencil className="size-4 ml-1" />
                     </Button>
-                    <Button variant="destructive" onClick={() => setShowCancelConfirm(true)} disabled={isLoading}>
+                    <Button variant="cancel" onClick={() => setShowCancelConfirm(true)} disabled={isLoading}>
                       Cancel ride <X className="size-4 ml-1" />
                     </Button>
                   </CardContent>
@@ -352,7 +352,7 @@ export default function RidePage() {
                   <AlertDialogFooter>
                     <AlertDialogCancel>Keep ride</AlertDialogCancel>
                     <AlertDialogAction
-                      className="bg-destructive text-white hover:bg-destructive/90"
+                      variant="cancel"
                       onClick={() => { setShowCancelConfirm(false); handleCancelRide() }}
                     >
                       Cancel ride
@@ -372,7 +372,7 @@ export default function RidePage() {
                   <AlertDialogFooter>
                     <AlertDialogCancel>Keep booking</AlertDialogCancel>
                     <AlertDialogAction
-                      className="bg-destructive text-white hover:bg-destructive/90"
+                      variant="cancel"
                       onClick={() => { setShowCancelBookingConfirm(false); handleCancelBooking() }}
                     >
                       Cancel booking
@@ -441,7 +441,7 @@ export default function RidePage() {
                           booking_status: currentBooking.status,
                         }) ? (
                           <Button
-                            variant="destructive"
+                            variant="cancel"
                             className="w-full"
                             disabled={isLoading}
                             onClick={() => setShowCancelBookingConfirm(true)}

@@ -43,6 +43,16 @@ export async function POST(request) {
       submittedAt: FieldValue.serverTimestamp(),
     })
 
+    await db.collection('activity_log').add({
+      type: 'feedback.submitted',
+      message: `${type} submitted via contact form by ${name.trim()} (${email.trim()}): "${message.trim().slice(0, 120)}"`,
+      userId: null,
+      userName: name.trim(),
+      userMhspHex: null,
+      metadata: { type, source: 'contact_form', email: email.trim() },
+      timestamp: FieldValue.serverTimestamp(),
+    })
+
     if (type === 'support') {
       const configSnap = await db.collection('config').doc('site').get()
       const supportEmail = configSnap.exists ? configSnap.data()?.support_email : null

@@ -2,12 +2,15 @@
 import { useState } from "react"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { db, auth } from "@/lib/firebaseClient"
+import { logEvent } from "@/lib/activityLog"
+import { useAuth } from "@/context/AuthContext"
 import { MessageSquare, X, ChevronUp } from "lucide-react"
 import { Button } from "./button"
 import { Textarea } from "./textarea"
 import { toast } from "sonner"
 
 export default function FeedbackWidget() {
+  const { user } = useAuth()
   const [open, setOpen] = useState(false)
   const [type, setType] = useState("feedback")
   const [text, setText] = useState("")
@@ -23,11 +26,20 @@ export default function FeedbackWidget() {
         userId: auth.currentUser?.uid || null,
         submittedAt: serverTimestamp(),
       })
+      logEvent({
+        type: 'feedback.submitted',
+        message: `${type === 'bug' ? 'Bug report' : 'Feedback'} submitted: "${text.trim().slice(0, 120)}"`,
+        userId: auth.currentUser?.uid,
+        userName: user?.fullname,
+        mhspNumber: user?.mhspNumber,
+        metadata: { type },
+      }).catch(() => {})
       toast.success("Thanks for your feedback!")
       setText("")
       setType("feedback")
       setOpen(false)
-    } catch {
+    } catch (error) {
+      console.error('[feedback-widget]', error)
       toast.error("Failed to submit feedback. Please try again.")
     } finally {
       setSubmitting(false)

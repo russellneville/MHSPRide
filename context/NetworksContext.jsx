@@ -4,6 +4,7 @@ import { arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc,
 import { toast } from "sonner";
 import { createContext, useContext, useEffect, useState } from 'react'
 import { logEvent } from '@/lib/activityLog'
+import { canCancelBooking, isCanceledStatus } from '@/lib/rides'
 const NetworkContext = createContext()
 
 export const NetworkProvider = ({children})=>{
@@ -363,7 +364,7 @@ export const NetworkProvider = ({children})=>{
         throw new Error('You must join this network before booking a ride')
       }
 
-      const booked = ridepassenger !== undefined ? true : false
+      const booked = ridepassenger !== undefined && !isCanceledStatus(ridepassenger.status)
 
       const bookId = `book-${inviteCode}`
 
@@ -402,16 +403,26 @@ export const NetworkProvider = ({children})=>{
                 booked_at : new Date()
             })
             
-            await updateDoc(doc(db , 'rides' , rideId) , {available_seats : available_seats - booked_seats , 
-              passengers : arrayUnion({
-                id : auth.currentUser.uid ,
-                email : userData.email , 
-                phone : userData.phone , 
-                booked_seats : booked_seats , 
-                booked_at : new Date() ,
-                booking_id : bookId,
-                status : 'booked'
-              })})
+            const newPassengerEntry = {
+              id : auth.currentUser.uid ,
+              email : userData.email ,
+              phone : userData.phone ,
+              booked_seats : booked_seats ,
+              booked_at : new Date() ,
+              booking_id : bookId,
+              status : 'booked'
+            }
+            // Replace a prior (e.g. canceled) entry for this passenger in place, rather than
+            // appending a duplicate — otherwise lookups that find() the first match would keep
+            // resolving to the stale entry after a rebook.
+            const updatedPassengers = ridepassenger
+              ? rideData.passengers.map(p => p.id === auth.currentUser.uid ? newPassengerEntry : p)
+              : [...rideData.passengers, newPassengerEntry]
+
+            await updateDoc(doc(db , 'rides' , rideId) , {
+              available_seats : available_seats - booked_seats ,
+              passengers : updatedPassengers
+            })
             toast.success('Ride Booked successfully')
 
             logEvent({
@@ -854,8 +865,88 @@ const changeBookingStatus = async (passengerId  , rideId , bookingId , status)=>
   }
 }
 
-    
-  
+
+
+const cancelBooking = async (bookingId) => {
+  try {
+    setIsLoading(true)
+    const bookingRef = doc(db, 'bookings', bookingId)
+    const bookingSnap = await getDoc(bookingRef)
+    if (!bookingSnap.exists()) throw new Error('Booking not found')
+
+    const bookingData = bookingSnap.data()
+
+    if (bookingData.passengerId !== auth.currentUser.uid) {
+      throw new Error('You can only cancel your own booking')
+    }
+    if (isCanceledStatus(bookingData.booking_status)) {
+      throw new Error('This booking is already canceled')
+    }
+    if (!canCancelBooking(bookingData)) {
+      throw new Error('Too close to departure to cancel online — contact your driver directly')
+    }
+
+    await updateDoc(bookingRef, { booking_status: 'canceled' })
+
+    if (bookingData.ride_id) {
+      const rideRef = doc(db, 'rides', bookingData.ride_id)
+      const rideSnap = await getDoc(rideRef)
+      if (rideSnap.exists()) {
+        const rideData = rideSnap.data()
+        const updatedPassengers = (rideData.passengers || []).map(p =>
+          p.booking_id === bookingId ? { ...p, status: 'canceled' } : p
+        )
+        await updateDoc(rideRef, {
+          available_seats: (rideData.available_seats || 0) + (bookingData.booked_seats || 1),
+          passengers: updatedPassengers,
+        })
+      }
+    }
+
+    toast.success('Booking canceled')
+
+    const actorDoc = await getDoc(doc(db, 'users', auth.currentUser.uid)).catch(() => null)
+    const actorData = actorDoc?.data() || {}
+    logEvent({
+      type: 'booking.canceled',
+      message: `Booking canceled by passenger: ${bookingData.departure} → ${bookingData.arrival} on ${bookingData.departure_date}`,
+      userId: auth.currentUser.uid,
+      userName: actorData.fullname,
+      mhspNumber: actorData.mhspNumber,
+      metadata: { bookingId, rideId: bookingData.ride_id, selfCanceled: true },
+    }).catch(() => {})
+
+    // Notify driver + passenger by email (fire-and-forget)
+    auth.currentUser?.getIdToken().then(token => {
+      fetch('/api/notify-booking-cancellation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          passenger: bookingData.passenger,
+          driver: bookingData.driver,
+          ride: {
+            departure: bookingData.departure,
+            arrival: bookingData.arrival,
+            departure_date: bookingData.departure_date,
+            departure_time: bookingData.departure_time,
+            arrival_time: bookingData.arrival_time || '',
+            return_departure_time: bookingData.return_departure_time || '',
+          },
+          bookedSeats: bookingData.booked_seats,
+        }),
+      }).catch(err => console.error('[notify-booking-cancellation]', err))
+    }).catch(() => {})
+
+    return true
+  }
+  catch (error) {
+    toast.error(error.message)
+    return false
+  }
+  finally {
+    setIsLoading(false)
+  }
+}
 
   const NETWORK_IDS = ['network-HILLPATROL', 'network-MOUNTAINHOSTS', 'network-NORDIC']
 
@@ -873,7 +964,7 @@ const changeBookingStatus = async (passengerId  , rideId , bookingId , status)=>
     }
   }
 
-    return <NetworkContext.Provider value={{createNetwork , joinNetwork , getRidesByNetworkId , deleteNetwork , changeBookingStatus , getNetwork , offerRide ,findRide , changeUserStatus , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , finalizeRide , startRide , isLoading , getNetworkList , getAllNetworks , updateRide , dismissRideUpdate}}>
+    return <NetworkContext.Provider value={{createNetwork , joinNetwork , getRidesByNetworkId , deleteNetwork , changeBookingStatus , getNetwork , offerRide ,findRide , changeUserStatus , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , cancelBooking , finalizeRide , startRide , isLoading , getNetworkList , getAllNetworks , updateRide , dismissRideUpdate}}>
         {children}
     </NetworkContext.Provider>
 }

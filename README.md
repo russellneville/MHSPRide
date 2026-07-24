@@ -23,6 +23,7 @@ MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and ho
 - **Three communities** — Hill Patrol, Mountain Hosts, and Nordic each have their own ride pool
 - **Smart arrival time** — auto-filled from a pre-computed drive-time matrix for all pickup/destination pairs
 - **Ride management** — drivers can edit or cancel rides; booked passengers are notified by email on changes
+- **Passenger self-cancel** — passengers can cancel their own booking up to 12 hours before departure, freeing the seat and notifying the driver by email; after the cutoff they're directed to contact the driver directly
 - **Dashboard** — see today's rides at a glance, upcoming rides, and a paginated ride history
 - **Email notifications** — registration verification codes and welcome email, booking receipts, ride change notices, and cancellations via Resend
 - **Admin panel** — user management, ride oversight, booking management, activity log, and leaderboard reports

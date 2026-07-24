@@ -131,7 +131,8 @@ Users with `role: 'admin'` see an Admin section in the sidebar with access to:
 - **Bookings** — view and cancel any booking
 - **Roster** — browse the imported MHSP roster: search by name/MHSP#/email, filter by status or registration, click a member's coordinates to open them in Google Maps
 - **Roster Import** — upload a Troopiter CSV export, preview detected renames/new members/field updates/deactivations before anything is written, then commit (see [Roster import matching](#roster-import-matching) below)
-- **Activity Log** — paginated event log of all key system actions, filterable by type, date range, user, and message text
+- **Activity Log** — paginated event log of all key system actions, filterable by type, date range, user, and message text; auto-refreshes in the background every 30 seconds
+- **Feedback** — submissions from the in-app feedback widget (bottom-right corner of the dashboard) and the [Contact](app/contact/page.jsx) form's Feedback/Bug/Support types, filterable by type and open/resolved status, with resolve/reopen and delete actions. **Respond** opens a dialog to email the submitter directly (via Resend), appends `RESPONSE: <reply>` to the entry's message, and marks it as responded. The sidebar's "Feedback" nav item shows a live, bolded count of unresponded items (e.g. "Feedback **(3)**")
 - **Reports** — stats cards (total users, rides, bookings), top drivers and top riders leaderboards, route popularity
 
 ### Setting up an admin user
@@ -221,7 +222,7 @@ MHSPRide/
 ├── app/
 │   ├── api/                    # Server-side API routes (email, admin actions)
 │   └── dashboard/              # Protected dashboard pages
-│       ├── admin/              # Admin-only pages (users, rides, bookings, logs, reports)
+│       ├── admin/              # Admin-only pages (users, rides, bookings, logs, feedback, reports)
 │       ├── network/[networkId]/ # Network detail, ride list, ride detail, members
 │       ├── rides/              # My Offered Rides
 │       ├── bookings/           # My Booked Rides

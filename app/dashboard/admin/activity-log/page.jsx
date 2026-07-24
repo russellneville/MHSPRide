@@ -49,33 +49,33 @@ function badgeVariant(type) {
 }
 
 const EVENT_TYPES = [
-  'ride.created',
-  'ride.updated',
-  'ride.canceled',
-  'ride.deleted',
-  'booking.created',
-  'booking.canceled',
-  'user.registered',
-  'user.login',
-  'user.logout',
-  'user.login_failed',
-  'user.password_reset_requested',
-  'user.profile_updated',
-  'network.created',
-  'network.joined',
-  'network.deleted',
-  'network.member_status_changed',
-  'admin.role_changed',
   'admin.password_reset_requested',
+  'admin.role_changed',
+  'admin.settings_updated',
   'admin.user_suspended',
   'admin.user_unsuspended',
-  'admin.settings_updated',
-  'membership.unclaimed',
-  'member.id_changed',
-  'member.deactivated',
+  'booking.canceled',
+  'booking.created',
   'feedback.submitted',
+  'member.deactivated',
+  'member.id_changed',
+  'membership.unclaimed',
+  'network.created',
+  'network.deleted',
+  'network.joined',
+  'network.member_status_changed',
+  'ride.canceled',
+  'ride.created',
+  'ride.deleted',
+  'ride.updated',
   'security.rate_limit_exceeded',
   'security.registration_code_exceeded',
+  'user.login',
+  'user.login_failed',
+  'user.logout',
+  'user.password_reset_requested',
+  'user.profile_updated',
+  'user.registered',
 ]
 
 export default function AdminActivityLogPage() {
@@ -100,16 +100,18 @@ function ActivityLogContent() {
 
   useEffect(() => {
     fetchLogs()
+    const interval = setInterval(() => fetchLogs({ silent: true }), 30_000)
+    return () => clearInterval(interval)
   }, [])
 
-  async function fetchLogs() {
-    setLoading(true)
+  async function fetchLogs({ silent = false } = {}) {
+    if (!silent) setLoading(true)
     try {
       const q = query(collection(db, 'activity_log'), orderBy('timestamp', 'desc'))
       const snap = await getDocs(q)
       setAllLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })))
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }
 

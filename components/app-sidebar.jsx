@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import {
   Activity,
   BarChart2,
@@ -9,6 +10,7 @@ import {
   List,
   Mail,
   MapPin,
+  MessageSquare,
   Settings,
   Ticket,
   Upload,
@@ -22,6 +24,8 @@ import {
 import Image from "next/image"
 import { NavMain } from "./nav-main"
 import { NavUser } from "@/components/nav-user"
+import { db } from "@/lib/firebaseClient"
+import { collection, onSnapshot } from "firebase/firestore"
 import {
   Sidebar,
   SidebarContent,
@@ -43,6 +47,7 @@ const ADMIN_MENU = [
   { name: "Bookings",       icon: ClipboardList, href: "/dashboard/admin/bookings" },
   { name: "Roster Import",  icon: Upload,        href: "/dashboard/admin/roster-import" },
   { name: "Activity Log",   icon: Activity,      href: "/dashboard/admin/activity-log" },
+  { name: "Feedback",       icon: MessageSquare, href: "/dashboard/admin/feedback" },
   { name: "Reports",        icon: BarChart2,     href: "/dashboard/admin/reports" },
   { name: "Settings",       icon: Settings,      href: "/dashboard/admin/settings" },
 ]
@@ -55,6 +60,16 @@ export function AppSidebar({ user, ...props }) {
     { name: "Book/Offer Rides", icon: Users, href: "/dashboard/networks" },
     { name: "Profile", icon: User, href: "/dashboard/profile" },
   ]
+
+  const [unrespondedFeedbackCount, setUnrespondedFeedbackCount] = useState(0)
+
+  useEffect(() => {
+    if (user?.role !== 'admin') return
+    const unsub = onSnapshot(collection(db, 'feedback'), snap => {
+      setUnrespondedFeedbackCount(snap.docs.filter(d => !d.data().responded).length)
+    })
+    return () => unsub()
+  }, [user?.role])
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -97,7 +112,12 @@ export function AppSidebar({ user, ...props }) {
                   <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton href={item.href} tooltip={item.name}>
                       <item.icon />
-                      <span>{item.name}</span>
+                      <span>
+                        {item.name}
+                        {item.href === '/dashboard/admin/feedback' && unrespondedFeedbackCount > 0 && (
+                          <> <strong>({unrespondedFeedbackCount})</strong></>
+                        )}
+                      </span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}

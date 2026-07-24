@@ -34,6 +34,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { usePopup } from "@/context/PopupContext";
 import { formatDate as formatDateStr, formatTime } from "@/lib/utils";
 import { resolveLocation } from "@/lib/locations";
+import { canCancelBooking, isCanceledStatus } from "@/lib/rides";
 import { Skeleton } from "@/components/ui/skeleton";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
 import {
@@ -44,7 +45,7 @@ import {
 
 export default function RidePage() {
   const { rideId, networkId } = useParams();
-  const { getRide, isLoading, bookRide, cancelRide, getBookings } = useNetwork();
+  const { getRide, isLoading, bookRide, cancelRide, cancelBooking, getBookings } = useNetwork();
   const { user } = useAuth();
   const { openPopup } = usePopup();
 
@@ -53,6 +54,7 @@ export default function RidePage() {
   const [seatsToBook, setSeatsToBook] = useState(1);
   const [showEditWarn, setShowEditWarn] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showCancelBookingConfirm, setShowCancelBookingConfirm] = useState(false);
   const [showDayConflict, setShowDayConflict] = useState(false);
   const [existingBookings, setExistingBookings] = useState([]);
 
@@ -86,6 +88,12 @@ export default function RidePage() {
 
   const handleCancelRide = async ()=>{
     await cancelRide(rideId)
+    fetchRide()
+  }
+
+  const handleCancelBooking = async () => {
+    if (!currentBooking?.booking_id) return
+    await cancelBooking(currentBooking.booking_id)
     fetchRide()
   }
 
@@ -353,6 +361,26 @@ export default function RidePage() {
                 </AlertDialogContent>
               </AlertDialog>
 
+              <AlertDialog open={showCancelBookingConfirm} onOpenChange={setShowCancelBookingConfirm}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Cancel your booking?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This frees your seat on this ride and notifies the driver by email.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Keep booking</AlertDialogCancel>
+                    <AlertDialogAction
+                      className="bg-destructive text-white hover:bg-destructive/90"
+                      onClick={() => { setShowCancelBookingConfirm(false); handleCancelBooking() }}
+                    >
+                      Cancel booking
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+
               <AlertDialog open={showEditWarn} onOpenChange={setShowEditWarn}>
                 <AlertDialogContent>
                   <AlertDialogHeader>
@@ -389,7 +417,7 @@ export default function RidePage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {currentBooking ? (
+                    {currentBooking && !isCanceledStatus(currentBooking.status) ? (
                       <>
                       <div className="border rounded-md p-3 bg-secondary/30">
                         <p className="text-sm">
@@ -405,6 +433,30 @@ export default function RidePage() {
                           {formatDate(currentBooking.booked_at)}
                         </p>
                       </div>
+
+                      {!isCanceledStatus(currentBooking.status) && (
+                        canCancelBooking({
+                          departure_date: rideData.departure_date,
+                          departure_time: rideData.departure_time,
+                          booking_status: currentBooking.status,
+                        }) ? (
+                          <Button
+                            variant="destructive"
+                            className="w-full"
+                            disabled={isLoading}
+                            onClick={() => setShowCancelBookingConfirm(true)}
+                          >
+                            Cancel My Booking <X className="size-4 ml-1" />
+                          </Button>
+                        ) : (
+                          <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-sm">
+                            Too close to departure to cancel online. Contact your driver directly
+                            {rideData.driver?.phone ? ` at ${rideData.driver.phone}` : ""}
+                            {rideData.driver?.email ? ` (${rideData.driver.email})` : ""}.
+                          </div>
+                        )
+                      )}
+
                       <Link
                         href="/dashboard/bookings"
                         className="inline-flex items-center justify-center w-full text-sm font-medium rounded-md border border-border px-3 py-2 hover:bg-accent transition-colors"

@@ -1,10 +1,24 @@
+import { useState } from "react"
 import { formatDate, formatTime } from "@/lib/utils"
 import { resolveLocation } from "@/lib/locations"
-import { Calendar, Car, Clock, MapPin, MoveRight, Users } from "lucide-react"
+import { canCancelBooking, isCanceledStatus } from "@/lib/rides"
+import { Calendar, Car, Clock, MapPin, MoveRight, Users, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/ui/user-avatar"
+import { useNetwork } from "@/context/NetworksContext"
+import { usePopup } from "@/context/PopupContext"
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
-export default function RideDetailsPopup({ booking }) {
+export default function RideDetailsPopup({ booking, onCanceled }) {
+  const { cancelBooking, isLoading } = useNetwork()
+  const { closePopup } = usePopup()
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false)
+
   if (!booking) return null
 
   const driver = booking.driver || {}
@@ -15,6 +29,14 @@ export default function RideDetailsPopup({ booking }) {
     booked:   'bg-blue-100 text-blue-800 border-blue-300',
     canceled: 'bg-gray-100 text-gray-600 border-gray-300',
   }[booking.booking_status] || 'bg-muted text-muted-foreground'
+
+  const handleCancelBooking = async () => {
+    const ok = await cancelBooking(booking.id)
+    if (ok) {
+      onCanceled?.()
+      closePopup()
+    }
+  }
 
   return (
     <div className="space-y-5 text-sm">
@@ -108,6 +130,49 @@ export default function RideDetailsPopup({ booking }) {
           </div>
         </>
       )}
+
+      {/* Cancel booking */}
+      {!isCanceledStatus(booking.booking_status) && (
+        <>
+          <div className="border-t border-border" />
+          {canCancelBooking(booking) ? (
+            <Button
+              variant="destructive"
+              className="w-full"
+              disabled={isLoading}
+              onClick={() => setShowCancelConfirm(true)}
+            >
+              Cancel Booking <X className="size-4 ml-1" />
+            </Button>
+          ) : (
+            <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-sm">
+              Too close to departure to cancel online. Contact your driver directly
+              {driver.phone ? ` at ${driver.phone}` : ""}
+              {driver.email ? ` (${driver.email})` : ""}.
+            </div>
+          )}
+        </>
+      )}
+
+      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel your booking?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This frees your seat on this ride and notifies the driver by email.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep booking</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => { setShowCancelConfirm(false); handleCancelBooking() }}
+            >
+              Cancel booking
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

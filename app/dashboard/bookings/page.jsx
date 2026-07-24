@@ -43,22 +43,23 @@ export default function MyBookedRides() {
   const [pastOpen, setPastOpen] = useState(false)
   const [pastPage, setPastPage] = useState(0)
 
+  const fetchBookings = async () => {
+    const data = await getBookings()
+    // Deduplicate by ride_id — keep the most recently booked
+    const deduped = Object.values(
+      (data || []).reduce((acc, b) => {
+        const key = b.ride_id || b.id
+        if (!acc[key] || (b.booked_at?.seconds || 0) > (acc[key].booked_at?.seconds || 0)) {
+          acc[key] = b
+        }
+        return acc
+      }, {})
+    )
+    setBookings(deduped)
+    setLoaded(true)
+  }
+
   useEffect(() => {
-    const fetchBookings = async () => {
-      const data = await getBookings()
-      // Deduplicate by ride_id — keep the most recently booked
-      const deduped = Object.values(
-        (data || []).reduce((acc, b) => {
-          const key = b.ride_id || b.id
-          if (!acc[key] || (b.booked_at?.seconds || 0) > (acc[key].booked_at?.seconds || 0)) {
-            acc[key] = b
-          }
-          return acc
-        }, {})
-      )
-      setBookings(deduped)
-      setLoaded(true)
-    }
     if (user) {
       fetchBookings()
       getNetworkList().then(list => setJoinedNetworkIds((list || []).map(n => n.id)))
@@ -91,7 +92,7 @@ export default function MyBookedRides() {
     if (href) {
       router.push(href)
     } else {
-      openPopup(`${resolveLocation(b.departure)} → ${resolveLocation(b.arrival)}`, <RideDetailsPopup booking={b} />)
+      openPopup(`${resolveLocation(b.departure)} → ${resolveLocation(b.arrival)}`, <RideDetailsPopup booking={b} onCanceled={fetchBookings} />)
     }
   }
 

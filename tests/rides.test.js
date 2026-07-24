@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canCancelBooking,
   computeRideStatus,
   getAvailableSeatsAfterBooking,
   getBookedSeatCount,
@@ -71,5 +72,36 @@ describe("booking safety helpers", () => {
   it("calculates booked and remaining seats without writing external data", () => {
     expect(getBookedSeatCount(baseRide)).toBe(2);
     expect(getAvailableSeatsAfterBooking(baseRide, 2)).toBe(0);
+  });
+});
+
+describe("passenger self-cancel cutoff", () => {
+  const booking = {
+    departure_date: "2026-02-10",
+    departure_time: "18:00",
+    booking_status: "booked",
+  };
+
+  it("allows cancellation well before the 12h cutoff", () => {
+    expect(canCancelBooking(booking, new Date("2026-02-10T05:00:00"))).toBe(true);
+  });
+
+  it("blocks cancellation inside the 12h cutoff window", () => {
+    expect(canCancelBooking(booking, new Date("2026-02-10T07:00:00"))).toBe(false);
+  });
+
+  it("treats exactly 12h before departure as the cutoff boundary", () => {
+    expect(canCancelBooking(booking, new Date("2026-02-10T06:00:00"))).toBe(false);
+    expect(canCancelBooking(booking, new Date("2026-02-10T05:59:59"))).toBe(true);
+  });
+
+  it("blocks cancellation for an already-canceled booking", () => {
+    expect(
+      canCancelBooking({ ...booking, booking_status: "canceled" }, new Date("2026-02-10T05:00:00"))
+    ).toBe(false);
+  });
+
+  it("blocks cancellation when departure_date is missing", () => {
+    expect(canCancelBooking({ booking_status: "booked" })).toBe(false);
   });
 });

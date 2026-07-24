@@ -236,7 +236,7 @@ function BookingsContent() {
                     <TableCell>
                       {booking.booking_status !== 'canceled' && booking.booking_status !== 'cancled' && (
                         <Button
-                          variant="destructive"
+                          variant="cancel"
                           size="sm"
                           onClick={() => setCancelTarget(booking)}
                         >

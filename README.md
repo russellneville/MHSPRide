@@ -127,7 +127,7 @@ Open [http://localhost:3000](http://localhost:3000)
 Users with `role: 'admin'` see an Admin section in the sidebar with access to:
 
 - **Users** — view all registered users, change roles, reset claimed memberships, suspend/unsuspend accounts (suspended users are force-logged-out, blocked from logging back in, and notified by email)
-- **Rides** — view, edit, cancel, or delete any ride across all networks
+- **Rides** — view (sorted most recent first, paginated 25/page), filter by status/network/date range, click a row to see full details including the rider list, or edit/cancel/delete. The status shown (not started/in progress/finished) is computed live from each ride's departure/arrival/return times, not from the stored `ride_status` field — that field only changes when a driver manually starts/finishes a ride, so a ride left untouched by its driver would otherwise show "not started" forever even after it's over
 - **Bookings** — view and cancel any booking
 - **Roster** — browse the imported MHSP roster: search by name/MHSP#/email, filter by status or registration, click a member's coordinates to open them in Google Maps
 - **Roster Import** — upload a Troopiter CSV export, preview detected renames/new members/field updates/deactivations before anything is written, then commit (see [Roster import matching](#roster-import-matching) below)

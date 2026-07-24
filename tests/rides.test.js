@@ -56,6 +56,18 @@ describe("ride status rules", () => {
     const ride = { ...baseRide, ride_status: "canceled", available_seats: 4 };
     expect(computeRideStatus(ride, new Date("2026-02-10T05:00:00"))).toBe("canceled");
   });
+
+  it("stays in progress past the outbound arrival for round trips, until the return departure", () => {
+    const ride = { ...baseRide, one_way: false, return_departure_time: "16:00" };
+    expect(computeRideStatus(ride, new Date("2026-02-10T07:16:00"))).toBe("in_progress");
+    expect(computeRideStatus(ride, new Date("2026-02-10T15:59:00"))).toBe("in_progress");
+    expect(computeRideStatus(ride, new Date("2026-02-10T16:01:00"))).toBe("completed");
+  });
+
+  it("uses arrival time (not return departure) for one-way rides", () => {
+    const ride = { ...baseRide, one_way: true, return_departure_time: "16:00" };
+    expect(computeRideStatus(ride, new Date("2026-02-10T07:16:00"))).toBe("completed");
+  });
 });
 
 describe("booking safety helpers", () => {

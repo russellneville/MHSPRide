@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore'
 import { logEvent } from '@/lib/activityLog'
 import { computeRideStatus } from '@/lib/rides'
+import { adminCancelRideBookings } from '@/lib/bookings'
 import { resolveLocation } from '@/lib/locations'
 import { formatTime, toLocalDateStr } from '@/lib/utils'
 import {
@@ -78,6 +79,19 @@ function displayStatus(ride) {
   return DISPLAY_STATUS[computeRideStatus(ride)]
 }
 
+// Internal status keys (e.g. 'finished') stay as-is for filtering/variant
+// lookups — this only maps to the label shown to the admin.
+const STATUS_LABELS = {
+  'not started': 'Not Started',
+  'in progress': 'In Progress',
+  'finished':    'Completed',
+  'canceled':    'Canceled',
+}
+
+function statusLabel(status) {
+  return STATUS_LABELS[status] || status
+}
+
 export default function AdminRidesPage() {
   return (
     <DashboardLayout>
@@ -92,12 +106,14 @@ function RidesContent() {
   const { user: currentUser } = useAuth()
   const { openPopup } = usePopup()
   const [rides, setRides] = useState([])
+  const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterNetwork, setFilterNetwork] = useState('all')
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo] = useState('')
+  const [search, setSearch] = useState('')
   const [cancelTarget, setCancelTarget] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [acting, setActing] = useState(false)
@@ -111,31 +127,33 @@ function RidesContent() {
   async function fetchRides() {
     setLoading(true)
     try {
-      const snap = await getDocs(collection(db, 'rides'))
-      setRides(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+      const [ridesSnap, bookingsSnap] = await Promise.all([
+        getDocs(collection(db, 'rides')),
+        getDocs(collection(db, 'bookings')),
+      ])
+      setRides(ridesSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setBookings(bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
     } finally {
       setLoading(false)
     }
   }
+
+  const bookingsByRide = bookings.reduce((acc, b) => {
+    if (!b.ride_id) return acc
+    ;(acc[b.ride_id] ||= []).push(b)
+    return acc
+  }, {})
 
   async function handleCancel() {
     if (!cancelTarget) return
     setActing(true)
     try {
       const ride = cancelTarget
+      // Cancels every booking tied to this ride first (each fires its own
+      // notify-cancellation email with the passenger's real name), then the
+      // ride itself.
+      await adminCancelRideBookings(ride, bookingsByRide[ride.id], { actor: currentUser })
       await updateDoc(doc(db, 'rides', ride.id), { ride_status: 'canceled' })
-
-      // Notify passengers
-      const passengersWithEmail = (ride.passengers || []).filter(p => p.email)
-      if (passengersWithEmail.length > 0) {
-        auth.currentUser?.getIdToken().then(token => {
-          fetch('/api/notify-cancellation', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({ rideId: ride.id }),
-          }).catch(err => console.error('[notify-cancellation]', err))
-        }).catch(() => {})
-      }
 
       logEvent({
         type: 'ride.canceled',
@@ -146,7 +164,7 @@ function RidesContent() {
         metadata: { rideId: ride.id, adminAction: true },
       }).catch(() => {})
 
-      setRides(prev => prev.map(r => r.id === ride.id ? { ...r, ride_status: 'canceled' } : r))
+      await fetchRides()
     } finally {
       setActing(false)
       setCancelTarget(null)
@@ -174,12 +192,24 @@ function RidesContent() {
     }
   }
 
+  const searchTerm = search.trim().toLowerCase()
+
   const filtered = rides
     .filter(r => {
       if (filterStatus !== 'all' && displayStatus(r) !== filterStatus) return false
       if (filterNetwork !== 'all' && r.network_id !== filterNetwork) return false
       if (filterFrom && r.departure_date < filterFrom) return false
       if (filterTo && r.departure_date > filterTo) return false
+      if (searchTerm) {
+        const riders = bookingsByRide[r.id] || []
+        const haystack = [
+          r.driver?.fullname,
+          resolveLocation(r.departure),
+          resolveLocation(r.arrival),
+          ...riders.map(b => b.passenger?.fullname),
+        ].filter(Boolean).join(' ').toLowerCase()
+        if (!haystack.includes(searchTerm)) return false
+      }
       return true
     })
     .sort((a, b) => {
@@ -199,6 +229,13 @@ function RidesContent() {
 
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
+        <Input
+          className="w-56 h-9 text-sm"
+          value={search}
+          onChange={e => { setSearch(e.target.value); resetPage() }}
+          placeholder="Search by driver, rider, or route…"
+        />
+
         <Select value={filterStatus} onValueChange={v => { setFilterStatus(v); resetPage() }}>
           <SelectTrigger className="w-36 h-9 text-sm">
             <SelectValue placeholder="All statuses" />
@@ -207,7 +244,7 @@ function RidesContent() {
             <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="not started">Not Started</SelectItem>
             <SelectItem value="in progress">In Progress</SelectItem>
-            <SelectItem value="finished">Finished</SelectItem>
+            <SelectItem value="finished">Completed</SelectItem>
             <SelectItem value="canceled">Canceled</SelectItem>
           </SelectContent>
         </Select>
@@ -238,8 +275,8 @@ function RidesContent() {
           onChange={e => { setFilterTo(e.target.value); resetPage() }}
           placeholder="To date"
         />
-        {(filterStatus !== 'all' || filterNetwork !== 'all' || filterFrom || filterTo) && (
-          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('all'); setFilterNetwork('all'); setFilterFrom(''); setFilterTo(''); resetPage() }}>
+        {(filterStatus !== 'all' || filterNetwork !== 'all' || filterFrom || filterTo || search) && (
+          <Button variant="ghost" size="sm" onClick={() => { setFilterStatus('all'); setFilterNetwork('all'); setFilterFrom(''); setFilterTo(''); setSearch(''); resetPage() }}>
             Clear
           </Button>
         )}
@@ -284,7 +321,13 @@ function RidesContent() {
                       className="cursor-pointer"
                       onClick={() => openPopup(
                         'Ride details',
-                        <AdminRideDetailsPopup ride={ride} status={status} networkName={networkName(ride.network_id)} />
+                        <AdminRideDetailsPopup
+                          ride={ride}
+                          status={status}
+                          networkName={networkName(ride.network_id)}
+                          bookings={bookingsByRide[ride.id] || []}
+                          onBookingChanged={fetchRides}
+                        />
                       )}
                     >
                       <TableCell className="text-sm whitespace-nowrap">
@@ -300,19 +343,21 @@ function RidesContent() {
                       </TableCell>
                       <TableCell>
                         <Badge variant={STATUS_VARIANTS[status] || 'secondary'}>
-                          {status}
+                          {statusLabel(status)}
                         </Badge>
                       </TableCell>
                       <TableCell onClick={e => e.stopPropagation()}>
                         <div className="flex gap-1 flex-wrap">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => openPopup('Edit ride', <EditRidePopup ride={ride} onSaved={fetchRides} />)}
-                          >
-                            Edit
-                          </Button>
-                          {status !== 'canceled' && (
+                          {status !== 'canceled' && status !== 'finished' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openPopup('Edit ride', <EditRidePopup ride={ride} onSaved={fetchRides} />)}
+                            >
+                              Edit
+                            </Button>
+                          )}
+                          {status !== 'canceled' && status !== 'finished' && (
                             <Button
                               variant="cancel"
                               size="sm"

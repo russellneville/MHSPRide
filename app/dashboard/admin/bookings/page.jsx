@@ -114,18 +114,7 @@ function BookingsContent() {
           fetch('/api/notify-cancellation', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            body: JSON.stringify({
-              passengers: [{ fullname: booking.passenger.fullname || '', email: booking.passenger.email, phone: booking.passenger.phone || '' }],
-              ride: {
-                departure: booking.departure,
-                arrival: booking.arrival,
-                departure_date: booking.departure_date,
-                departure_time: booking.departure_time || '',
-                arrival_time: booking.arrival_time || '',
-                return_departure_time: booking.return_departure_time || '',
-                ride_description: '',
-              },
-            }),
+            body: JSON.stringify({ bookingId: booking.id }),
           }).catch(err => console.error('[notify-cancellation]', err))
         }).catch(() => {})
       }

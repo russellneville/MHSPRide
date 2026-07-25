@@ -1,8 +1,23 @@
+import { useState } from "react"
 import { formatDate, formatTime } from "@/lib/utils"
 import { resolveLocation } from "@/lib/locations"
+import { normalizeStatus, isCanceledStatus } from "@/lib/rides"
+import { adminCancelBooking } from "@/lib/bookings"
 import { Calendar, Clock, Mail, MapPin, MoveRight, Phone, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/ui/user-avatar"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useAuth } from "@/context/AuthContext"
 
 const STATUS_VARIANTS = {
   'not started': 'secondary',
@@ -11,10 +26,48 @@ const STATUS_VARIANTS = {
   'canceled':    'destructive',
 }
 
-export default function AdminRideDetailsPopup({ ride, status, networkName }) {
+// Raw stored booking_status values, mapped to what's shown to the admin.
+const BOOKING_STATUS_LABELS = {
+  booked:        'Booked',
+  'on progress': 'In Progress',
+  finished:      'Completed',
+  canceled:      'Canceled',
+}
+
+function bookingStatusLabel(status) {
+  const normalized = normalizeStatus(status)
+  return BOOKING_STATUS_LABELS[normalized] || normalized
+}
+
+const STATUS_LABELS = {
+  'not started': 'Not Started',
+  'in progress': 'In Progress',
+  'finished':    'Completed',
+  'canceled':    'Canceled',
+}
+
+export default function AdminRideDetailsPopup({ ride, status, networkName, bookings: initialBookings = [], onBookingChanged }) {
+  const { user: currentUser } = useAuth()
+  const [bookings, setBookings] = useState(initialBookings)
+  const [removeTarget, setRemoveTarget] = useState(null)
+  const [acting, setActing] = useState(false)
+
   if (!ride) return null
 
-  const passengers = ride.passengers || []
+  async function handleRemove() {
+    if (!removeTarget) return
+    setActing(true)
+    try {
+      await adminCancelBooking(removeTarget.id, { actor: currentUser })
+      setBookings(prev => prev.map(b => b.id === removeTarget.id ? { ...b, booking_status: 'canceled' } : b))
+      // Refresh the underlying page's rides/bookings in the background so
+      // seat counts and future dialog opens reflect the change too.
+      onBookingChanged?.()
+    } finally {
+      setActing(false)
+      setRemoveTarget(null)
+    }
+  }
 
   return (
     <div className="space-y-5 text-sm">
@@ -49,7 +102,7 @@ export default function AdminRideDetailsPopup({ ride, status, networkName }) {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={STATUS_VARIANTS[status] || 'secondary'}>{status}</Badge>
+          <Badge variant={STATUS_VARIANTS[status] || 'secondary'}>{STATUS_LABELS[status] || status}</Badge>
           {networkName && <span className="text-muted-foreground">{networkName}</span>}
         </div>
       </div>
@@ -94,31 +147,43 @@ export default function AdminRideDetailsPopup({ ride, status, networkName }) {
 
       <div className="border-t border-border" />
 
-      {/* Passengers */}
+      {/* Riders (booking records — the canonical source of truth for status/contact info) */}
       <div className="space-y-2">
         <p className="font-medium text-muted-foreground uppercase tracking-wide text-xs flex items-center gap-1">
           <Users className="size-3.5" /> Riders
         </p>
-        {passengers.length > 0 ? (
+        {bookings.length > 0 ? (
           <ul className="space-y-2">
-            {passengers.map((p, i) => (
-              <li key={p.booking_id || i} className="border rounded-lg p-2 space-y-1">
+            {bookings.map(b => (
+              <li key={b.id} className="border rounded-lg p-2 space-y-1">
                 <div className="flex items-center justify-between gap-2">
-                  <p className="font-medium text-foreground">{p.fullname}</p>
-                  <Badge variant="outline" className="text-xs">{p.status}</Badge>
+                  <p className="font-medium text-foreground">{b.passenger?.fullname || '—'}</p>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">{bookingStatusLabel(b.booking_status)}</Badge>
+                    {!isCanceledStatus(b.booking_status) && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs text-destructive hover:text-destructive"
+                        onClick={() => setRemoveTarget(b)}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
                 </div>
-                {p.email && (
+                {b.passenger?.email && (
                   <p className="flex items-center gap-1 text-muted-foreground">
-                    <Mail className="size-3" /> {p.email}
+                    <Mail className="size-3" /> {b.passenger.email}
                   </p>
                 )}
-                {p.phone && (
+                {b.passenger?.phone && (
                   <p className="flex items-center gap-1 text-muted-foreground">
-                    <Phone className="size-3" /> {p.phone}
+                    <Phone className="size-3" /> {b.passenger.phone}
                   </p>
                 )}
                 <p className="text-muted-foreground">
-                  Seats booked: <span className="font-medium text-foreground">{p.booked_seats || 1}</span>
+                  Seats booked: <span className="font-medium text-foreground">{b.booked_seats || 1}</span>
                 </p>
               </li>
             ))}
@@ -127,6 +192,23 @@ export default function AdminRideDetailsPopup({ ride, status, networkName }) {
           <p className="text-muted-foreground">No riders booked yet.</p>
         )}
       </div>
+
+      <AlertDialog open={!!removeTarget} onOpenChange={open => { if (!open) setRemoveTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this rider?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will cancel the booking for {removeTarget?.passenger?.fullname || 'this passenger'} and restore the seat to the ride. A cancellation email will be sent.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Back</AlertDialogCancel>
+            <AlertDialogAction onClick={handleRemove} disabled={acting}>
+              {acting ? 'Removing…' : 'Remove Rider'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

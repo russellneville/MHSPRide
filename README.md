@@ -127,8 +127,7 @@ Open [http://localhost:3000](http://localhost:3000)
 Users with `role: 'admin'` see an Admin section in the sidebar with access to:
 
 - **Users** — view all registered users, change roles, reset claimed memberships, suspend/unsuspend accounts (suspended users are force-logged-out, blocked from logging back in, and notified by email)
-- **Rides** — view (sorted most recent first, paginated 25/page), filter by status/network/date range, click a row to see full details including the rider list, or edit/cancel/delete. The status shown (not started/in progress/finished) is computed live from each ride's departure/arrival/return times, not from the stored `ride_status` field — that field only changes when a driver manually starts/finishes a ride, so a ride left untouched by its driver would otherwise show "not started" forever even after it's over
-- **Bookings** — view and cancel any booking
+- **Rides** — view (sorted most recent first, paginated 25/page), search by driver/rider/route, filter by status/network/date range, click a row to see full details including the rider list (with a per-rider **Remove** action that cancels that booking, restores the seat, and emails the passenger), or edit/cancel/delete. Edit and Cancel are hidden once a ride is Completed or Canceled. The status shown (not started/in progress/Completed) is computed live from each ride's departure/arrival/return times, not from the stored `ride_status` field — that field only changes when a driver manually starts/finishes a ride, so a ride left untouched by its driver would otherwise show "not started" forever even after it's over. This page is also the only place admins manage bookings — there is no separate Bookings page; a booking's canonical status lives on its own `bookings` doc, not on the ride's embedded rider list, which is display-only
 - **Roster** — browse the imported MHSP roster: search by name/MHSP#/email, filter by status or registration, click a member's coordinates to open them in Google Maps
 - **Roster Import** — upload a Troopiter CSV export, preview detected renames/new members/field updates/deactivations before anything is written, then commit (see [Roster import matching](#roster-import-matching) below)
 - **Activity Log** — paginated event log of all key system actions, filterable by type, date range, user, and message text; auto-refreshes in the background every 30 seconds
@@ -192,6 +191,15 @@ See [`docs/test-data.md`](docs/test-data.md) for account credentials, test scena
 ```bash
 node scripts/seedTestData.mjs      # load test data
 node scripts/clearTestData.mjs     # remove test data
+```
+
+### One-time data cleanup
+
+`scripts/fixStaleBookingStatuses.mjs` fixes bookings that were left at `booked`/`on progress` because their ride finished or was canceled without a matching driver action — a pre-existing data issue from before booking cancellation cascaded from ride-level actions. Supports `--dry-run`.
+
+```bash
+node scripts/fixStaleBookingStatuses.mjs --dry-run
+node scripts/fixStaleBookingStatuses.mjs
 ```
 
 ---

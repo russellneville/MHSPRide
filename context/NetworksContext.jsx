@@ -439,12 +439,7 @@ export const NetworkProvider = ({children})=>{
               fetch('/api/notify-booking', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({
-                  passenger: { id: userData.id, fullname: userData.fullname, email: userData.email, phone: userData.phone },
-                  driver: { fullname: driver.fullname, email: driver.email, phone: driver.phone },
-                  ride: { departure, arrival, departure_date, departure_time, arrival_time, return_departure_time: one_way ? '' : (return_departure_time || ''), ride_description: rideData.ride_description },
-                  bookedSeats: booked_seats,
-                }),
+                body: JSON.stringify({ bookingId: bookId }),
               }).catch(err => console.error('[notify-booking]', err))
             }).catch(() => {})
           }
@@ -660,10 +655,7 @@ const updateRide = async (rideId, updates) => {
       await fetch('/api/notify-ride-update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
-        body: JSON.stringify({
-          passengers: emailList,
-          ride: { ...existing, ...updates },
-        }),
+        body: JSON.stringify({ rideId }),
       })
     }
 
@@ -733,18 +725,7 @@ const cancelRide = async (rideId)=>{
         fetch('/api/notify-cancellation', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({
-            passengers: passengersWithEmail.map(p => ({ fullname: p.fullname || '', email: p.email, phone: p.phone || '' })),
-            ride: {
-              departure: rideData.departure,
-              arrival: rideData.arrival,
-              departure_date: rideData.departure_date,
-              departure_time: rideData.departure_time,
-              arrival_time: rideData.arrival_time || '',
-              return_departure_time: rideData.return_departure_time || '',
-              ride_description: rideData.ride_description || '',
-            },
-          }),
+          body: JSON.stringify({ rideId }),
         }).catch(err => console.error('[notify-cancellation]', err))
       }).catch(() => {})
     }
@@ -921,19 +902,7 @@ const cancelBooking = async (bookingId) => {
       fetch('/api/notify-booking-cancellation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          passenger: bookingData.passenger,
-          driver: bookingData.driver,
-          ride: {
-            departure: bookingData.departure,
-            arrival: bookingData.arrival,
-            departure_date: bookingData.departure_date,
-            departure_time: bookingData.departure_time,
-            arrival_time: bookingData.arrival_time || '',
-            return_departure_time: bookingData.return_departure_time || '',
-          },
-          bookedSeats: bookingData.booked_seats,
-        }),
+        body: JSON.stringify({ bookingId }),
       }).catch(err => console.error('[notify-booking-cancellation]', err))
     }).catch(() => {})
 

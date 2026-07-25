@@ -87,16 +87,27 @@ function UsersContent() {
   }
 
   async function handleRoleChange(uid, newRole, targetUser) {
-    await updateDoc(doc(db, 'users', uid), { role: newRole })
-    setUsers(prev => prev.map(u => u.uid === uid ? { ...u, role: newRole } : u))
-    logEvent({
-      type: 'admin.role_changed',
-      message: `Role changed for ${targetUser.fullname} to ${newRole}`,
-      userId: auth.currentUser?.uid,
-      userName: currentUser?.fullname,
-      mhspNumber: currentUser?.mhspNumber,
-      metadata: { targetUserId: uid, targetUserName: targetUser.fullname, newRole },
-    }).catch(() => {})
+    try {
+      const token = await auth.currentUser.getIdToken()
+      const res = await fetch('/api/admin/update-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ uid, role: newRole }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not update role')
+
+      setUsers(prev => prev.map(u => u.uid === uid ? { ...u, role: newRole } : u))
+      logEvent({
+        type: 'admin.role_changed',
+        message: `Role changed for ${targetUser.fullname} to ${newRole}`,
+        userId: auth.currentUser?.uid,
+        userName: currentUser?.fullname,
+        mhspNumber: currentUser?.mhspNumber,
+        metadata: { targetUserId: uid, targetUserName: targetUser.fullname, newRole },
+      }).catch(() => {})
+    } catch (e) {
+      toast.error(e.message)
+    }
   }
 
   async function handleResetMembership() {
@@ -135,7 +146,14 @@ function UsersContent() {
         updates.role = 'member'
       }
 
-      await updateDoc(doc(db, 'users', uid), updates)
+      const token = await auth.currentUser.getIdToken()
+      const res = await fetch('/api/admin/update-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ uid, ...updates }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not update user')
+
       setUsers(prev => prev.map(u => u.uid === uid ? { ...u, ...updates } : u))
 
       logEvent({
@@ -147,13 +165,11 @@ function UsersContent() {
         metadata: { targetUserId: uid, targetUserName: fullname },
       }).catch(() => {})
 
-      auth.currentUser.getIdToken().then(token => {
-        fetch('/api/admin/notify-suspension', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ email, fullname, suspended: nextSuspended }),
-        }).catch(err => console.error('[notify-suspension]', err))
-      }).catch(() => {})
+      fetch('/api/admin/notify-suspension', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ email, fullname, suspended: nextSuspended }),
+      }).catch(err => console.error('[notify-suspension]', err))
 
       toast.success(`${fullname} ${nextSuspended ? 'suspended' : 'unsuspended'}`)
     } catch (e) {

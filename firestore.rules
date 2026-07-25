@@ -35,21 +35,37 @@ service cloud.firestore {
             .hasAny(['role', 'mhspNumber', 'created_at', 'suspended']);
     }
 
-    // Networks: readable/updatable by any authenticated, non-suspended user; no client-side creates or deletes
+    // Networks: readable by any authenticated, non-suspended user. Admins can update
+    // anything (director-managed status changes etc). Non-admins can only join
+    // themselves — passengersIds must equal the existing array with exactly their
+    // own uid appended, and passengers must grow by exactly one entry — so a member
+    // can't rewrite other members' entries or unrelated network metadata.
+    // No client-side creates or deletes.
     match /networks/{networkId} {
       allow read: if request.auth != null && !isSuspended();
-      allow update: if request.auth != null && !isSuspended();
+      allow update: if isAdmin()
+        || (request.auth != null
+            && !isSuspended()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['passengersIds', 'passengers'])
+            && request.resource.data.passengersIds == resource.data.passengersIds.concat([request.auth.uid])
+            && request.resource.data.passengers.size() == resource.data.passengers.size() + 1);
       allow create, delete: if false;
     }
 
-    // Rides: readable by any authenticated, non-suspended user; driver owns create/delete;
-    // any authenticated, non-suspended user can update (needed for passengers booking seats)
+    // Rides: readable by any authenticated, non-suspended user; driver owns create/delete.
+    // The driver and admins can update any field. Any other authenticated, non-suspended
+    // user (a passenger booking/canceling) can only touch available_seats/passengers —
+    // not departure, times, driver info, or anything else on the ride.
     match /rides/{rideId} {
       allow read: if request.auth != null && !isSuspended();
       allow create: if request.auth != null
         && !isSuspended()
         && request.resource.data.driverId == request.auth.uid;
-      allow update: if request.auth != null && !isSuspended();
+      allow update: if request.auth != null
+        && !isSuspended()
+        && (resource.data.driverId == request.auth.uid
+            || isAdmin()
+            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['available_seats', 'passengers']));
       allow delete: if request.auth != null
         && !isSuspended()
         && resource.data.driverId == request.auth.uid;

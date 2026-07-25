@@ -16,7 +16,8 @@ const STORAGE_OPTIONS = [
 
 export default function DriverProfile({ profile, setProfile }) {
   const handle = (e) => {
-    setProfile(prev => ({ ...prev, [e.target.id]: e.target.value }))
+    const { id, value } = e.target
+    setProfile(prev => ({ ...prev, [id]: id === "vehicle_seats" ? (value === "" ? "" : Number(value)) : value }))
   }
 
   const handleSelect = (field, value) => {

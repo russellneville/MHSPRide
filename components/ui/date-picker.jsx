@@ -19,6 +19,7 @@ export default function DatePicker({ id, date, setDate , disabled}) {
         <Calendar
           mode="single"
           selected={date}
+          defaultMonth={date}
           captionLayout="dropdown"
           onSelect={(date) => setDate(date)}
           disabled={disabled}

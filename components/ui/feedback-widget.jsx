@@ -47,7 +47,7 @@ export default function FeedbackWidget() {
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 flex flex-col items-end gap-2">
+    <div className="fixed bottom-5 left-5 sm:left-auto sm:right-5 z-50 flex flex-col items-start sm:items-end gap-2">
       {open && (
         <div className="w-72 rounded-xl border border-border bg-card shadow-lg p-4 space-y-3">
           <div className="flex items-center justify-between">

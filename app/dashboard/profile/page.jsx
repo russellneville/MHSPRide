@@ -10,7 +10,6 @@ import { toLocalDateStr } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import DriverProfile from "@/components/forms/DriverProfile";
 import { Button } from "@/components/ui/button";
-import DirectorProfile from "@/components/forms/DirectorProfile";
 import { Camera, User } from "lucide-react";
 
 export default function ProfilePage (){
@@ -24,17 +23,13 @@ export default function ProfilePage (){
         bio : '' , 
         phone : '' ,
         email : ''  , 
-        password : '' , 
-        confirmpassword : '' ,
-        roleform : {}
+        password : '' ,
+        confirmpassword : ''
       })
 
     useEffect(() => {
         if (user) {
           setProfile(user);
-        }
-        if (user?.roleform){
-            setProfile(e => ({...e , roleform : user.roleform}))
         }
     }, [user]);
 
@@ -129,7 +124,7 @@ export default function ProfilePage (){
                     <Label htmlFor='birthdate'>Date of birth</Label>
                     <DatePicker
                         id="birthdate"
-                        date={profile.birthdate ? new Date(profile.birthdate) : undefined}
+                        date={profile.birthdate ? new Date(profile.birthdate + 'T12:00:00') : undefined}
                         setDate={handleDateChange}
                         />
                 </div>
@@ -142,8 +137,7 @@ export default function ProfilePage (){
         
        </Card>
 
-       {(user?.role === 'member' || user?.role === 'driver') && <DriverProfile profile={profile} setProfile={setProfile}/>}
-       {user?.role === 'admin' && <DirectorProfile profile={profile} setProfile={setProfile}/>}
+       <DriverProfile profile={profile} setProfile={setProfile}/>
 
        <div className="flex items-center justify-end bg-background py-3">
             <Button onClick={()=> updateProfile(profile)} disabled={isLoading}>{isLoading ? 'Updating... ' : 'Update Profile'}</Button>

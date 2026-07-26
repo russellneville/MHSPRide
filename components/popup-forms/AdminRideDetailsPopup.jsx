@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { formatDate, formatTime } from "@/lib/utils"
-import { resolveLocation } from "@/lib/locations"
+import { useLocations } from "@/context/LocationsContext"
 import { normalizeStatus, isCanceledStatus } from "@/lib/rides"
 import { adminCancelBooking } from "@/lib/bookings"
 import { Calendar, Clock, Mail, MapPin, MoveRight, Phone, Users } from "lucide-react"
@@ -48,6 +48,7 @@ const STATUS_LABELS = {
 
 export default function AdminRideDetailsPopup({ ride, status, networkName, bookings: initialBookings = [], onBookingChanged }) {
   const { user: currentUser } = useAuth()
+  const { resolveLocation } = useLocations()
   const [bookings, setBookings] = useState(initialBookings)
   const [removeTarget, setRemoveTarget] = useState(null)
   const [acting, setActing] = useState(false)

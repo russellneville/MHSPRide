@@ -1,7 +1,7 @@
 'use client'
 import { ChevronRight, MoveRight } from "lucide-react"
 import { formatDate, formatTime } from "@/lib/utils"
-import { resolveLocation } from "@/lib/locations"
+import { useLocations } from "@/context/LocationsContext"
 
 /**
  * Compact ride summary shown in place of a table row on small screens.
@@ -9,6 +9,7 @@ import { resolveLocation } from "@/lib/locations"
  * is set, showing a chevron unless a custom `action` is provided.
  */
 export default function RideRowCard({ departure, arrival, date, time, details, badges, onClick, highlight, action }) {
+  const { resolveLocation } = useLocations()
   return (
     <div
       onClick={onClick}

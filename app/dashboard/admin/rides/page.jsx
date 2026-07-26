@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 import { logEvent } from '@/lib/activityLog'
 import { computeRideStatus } from '@/lib/rides'
 import { adminCancelRideBookings } from '@/lib/bookings'
-import { resolveLocation } from '@/lib/locations'
+import { useLocations } from '@/context/LocationsContext'
 import { formatTime, toLocalDateStr } from '@/lib/utils'
 import {
   Table,
@@ -101,6 +101,7 @@ export default function AdminRidesPage() {
 function RidesContent() {
   const { user: currentUser } = useAuth()
   const { openPopup } = usePopup()
+  const { resolveLocation } = useLocations()
   const [rides, setRides] = useState([])
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)

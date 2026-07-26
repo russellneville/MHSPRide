@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { formatDate, formatTime } from "@/lib/utils"
-import { resolveLocation } from "@/lib/locations"
+import { useLocations } from "@/context/LocationsContext"
 import { canCancelBooking, isCanceledStatus } from "@/lib/rides"
 import { Calendar, Car, Clock, MapPin, MoveRight, Users, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -13,6 +13,7 @@ import CancelReasonDialog from "@/components/CancelReasonDialog"
 export default function RideDetailsPopup({ booking, onCanceled }) {
   const { cancelBooking, isLoading } = useNetwork()
   const { closePopup } = usePopup()
+  const { resolveLocation } = useLocations()
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   if (!booking) return null

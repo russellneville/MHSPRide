@@ -10,7 +10,7 @@ import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePopup } from "@/context/PopupContext";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
-import { resolveLocation } from "@/lib/locations";
+import { useLocations } from "@/context/LocationsContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { computeRideStatus } from "@/lib/rides";
@@ -21,6 +21,7 @@ import NetworkRideCard from "@/components/cards/network-ride-card";
 export default function NetworkPage() {
   const { networkId } = useParams();
   const { getRidesByNetworkId } = useNetwork();
+  const { resolveLocation } = useLocations();
   const { user } = useAuth();
   const { openPopup } = usePopup();
 

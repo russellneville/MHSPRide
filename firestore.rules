@@ -99,6 +99,20 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Locations & drive times: runtime-managed replacement for the old static
+    // lib/locations.js / lib/drive-times.js files (issue #66). Read allowed for
+    // any authenticated, non-suspended user (needed for ride-offer dropdowns);
+    // writes only happen through admin API routes via the Admin SDK.
+    match /locations/{id} {
+      allow read: if request.auth != null && !isSuspended();
+      allow write: if false;
+    }
+
+    match /driveTimes/{id} {
+      allow read: if request.auth != null && !isSuspended();
+      allow write: if false;
+    }
+
     match /config/{id} {
       allow read, write: if isAdmin();
     }

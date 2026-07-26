@@ -6,6 +6,7 @@ import DatePicker from "../ui/date-picker"
 import { usePopup } from "@/context/PopupContext"
 import { useNetwork } from "@/context/NetworksContext"
 import { useAuth } from "@/context/AuthContext"
+import { useLocations } from "@/context/LocationsContext"
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
@@ -15,23 +16,11 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "../ui/alert-dialog"
-import { LOCATIONS } from "@/lib/locations"
 import { estimateArrival } from "@/lib/drive-times"
 import { formatDate, toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils"
 import { hasActiveSameDayBooking, hasActiveSameDayRide } from "@/lib/rides"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { db, auth } from "@/lib/firebaseClient"
-
-const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== "timberline-lodge").sort((a, b) => a.name.localeCompare(b.name))
-
-const ARRIVAL_LOCATIONS = [
-  { id: "buzz-bowman",  name: "Buzz Bowman Ski Patrol Building" },
-  { id: "summit-pass",  name: "Summit Pass" },
-  { id: "timberline",   name: "Timberline" },
-  { id: "ski-bowl",     name: "Ski Bowl" },
-  { id: "meadows",      name: "Meadows" },
-  { id: "tea-cup",      name: "Tea Cup" },
-].sort((a, b) => a.name.localeCompare(b.name))
 
 function SuggestLocationPopover({ context }) {
   const [open, setOpen] = useState(false)
@@ -124,6 +113,7 @@ export default function OfferRidePopup({ networkId, onSaved }) {
   const { closePopup } = usePopup()
   const { isLoading, offerRide, getRides, getBookings } = useNetwork()
   const { user } = useAuth()
+  const { origins, destinations } = useLocations()
   const [showDayConflict, setShowDayConflict] = useState(false)
 
   const [departureSelect, setDepartureSelect] = useState('')
@@ -164,8 +154,12 @@ export default function OfferRidePopup({ networkId, onSaved }) {
   // after a time is already set keeps the estimate in sync.
   useEffect(() => {
     if (!rideData.departure_time || !effectiveDeparture || !effectiveArrival) return
-    const est = estimateArrival(rideData.departure_time, effectiveDeparture, effectiveArrival)
-    if (est) setRideData(prev => (prev.arrival_time === est ? prev : { ...prev, arrival_time: est }))
+    let cancelled = false
+    estimateArrival(rideData.departure_time, effectiveDeparture, effectiveArrival).then(est => {
+      if (cancelled || !est) return
+      setRideData(prev => (prev.arrival_time === est ? prev : { ...prev, arrival_time: est }))
+    })
+    return () => { cancelled = true }
   }, [rideData.departure_time, effectiveDeparture, effectiveArrival])
 
   const handleChange = (e) => {
@@ -227,7 +221,7 @@ export default function OfferRidePopup({ networkId, onSaved }) {
             onSelectChange={setDepartureSelect}
             otherValue={departureOther}
             onOtherChange={setDepartureOther}
-            locations={DEPARTURE_LOCATIONS}
+            locations={origins}
             selectPlaceholder="Select pickup location"
           />
           {validationError.departure && <p className="text-red-500 text-sm">{validationError.departure}</p>}
@@ -243,7 +237,7 @@ export default function OfferRidePopup({ networkId, onSaved }) {
             onSelectChange={setArrivalSelect}
             otherValue={arrivalOther}
             onOtherChange={setArrivalOther}
-            locations={ARRIVAL_LOCATIONS}
+            locations={destinations}
             selectPlaceholder="Select arrival location"
           />
           {validationError.arrival && <p className="text-red-500 text-sm">{validationError.arrival}</p>}

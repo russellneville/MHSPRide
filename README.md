@@ -25,6 +25,7 @@ MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and ho
 - **Ride management** — drivers can edit or cancel rides; canceling a ride cancels every booking tied to it and notifies each passenger by email
 - **Cancellation with reason** — canceling a booking or a ride (rider or driver, self-service) always prompts for a free-text reason first, which is included in the cancellation email(s) and the activity log. Cancellation is never blocked outright — but if a rider cancels within 12 hours of departure, they're shown a one-button warning to call or text the driver directly before it goes through
 - **Dashboard** — see today's rides at a glance, upcoming rides, and a paginated ride history
+- **FAQ** — a Riders/Drivers reference covering the site's actual business rules (booking cutoff, cancellation policy, how ride status and arrival times are calculated, etc.); shown right after the onboarding wizard completes, and always reachable from the sidebar afterward
 - **Email notifications** — registration verification codes and welcome email, booking receipts, ride change notices, and cancellations via Resend
 - **Admin panel** — user management, ride oversight, booking management, activity log, and leaderboard reports
 
@@ -237,9 +238,11 @@ MHSPRide/
 │       ├── rides/              # My Offered Rides
 │       ├── bookings/           # My Booked Rides
 │       ├── profile/            # User profile
-│       └── onboarding/         # First-login wizard
+│       ├── onboarding/         # First-login wizard
+│       └── faq/                # Riders/Drivers FAQ — lands here right after onboarding
 ├── components/
 │   ├── popup-forms/            # OfferRidePopup, EditRidePopup, RideDetailsPopup
+│   ├── CancelReasonDialog.jsx   # Shared reason + short-notice cancel flow (bookings & rides)
 │   ├── forms/                  # Registration sub-forms
 │   ├── AdminGuard.jsx          # Redirects non-admins away from admin routes
 │   └── ui/                     # shadcn components + FeedbackWidget, CookieConsent

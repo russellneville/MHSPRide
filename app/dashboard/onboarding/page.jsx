@@ -98,7 +98,7 @@ export default function OnboardingPage() {
     setSaving(true)
     await updateProfile({ onboarding_complete: true })
     setSaving(false)
-    router.replace("/dashboard")
+    router.replace("/dashboard/faq")
   }
 
   return (

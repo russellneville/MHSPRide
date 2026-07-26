@@ -19,11 +19,11 @@ MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and ho
 ## What it does
 
 - **Offer rides** — post departure time, pickup location, seat count, return time, and notes
-- **Book rides** — browse upcoming rides in your network, reserve seats instantly
+- **Book rides** — browse upcoming rides in your network, reserve seats instantly; bookings close 6 hours before departure
 - **Three communities** — Hill Patrol, Mountain Hosts, and Nordic each have their own ride pool
 - **Smart arrival time** — auto-filled from a pre-computed drive-time matrix for all pickup/destination pairs
-- **Ride management** — drivers can edit or cancel rides; booked passengers are notified by email on changes
-- **Passenger self-cancel** — passengers can cancel their own booking up to 12 hours before departure, freeing the seat and notifying the driver by email; after the cutoff they're directed to contact the driver directly
+- **Ride management** — drivers can edit or cancel rides; canceling a ride cancels every booking tied to it and notifies each passenger by email
+- **Cancellation with reason** — canceling a booking or a ride (rider or driver, self-service) always prompts for a free-text reason first, which is included in the cancellation email(s) and the activity log. Cancellation is never blocked outright — but if a rider cancels within 12 hours of departure, they're shown a one-button warning to call or text the driver directly before it goes through
 - **Dashboard** — see today's rides at a glance, upcoming rides, and a paginated ride history
 - **Email notifications** — registration verification codes and welcome email, booking receipts, ride change notices, and cancellations via Resend
 - **Admin panel** — user management, ride oversight, booking management, activity log, and leaderboard reports
@@ -130,7 +130,7 @@ Users with `role: 'admin'` see an Admin section in the sidebar with access to:
 - **Rides** — view (sorted most recent first, paginated 25/page), search by driver/rider/route, filter by status/network/date range, click a row to see full details including the rider list (with a per-rider **Remove** action that cancels that booking, restores the seat, and emails the passenger), or edit/cancel/delete. Edit and Cancel are hidden once a ride is Completed or Canceled. The status shown (not started/in progress/Completed) is computed live from each ride's departure/arrival/return times, not from the stored `ride_status` field — that field only changes when a driver manually starts/finishes a ride, so a ride left untouched by its driver would otherwise show "not started" forever even after it's over. This page is also the only place admins manage bookings — there is no separate Bookings page; a booking's canonical status lives on its own `bookings` doc, not on the ride's embedded rider list, which is display-only
 - **Roster** — browse the imported MHSP roster: search by name/MHSP#/email, filter by status or registration, click a member's coordinates to open them in Google Maps
 - **Roster Import** — upload a Troopiter CSV export, preview detected renames/new members/field updates/deactivations before anything is written, then commit (see [Roster import matching](#roster-import-matching) below)
-- **Activity Log** — paginated event log of all key system actions, filterable by type, date range, user, and message text; auto-refreshes in the background every 30 seconds
+- **Activity Log** — paginated event log of all key system actions, filterable by type, date range, user, and message text; auto-refreshes in the background every 30 seconds. Each event type is color-coded by family (e.g. `booking.*` light purple, `feedback.*` green, `admin.*` orange) for quick visual scanning, and the message column wraps instead of truncating so long messages (like a cancellation reason) are fully readable
 - **Feedback** — submissions from the in-app feedback widget (bottom-right corner of the dashboard on desktop, bottom-left on mobile to avoid covering page action buttons) and the [Contact](app/contact/page.jsx) form's Feedback/Bug/Support types, filterable by type and open/resolved status, with resolve/reopen and delete actions. **Respond** opens a dialog to email the submitter directly (via Resend), appends `RESPONSE: <reply>` to the entry's message, and marks it as responded. The sidebar's "Feedback" nav item shows a live, bolded count of unresponded items (e.g. "Feedback **(3)**")
 - **Reports** — stats cards (total users, rides, bookings), top drivers and top riders leaderboards, route popularity
 

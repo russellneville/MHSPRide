@@ -8,6 +8,7 @@ import { MessageSquare, X, ChevronUp } from "lucide-react"
 import { Button } from "./button"
 import { Textarea } from "./textarea"
 import { toast } from "sonner"
+import { TEXTAREA_MAX_LENGTH } from "@/lib/utils"
 
 export default function FeedbackWidget() {
   const { user } = useAuth()
@@ -86,6 +87,7 @@ export default function FeedbackWidget() {
             placeholder={type === "bug" ? "Describe what happened…" : "What's on your mind?"}
             value={text}
             onChange={e => setText(e.target.value)}
+            maxLength={TEXTAREA_MAX_LENGTH}
             className="resize-none h-24 text-sm"
           />
 

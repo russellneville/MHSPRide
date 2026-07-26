@@ -6,7 +6,7 @@ import { Label } from "@radix-ui/react-label";
 import { Input } from "@/components/ui/input";
 import { useEffect, useRef, useState } from "react";
 import DatePicker from "@/components/ui/date-picker";
-import { toLocalDateStr } from "@/lib/utils";
+import { toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import DriverProfile from "@/components/forms/DriverProfile";
 import { Button } from "@/components/ui/button";
@@ -131,7 +131,7 @@ export default function ProfilePage (){
             </div>
             <div className="space-y-2">
                 <Label htmlFor='bio'>Bio</Label>
-                <Textarea value={profile.bio} id='bio' onChange={handleChange} placeholder='Describe you there' className='resize-none h-45'></Textarea>
+                <Textarea value={profile.bio} id='bio' onChange={handleChange} placeholder='Describe you there' className='resize-none h-45' maxLength={TEXTAREA_MAX_LENGTH}></Textarea>
             </div>
         </CardContent>
         

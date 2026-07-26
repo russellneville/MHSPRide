@@ -232,11 +232,16 @@ export default function Register() {
                 </div>
 
                 <div className="space-y-1">
-                  <p className="font-medium text-foreground">8. Changes to These Terms</p>
+                  <p className="font-medium text-foreground">8. Acceptable Use</p>
+                  <p>This site is provided for coordinating carpools within the MHSP community, and is to be accessed only through the interfaces MHSPRide provides. Attempting to script or automate interactions with the site outside those interfaces, circumvent or thwart its security measures, inject malicious code or content, phish or impersonate other users or MHSP staff, reverse engineer the application, or otherwise use the site in any manner not undertaken in good faith is strictly prohibited. Any such activity is grounds for immediate suspension and termination of your account, at MHSPRide's sole discretion.</p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="font-medium text-foreground">9. Changes to These Terms</p>
                   <p>These terms may be updated at any time without prior notice. Continued use of the site after changes are posted constitutes acceptance of the revised terms.</p>
                 </div>
 
-                <p className="text-xs text-muted-foreground pt-2 border-t border-border">Last updated: March 2026</p>
+                <p className="text-xs text-muted-foreground pt-2 border-t border-border">Last updated: July 2026</p>
               </div>
 
               <div className="flex items-center gap-4 pt-2">

@@ -6,6 +6,7 @@ import { Textarea } from "../ui/textarea";
 import { Button } from "../ui/button";
 import { usePopup } from "@/context/PopupContext";
 import { useNetwork } from "@/context/NetworksContext";
+import { TEXTAREA_MAX_LENGTH } from "@/lib/utils";
 
 export default function NetworkPopup(){
     const [network, setNetwork] = useState({
@@ -49,7 +50,7 @@ export default function NetworkPopup(){
         </div>
         <div className="space-y-2">
             <Label htmlFor='description'>Network description</Label>
-            <Textarea id="description" className="resize-none h-45" type="text" placeholder="Network description" value={network.description} onChange={handleChange} />
+            <Textarea id="description" className="resize-none h-45" type="text" placeholder="Network description" value={network.description} onChange={handleChange} maxLength={TEXTAREA_MAX_LENGTH} />
             {validationError.description && <p className="text-red-500 text-sm">{validationError.description}</p>}
         </div>
         <div className="flex justify-end gap-4">

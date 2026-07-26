@@ -16,7 +16,7 @@ import {
 } from "../ui/alert-dialog"
 import { LOCATIONS } from "@/lib/locations"
 import { estimateArrival } from "@/lib/drive-times"
-import { formatDate, toLocalDateStr } from "@/lib/utils"
+import { formatDate, toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { db, auth } from "@/lib/firebaseClient"
 
@@ -319,6 +319,7 @@ export default function OfferRidePopup({ networkId, onSaved }) {
           className="resize-none h-20"
           onChange={handleChange}
           value={rideData.ride_description}
+          maxLength={TEXTAREA_MAX_LENGTH}
         />
       </div>
 

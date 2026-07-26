@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Checkbox } from "../ui/checkbox"
 import { LOCATIONS } from "@/lib/locations"
 import { estimateArrival } from "@/lib/drive-times"
-import { toLocalDateStr } from "@/lib/utils"
+import { toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils"
 
 const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== "timberline-lodge").sort((a, b) => a.name.localeCompare(b.name))
 
@@ -242,6 +242,7 @@ export default function EditRidePopup({ ride, onSaved }) {
             className="resize-none h-20"
             onChange={handleChange}
             value={rideData.ride_description}
+            maxLength={TEXTAREA_MAX_LENGTH}
           />
         </div>
       </div>

@@ -31,15 +31,17 @@ export async function POST(request) {
       return_departure_time: booking.return_departure_time || '',
     }
 
+    const reason = booking.cancellation_reason || ''
+
     const labels = []
     const sends = []
     if (booking.driver?.email) {
       labels.push('cancellation->driver')
-      sends.push(sendBookingCanceledByPassengerEmail({ driver: booking.driver, passenger: booking.passenger, ride, bookedSeats: booking.booked_seats }))
+      sends.push(sendBookingCanceledByPassengerEmail({ driver: booking.driver, passenger: booking.passenger, ride, bookedSeats: booking.booked_seats, reason }))
     }
     if (booking.passenger?.email) {
       labels.push('confirmation->passenger')
-      sends.push(sendBookingCanceledConfirmationEmail({ passenger: booking.passenger, ride }))
+      sends.push(sendBookingCanceledConfirmationEmail({ passenger: booking.passenger, ride, reason }))
     }
 
     const results = await Promise.allSettled(sends)

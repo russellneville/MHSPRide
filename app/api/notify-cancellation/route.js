@@ -38,6 +38,7 @@ export async function POST(request) {
         arrival_time: rideData.arrival_time || '',
         return_departure_time: rideData.return_departure_time || '',
         ride_description: rideData.ride_description || '',
+        cancellation_reason: rideData.cancellation_reason || '',
       }
       passengers = (rideData.passengers || [])
         .filter(p => p.email)

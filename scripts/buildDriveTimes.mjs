@@ -34,6 +34,9 @@ const DEPARTURE_LOCATIONS = [
   { id: "hoodland-thriftway",      lat: 45.3476142,  lon: -121.9628787 },
   { id: "chevron-govt-camp",       lat: 45.302644,   lon: -121.7466654 },
   { id: "buzz-bowman-center",      lat: 45.3048918,  lon: -121.7590055 },
+  { id: "sandy-bi-mart",           lat: 45.3973,     lon: -122.2635    },
+  { id: "gresham-transit",         lat: 45.5024,     lon: -122.4305    },
+  { id: "welches-rd",              lat: 45.3513,     lon: -121.9737    },
   { id: "hood-river-safeway",      lat: 45.7087368,  lon: -121.5349924 },
 ];
 

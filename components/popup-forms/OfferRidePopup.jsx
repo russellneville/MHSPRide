@@ -155,13 +155,17 @@ export default function OfferRidePopup({ networkId, onSaved }) {
 
   const effectiveArrival = arrivalOther.trim() || arrivalSelect
 
+  // Recompute arrival time whenever departure time, origin, or destination changes —
+  // not just on the departure_time field's own onChange — so switching pickup/dropoff
+  // after a time is already set keeps the estimate in sync.
+  useEffect(() => {
+    if (!rideData.departure_time || !effectiveDeparture || !effectiveArrival) return
+    const est = estimateArrival(rideData.departure_time, effectiveDeparture, effectiveArrival)
+    if (est) setRideData(prev => (prev.arrival_time === est ? prev : { ...prev, arrival_time: est }))
+  }, [rideData.departure_time, effectiveDeparture, effectiveArrival])
+
   const handleChange = (e) => {
-    const updated = { ...rideData, [e.target.id]: e.target.value }
-    if (e.target.id === "departure_time" && effectiveDeparture && effectiveArrival) {
-      const est = estimateArrival(e.target.value, effectiveDeparture, effectiveArrival)
-      if (est) updated.arrival_time = est
-    }
-    setRideData(updated)
+    setRideData(prev => ({ ...prev, [e.target.id]: e.target.value }))
   }
 
   const validateForm = () => {

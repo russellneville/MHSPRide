@@ -10,6 +10,7 @@ import {
   updateDoc,
   deleteDoc,
 } from 'firebase/firestore'
+import { toast } from 'sonner'
 import { logEvent } from '@/lib/activityLog'
 import { computeRideStatus } from '@/lib/rides'
 import { adminCancelRideBookings } from '@/lib/bookings'
@@ -160,6 +161,8 @@ function RidesContent() {
       }).catch(() => {})
 
       await fetchRides()
+    } catch (e) {
+      toast.error(e.message || 'Could not cancel ride')
     } finally {
       setActing(false)
       setCancelTarget(null)
@@ -181,6 +184,8 @@ function RidesContent() {
         metadata: { rideId: ride.id, adminAction: true },
       }).catch(() => {})
       setRides(prev => prev.filter(r => r.id !== ride.id))
+    } catch (e) {
+      toast.error(e.message || 'Could not delete ride')
     } finally {
       setActing(false)
       setDeleteTarget(null)

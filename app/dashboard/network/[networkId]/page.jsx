@@ -12,9 +12,10 @@ import { usePopup } from "@/context/PopupContext";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
 import { useLocations } from "@/context/LocationsContext";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
+import DatePicker from "@/components/ui/date-picker";
 import { computeRideStatus } from "@/lib/rides";
 import { networkName } from "@/lib/networks";
+import { toLocalDateStr } from "@/lib/utils";
 import NetworkRideCard from "@/components/cards/network-ride-card";
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -109,12 +110,12 @@ export default function NetworkPage() {
           {/* Filters */}
           {upcoming.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
-              <Input
-                type="date"
-                className="w-40 h-9 text-sm"
-                value={filterDate}
-                onChange={e => setFilterDate(e.target.value)}
-              />
+              <div className="w-40">
+                <DatePicker
+                  date={filterDate ? new Date(filterDate + 'T12:00:00') : undefined}
+                  setDate={(d) => setFilterDate(d ? toLocalDateStr(d) : '')}
+                />
+              </div>
               <Select value={filterPickup} onValueChange={setFilterPickup}>
                 <SelectTrigger className="w-48 h-9 text-sm">
                   <SelectValue placeholder="Pickup location" />

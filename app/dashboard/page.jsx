@@ -10,13 +10,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { AlertTriangle, ArrowDown, ArrowUp, Car, ChevronDown, ChevronLeft, ChevronRight, Clock, Info, MapPin, MoveRight, Navigation, Plus, X } from "lucide-react"
+import { AlertTriangle, ArrowDown, ArrowUp, Car, ChevronDown, ChevronLeft, ChevronRight, Clock, Info, MapPin, MoveRight, Navigation, Plus, Search, X } from "lucide-react"
 import Link from "next/link"
 import UserAvatar from "@/components/ui/user-avatar"
+import DatePicker from "@/components/ui/date-picker"
 import { Skeleton } from "@/components/ui/skeleton"
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup"
 import AddFavoritePopup from "@/components/popup-forms/AddFavoritePopup"
+import SearchRidesPopup from "@/components/popup-forms/SearchRidesPopup"
 import RideRowCard from "@/components/cards/ride-row-card"
 import NetworkRideCard from "@/components/cards/network-ride-card"
 import { useLocations } from "@/context/LocationsContext"
@@ -92,6 +95,13 @@ export default function Dashboard() {
   const [availablePages, setAvailablePages] = useState({})
   const fetchDataRef = useRef(null)
   const migratedRef = useRef(false)
+
+  // Available Rides filters — shared across every favorited network's list (issue #84)
+  const [filterDate, setFilterDate] = useState('')
+  const [filterOrigin, setFilterOrigin] = useState('')
+  const [filterDestination, setFilterDestination] = useState('')
+  const [searchTerm, setSearchTerm] = useState('')
+  const hasAvailableFilters = filterDate || filterOrigin || filterDestination || searchTerm
 
   // Ordered favorites from the live user doc, restricted to known networks
   const favorites = (Array.isArray(user?.favorite_networks) ? user.favorite_networks : [])
@@ -195,7 +205,7 @@ export default function Dashboard() {
   const activeBookedRideIds = new Set(
     dedupedBookings.filter(b => !isCanceled({ ...b, _type: 'booked' })).map(b => b.ride_id)
   )
-  const availableByNetwork = Object.fromEntries(favorites.map(id => [
+  const rawAvailableByNetwork = Object.fromEntries(favorites.map(id => [
     id,
     (networkRides?.[id] || [])
       .map(r => ({ ...r, _status: computeRideStatus(r) }))
@@ -207,6 +217,32 @@ export default function Dashboard() {
       .sort((a, b) =>
         `${a.departure_date}${a.departure_time}`.localeCompare(`${b.departure_date}${b.departure_time}`)
       ),
+  ]))
+
+  const allRawAvailable = Object.values(rawAvailableByNetwork).flat()
+
+  // Distinct origin/destination options across every favorited network's
+  // available rides — mirrors the pattern in dashboard/network/[networkId]/page.jsx
+  const originOptions = [...new Set(allRawAvailable.map(r => r.departure).filter(Boolean))]
+    .sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)))
+  const destinationOptions = [...new Set(allRawAvailable.map(r => r.arrival).filter(Boolean))]
+    .sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)))
+
+  // Filters apply uniformly across every network's list (issue #84)
+  const searchLower = searchTerm.trim().toLowerCase()
+  const availableByNetwork = Object.fromEntries(favorites.map(id => [
+    id,
+    rawAvailableByNetwork[id].filter(r => {
+      if (filterDate && r.departure_date !== filterDate) return false
+      if (filterOrigin && r.departure !== filterOrigin) return false
+      if (filterDestination && r.arrival !== filterDestination) return false
+      if (searchLower) {
+        const haystack = [r.driver?.fullname, resolveLocation(r.departure), resolveLocation(r.arrival)]
+          .filter(Boolean).join(' ').toLowerCase()
+        if (!haystack.includes(searchLower)) return false
+      }
+      return true
+    }),
   ]))
 
   const toggleSection = (key) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
@@ -369,7 +405,57 @@ export default function Dashboard() {
 
         {/* ── Available Rides ─────────────────────────────── */}
         <section className="space-y-5">
-          <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Available Rides</h4>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Available Rides</h4>
+
+            {allRawAvailable.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="w-40">
+                  <DatePicker
+                    date={filterDate ? new Date(filterDate + 'T12:00:00') : undefined}
+                    setDate={(d) => setFilterDate(d ? toLocalDateStr(d) : '')}
+                  />
+                </div>
+                <Select value={filterOrigin} onValueChange={setFilterOrigin}>
+                  <SelectTrigger className="w-44 h-9 text-sm">
+                    <SelectValue placeholder="Origin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {originOptions.map(id => (
+                      <SelectItem key={id} value={id}>{resolveLocation(id)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={filterDestination} onValueChange={setFilterDestination}>
+                  <SelectTrigger className="w-44 h-9 text-sm">
+                    <SelectValue placeholder="Destination" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {destinationOptions.map(id => (
+                      <SelectItem key={id} value={id}>{resolveLocation(id)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  onClick={() => openPopup('Search rides', <SearchRidesPopup initialValue={searchTerm} onApply={setSearchTerm} />)}
+                >
+                  <Search className="size-3.5 mr-1" /> {searchTerm ? `“${searchTerm}”` : 'Search'}
+                </Button>
+                {hasAvailableFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setFilterDate(''); setFilterOrigin(''); setFilterDestination(''); setSearchTerm('') }}
+                  >
+                    <X className="size-3.5 mr-1" /> Clear filters
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
 
           {networkRides === null ? (
             <div className="space-y-2">
@@ -423,10 +509,15 @@ export default function Dashboard() {
                     available.length === 0 ? (
                       <Card>
                         <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                          No rides available. Be the first to{' '}
-                          <button className="text-primary underline" onClick={() => openOffer(id)}>
-                            offer one
-                          </button>.
+                          {hasAvailableFilters && rawAvailableByNetwork[id].length > 0 ? (
+                            'No rides match your filters.'
+                          ) : (
+                            <>No rides available. Be the first to{' '}
+                              <button className="text-primary underline" onClick={() => openOffer(id)}>
+                                offer one
+                              </button>.
+                            </>
+                          )}
                         </CardContent>
                       </Card>
                     ) : (<>

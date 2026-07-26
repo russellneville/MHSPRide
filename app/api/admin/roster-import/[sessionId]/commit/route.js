@@ -10,6 +10,14 @@ export async function POST(request, { params }) {
   const { sessionId } = await params
   const db = getAdminDb()
 
+  let deactivateIds = null
+  try {
+    const body = await request.json()
+    if (Array.isArray(body?.deactivateIds)) deactivateIds = new Set(body.deactivateIds)
+  } catch {
+    // No body (or non-JSON) — fall back to deactivating everything the preview flagged.
+  }
+
   // Load and validate session
   const sessionRef = db.collection('import_sessions').doc(sessionId)
   const sessionSnap = await sessionRef.get()
@@ -176,9 +184,11 @@ export async function POST(request, { params }) {
     summary.updated++
   }
 
-  // 4. Deactivations
+  // 4. Deactivations — skip any the admin unchecked in the review step (e.g. manually
+  // added test accounts that aren't in the Troopiter export and shouldn't be wiped out).
   for (const deact of diff.deactivated) {
     const { id, hasClaim, claimedBy } = deact
+    if (deactivateIds && !deactivateIds.has(id)) continue
 
     await db.collection('members').doc(id).update({ active: false })
 

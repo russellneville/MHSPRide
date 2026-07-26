@@ -1,52 +1,30 @@
 'use client'
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import DashboardLayout from "../../dashboardLayout";
 import { useNetwork } from "@/context/NetworksContext";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronRight, Clock, MapPin, MoveRight, Plus, Trash, Users, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePopup } from "@/context/PopupContext";
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
-import DriverDetailsPopup from "@/components/popup-forms/DriverDetailsPopup";
-import Link from "next/link";
-import { LOCATIONS, resolveLocation } from "@/lib/locations";
-import { formatDate, formatTime } from "@/lib/utils";
+import { resolveLocation } from "@/lib/locations";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { computeRideStatus } from "@/lib/rides";
-
-const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== 'timberline-lodge').sort((a, b) => a.name.localeCompare(b.name));
-
-const STATUS_LABEL = {
-  open:        'Open',
-  full:        'Full',
-  in_progress: 'In Progress',
-  completed:   'Completed',
-  canceled:    'Canceled',
-};
-
-const STATUS_CLASS = {
-  open:        'bg-green-100 text-green-800 border-green-300',
-  full:        'bg-yellow-100 text-yellow-800 border-yellow-300',
-  in_progress: 'bg-blue-100 text-blue-800 border-blue-300',
-  completed:   'bg-muted text-muted-foreground',
-  canceled:    'bg-red-100 text-red-700 border-red-300',
-};
+import { networkName } from "@/lib/networks";
+import NetworkRideCard from "@/components/cards/network-ride-card";
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function NetworkPage() {
   const { networkId } = useParams();
-  const router = useRouter();
-  const { getNetwork, deleteNetwork, getRidesByNetworkId } = useNetwork();
+  const { getRidesByNetworkId } = useNetwork();
   const { user } = useAuth();
   const { openPopup } = usePopup();
 
-  const [networkData, setNetworkData] = useState(null);
-  const [rides, setRides] = useState([]);
+  const [rides, setRides] = useState(null);
   const [pastOpen, setPastOpen] = useState(false);
   const [ridesKey, setRidesKey] = useState(0);
 
@@ -61,28 +39,10 @@ export default function NetworkPage() {
 
   useEffect(() => {
     if (!user || !networkId) return;
-    Promise.all([
-      getNetwork(networkId),
-      getRidesByNetworkId(networkId),
-    ]).then(([net, rideList]) => {
-      setNetworkData(net);
-      setRides(rideList || []);
-    });
-  }, [user, networkId]);
-
-  useEffect(() => {
-    if (!ridesKey || !user || !networkId) return;
     getRidesByNetworkId(networkId).then(rideList => setRides(rideList || []));
-  }, [ridesKey]);
+  }, [user, networkId, ridesKey]);
 
-  const handleDeleteNetwork = async () => {
-    if (confirm('Are you sure you want to delete this network?')) {
-      await deleteNetwork(networkId);
-      router.push('/dashboard/networks');
-    }
-  };
-
-  if (!networkData) return (
+  if (rides === null) return (
     <DashboardLayout>
       <div className="space-y-4">
         <Skeleton className="h-8 w-40" />
@@ -131,22 +91,10 @@ export default function NetworkPage() {
 
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
-          <h3 className="text-xl font-semibold">{networkData.name}</h3>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="outline" asChild>
-              <Link href={`/dashboard/network/${networkId}/members`}>
-                <Users className="size-4 mr-1" /> Members
-              </Link>
-            </Button>
-            <Button onClick={() => openPopup('Offer ride', <OfferRidePopup networkId={networkId} onSaved={refreshRides} />)}>
-              Offer Ride <Plus className="size-4 ml-1" />
-            </Button>
-            {user?.role === 'admin' && (
-              <Button variant="destructive" size="icon" onClick={handleDeleteNetwork}>
-                <Trash className="size-4" />
-              </Button>
-            )}
-          </div>
+          <h3 className="text-xl font-semibold">{networkName(networkId)}</h3>
+          <Button onClick={() => openPopup('Offer ride', <OfferRidePopup networkId={networkId} onSaved={refreshRides} />)}>
+            Offer Ride <Plus className="size-4 ml-1" />
+          </Button>
         </div>
 
         {/* ── Upcoming rides ──────────────────────────────────────────────── */}
@@ -218,7 +166,7 @@ export default function NetworkPage() {
             </Card>
           ) : (
             filteredUpcoming.map(ride => (
-              <RideCard key={ride.id} ride={ride} networkId={networkId} />
+              <NetworkRideCard key={ride.id} ride={ride} networkId={networkId} />
             ))
           )}
         </div>
@@ -230,7 +178,7 @@ export default function NetworkPage() {
               In Progress ({inProgress.length})
             </h4>
             {inProgress.map(ride => (
-              <RideCard key={ride.id} ride={ride} networkId={networkId} />
+              <NetworkRideCard key={ride.id} ride={ride} networkId={networkId} />
             ))}
           </div>
         )}
@@ -246,7 +194,7 @@ export default function NetworkPage() {
               Past Rides <span className="normal-case font-normal ml-1">({past.length})</span>
             </button>
             {pastOpen && past.map(ride => (
-              <RideCard key={ride.id} ride={ride} networkId={networkId} muted />
+              <NetworkRideCard key={ride.id} ride={ride} networkId={networkId} muted />
             ))}
           </div>
         )}
@@ -256,53 +204,3 @@ export default function NetworkPage() {
   );
 }
 
-
-// ── Ride card ─────────────────────────────────────────────────────────────────
-function RideCard({ ride, networkId, muted }) {
-  const { openPopup } = usePopup()
-
-  return (
-    <Link href={`/dashboard/network/${networkId}/rides/${ride.id}`}>
-      <Card className={`hover:border-primary/50 transition-colors cursor-pointer ${muted ? 'opacity-60' : ''}`}>
-        <CardContent className="py-4 flex items-center justify-between gap-4 flex-wrap">
-          <div className="space-y-1">
-            <div className="font-semibold flex items-center gap-2">
-              <MapPin className="size-4 text-muted-foreground shrink-0" />
-              {resolveLocation(ride.departure)}
-              <MoveRight className="size-4 text-muted-foreground" />
-              {resolveLocation(ride.arrival)}
-            </div>
-            <div className="text-sm text-muted-foreground flex items-center gap-1">
-              <Clock className="size-3.5" />
-              <span className="font-bold text-foreground">{formatDate(ride.departure_date)}</span>
-              <span>at</span>
-              <span className="font-bold text-foreground">{formatTime(ride.departure_time)}</span>
-            </div>
-            {ride.driver?.fullname && (
-              <div className="text-sm text-muted-foreground flex items-center gap-1.5">
-                Driver: <span className="text-foreground font-medium">{ride.driver.fullname}</span>
-                <button
-                  className="text-xs text-primary underline underline-offset-2 hover:text-primary/70 transition-colors"
-                  onClick={e => { e.preventDefault(); openPopup(`${ride.driver.fullname}'s car`, <DriverDetailsPopup driver={ride.driver} />) }}
-                >
-                  car details
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="flex items-center gap-3">
-            {(ride._status === 'open' || ride._status === 'full') && (
-              <div className="text-sm text-muted-foreground flex items-center gap-1">
-                <Users className="size-4" />
-                {ride.available_seats} seat{ride.available_seats !== 1 ? 's' : ''} left
-              </div>
-            )}
-            <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${STATUS_CLASS[ride._status]}`}>
-              {STATUS_LABEL[ride._status]}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-    </Link>
-  );
-}

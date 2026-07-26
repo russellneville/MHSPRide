@@ -9,16 +9,11 @@ import {
   Home,
   List,
   Mail,
-  MapPin,
   MessageSquare,
   Settings,
-  Ticket,
   Upload,
   User,
   Users,
-  Waypoints,
-  ShipWheel,
-  PlusCircle,
 } from "lucide-react"
 
 import Image from "next/image"
@@ -54,9 +49,6 @@ const ADMIN_MENU = [
 export function AppSidebar({ user, ...props }) {
   const menu = [
     { name: "Home", icon: Home, href: "/dashboard" },
-    { name: "My Booked Rides", icon: Ticket, href: "/dashboard/bookings" },
-    { name: "My Offered Rides", icon: Waypoints, href: "/dashboard/rides" },
-    { name: "Book/Offer Rides", icon: Users, href: "/dashboard/networks" },
     { name: "Profile", icon: User, href: "/dashboard/profile" },
     { name: "FAQ", icon: HelpCircle, href: "/dashboard/faq" },
   ]

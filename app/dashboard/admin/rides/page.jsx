@@ -48,14 +48,9 @@ import { useAuth } from '@/context/AuthContext'
 import { usePopup } from '@/context/PopupContext'
 import EditRidePopup from '@/components/popup-forms/EditRidePopup'
 import AdminRideDetailsPopup from '@/components/popup-forms/AdminRideDetailsPopup'
+import { NETWORKS } from '@/lib/networks'
 
 const PAGE_SIZE = 25
-
-const KNOWN_NETWORKS = [
-  { id: 'network-HILLPATROL',    name: 'Hill Patrol' },
-  { id: 'network-MOUNTAINHOSTS', name: 'Mountain Hosts' },
-  { id: 'network-NORDIC',        name: 'Nordic' },
-]
 
 const STATUS_VARIANTS = {
   'not started': 'secondary',
@@ -221,7 +216,7 @@ function RidesContent() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE)
   const paginated = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE)
 
-  const networkName = (id) => KNOWN_NETWORKS.find(n => n.id === id)?.name || id || '—'
+  const networkName = (id) => NETWORKS.find(n => n.id === id)?.name || id || '—'
 
   return (
     <div className="space-y-4">
@@ -255,7 +250,7 @@ function RidesContent() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All networks</SelectItem>
-            {KNOWN_NETWORKS.map(n => (
+            {NETWORKS.map(n => (
               <SelectItem key={n.id} value={n.id}>{n.name}</SelectItem>
             ))}
           </SelectContent>

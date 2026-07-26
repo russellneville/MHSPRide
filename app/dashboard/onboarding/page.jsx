@@ -1,5 +1,5 @@
 'use client'
-import { useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/context/AuthContext"
 import { useNetwork } from "@/context/NetworksContext"
@@ -8,9 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
 import { UserAvatar } from "@/components/ui/user-avatar"
-import { Check, Users } from "lucide-react"
+import { Check, Star, Users } from "lucide-react"
+import { NETWORKS, defaultFavoritesFor } from "@/lib/networks"
 
 const STORAGE_OPTIONS = [
   { value: "ski_box",    label: "Ski/board roof box" },
@@ -21,22 +21,16 @@ const STORAGE_OPTIONS = [
   { value: "cargo_area", label: "Cargo area (SUV/van)" },
 ]
 
-const NETWORKS = [
-  { id: "network-HILLPATROL", label: "Hill Patrol" },
-  { id: "network-MOUNTAINHOSTS", label: "Mountain Hosts" },
-  { id: "network-NORDIC", label: "Nordic" },
-]
-
 const TOTAL_STEPS = 5
 
 export default function OnboardingPage() {
   const router = useRouter()
   const { user, updateProfile, uploadPhoto } = useAuth()
-  const { joinNetwork } = useNetwork()
+  const { saveFavorites } = useNetwork()
 
   const [step, setStep] = useState(1)
-  const [joinedNetworks, setJoinedNetworks] = useState([])
-  const [joiningId, setJoiningId] = useState(null)
+  const [favorites, setFavorites] = useState([])
+  const [favoritesSaving, setFavoritesSaving] = useState(false)
   const [vehicle, setVehicle] = useState({
     vehicle_make: "",
     vehicle_model: "",
@@ -51,17 +45,24 @@ export default function OnboardingPage() {
   const [photoUploaded, setPhotoUploaded] = useState(false)
   const fileInputRef = useRef(null)
 
-  const handleJoinNetwork = async (networkId) => {
-    if (joinedNetworks.includes(networkId)) return
-    setJoiningId(networkId)
-    try {
-      await joinNetwork(networkId)
-      setJoinedNetworks(prev => [...prev, networkId])
-    } catch {
-      // joinNetwork shows its own toast on error
-    } finally {
-      setJoiningId(null)
-    }
+  // Pre-favorite networks from the user's roster classifications (issue #69);
+  // they can toggle others on/off but must keep at least one.
+  useEffect(() => {
+    if (!user || favorites.length > 0) return
+    setFavorites(defaultFavoritesFor(user.classifications))
+  }, [user])
+
+  const toggleFavorite = (networkId) => {
+    setFavorites(prev => prev.includes(networkId)
+      ? prev.filter(id => id !== networkId)
+      : [...prev, networkId])
+  }
+
+  const handleSaveFavorites = async () => {
+    setFavoritesSaving(true)
+    const ok = await saveFavorites(favorites)
+    setFavoritesSaving(false)
+    if (ok) setStep(4)
   }
 
   const handlePhotoChange = async (e) => {
@@ -128,7 +129,7 @@ export default function OnboardingPage() {
                 This quick setup takes about a minute.
               </p>
               <ul className="space-y-2 text-sm text-muted-foreground">
-                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> Join one or more patrol networks</li>
+                <li className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> Favorite your patrol networks</li>
                 <li className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> Add your vehicle details</li>
                 <li className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> Start offering or finding rides</li>
               </ul>
@@ -189,46 +190,51 @@ export default function OnboardingPage() {
           </Card>
         )}
 
-        {/* Step 3: Join a Network */}
+        {/* Step 3: Favorite Networks */}
         {step === 3 && (
           <Card>
             <CardHeader>
-              <CardTitle>Join a Network</CardTitle>
+              <CardTitle>Your Networks</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Networks group volunteers by patrol type. You can join more than one.
+                Favorited networks show their available rides on your dashboard.
+                We picked defaults from your patrol classification. Favorite as
+                many as you like, but keep at least one.
               </p>
               <div className="space-y-3">
                 {NETWORKS.map(net => {
-                  const joined = joinedNetworks.includes(net.id)
+                  const favorited = favorites.includes(net.id)
                   return (
-                    <div key={net.id} className="flex items-center justify-between rounded-lg border border-border p-4">
+                    <button
+                      key={net.id}
+                      type="button"
+                      onClick={() => toggleFavorite(net.id)}
+                      className={`w-full flex items-center justify-between rounded-lg border p-4 text-left transition-colors ${
+                        favorited
+                          ? "border-primary bg-primary/10"
+                          : "border-border hover:border-primary/50"
+                      }`}
+                    >
                       <div className="flex items-center gap-3">
                         <Users className="h-5 w-5 text-muted-foreground" />
-                        <span className="font-medium">{net.label}</span>
-                        {joined && <Badge variant="secondary">Joined</Badge>}
+                        <div>
+                          <span className="font-medium">{net.name}</span>
+                          <p className="text-sm text-muted-foreground">{net.description}</p>
+                        </div>
                       </div>
-                      <Button
-                        size="sm"
-                        variant={joined ? "outline" : "default"}
-                        disabled={joined || joiningId === net.id}
-                        onClick={() => handleJoinNetwork(net.id)}
-                      >
-                        {joiningId === net.id ? "Joining..." : joined ? "Joined" : "Join"}
-                      </Button>
-                    </div>
+                      <Star className={`h-5 w-5 shrink-0 ${favorited ? "fill-primary text-primary" : "text-muted-foreground"}`} />
+                    </button>
                   )
                 })}
               </div>
-              <div className="flex gap-2 pt-2">
-                <Button variant="ghost" className="flex-1" onClick={() => setStep(4)}>
-                  Skip
-                </Button>
-                <Button className="flex-1" onClick={() => setStep(4)}>
-                  Continue
-                </Button>
-              </div>
+              <Button
+                className="w-full"
+                disabled={favorites.length === 0 || favoritesSaving}
+                onClick={handleSaveFavorites}
+              >
+                {favoritesSaving ? "Saving..." : favorites.length === 0 ? "Favorite at least one network" : "Continue"}
+              </Button>
             </CardContent>
           </Card>
         )}

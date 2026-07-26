@@ -1,10 +1,11 @@
 'use client'
 import { auth, db } from "@/lib/firebaseClient";
-import { arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where } from "firebase/firestore";
 import { toast } from "sonner";
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useState } from 'react'
 import { logEvent } from '@/lib/activityLog'
 import { canBookRide, isCanceledStatus } from '@/lib/rides'
+import { networkName } from '@/lib/networks'
 const NetworkContext = createContext()
 
 export const NetworkProvider = ({children})=>{
@@ -17,134 +18,29 @@ export const NetworkProvider = ({children})=>{
       }
       return code;
     }
-    // Create New network 
-  const createNetwork = async (data)=>{
+
+  // Persist the user's ordered favorite networks (users/{uid}.favorite_networks).
+  // Quiet on success — favorites change from small toggles on the dashboard and
+  // a toast per click would be noise.
+  const saveFavorites = async (networkIds) => {
     try {
-      setIsLoading(true)
-      const inviteCode = generateInviteCode()
-
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      const userData = userDoc.data();
-
-
-      if (userData?.role == 'admin'){
-        await setDoc(doc(db , 'networks' , `network-${inviteCode}`) ,
-            {
-                ...data , 
-                directorId : auth.currentUser.uid,
-                director : userData,
-                passengers : [] , 
-                drivers : [],
-                passengersIds : [],
-                driversIds : [],
-                created_at : new Date()
-            })
-        toast.success('Network created successfully')
-        logEvent({
-          type: 'network.created',
-          message: `Network created: ${data.name || inviteCode}`,
-          userId: auth.currentUser.uid,
-          userName: userData.fullname,
-          mhspNumber: userData.mhspNumber,
-          metadata: { networkId: `network-${inviteCode}`, name: data.name },
-        }).catch(() => {})
-      }
-      else {
-        throw new Error('You do not have permission to create network')
-      }
-      
-    } 
-    catch (error){
-        console.log(error)
-        toast.error(error.message)
-    } finally {
-      setIsLoading(false)
+      const uid = auth.currentUser.uid
+      await updateDoc(doc(db, 'users', uid), { favorite_networks: networkIds })
+      const userDoc = await getDoc(doc(db, 'users', uid)).catch(() => null)
+      const userData = userDoc?.data() || {}
+      logEvent({
+        type: 'network.favorites_updated',
+        message: `${userData.fullname || uid} updated favorite networks: ${networkIds.map(networkName).join(', ')}`,
+        userId: uid,
+        userName: userData.fullname,
+        mhspNumber: userData.mhspNumber,
+        metadata: { favorite_networks: networkIds },
+      }).catch(() => {})
+      return true
+    } catch (error) {
+      toast.error(error.message)
+      return false
     }
-    
-  } 
-
-  // Join netwrok func
-  const joinNetwork = async (id) => {
-  setIsLoading(true);
-  try {
-    const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-    const userData = userDoc.data();
-    if (!userData) throw new Error("User data not found");
-
-    if (!id) {
-      throw new Error('Invite code cannot be null')
-    }
-
-    const docRef = doc(db, 'networks', id);
-    const networkSnap = await getDoc(docRef);
-
-    if (!networkSnap.exists()) throw new Error("Network not found");
-
-    const networkData = networkSnap.data();
-    const uid = auth.currentUser.uid;
-
-   
-    const alreadyPassenger = networkData.passengersIds?.includes(uid);
-    const alreadyDriver = networkData.driversIds?.includes(uid);
-    if (alreadyPassenger || alreadyDriver) {
-      toast.error("You have already joined this network");
-      return;
-    }
-
-    await updateDoc(docRef, {
-      passengersIds: arrayUnion(uid),
-      passengers: arrayUnion({
-        role: 'member',
-        id: uid,
-        fullname: userData.fullname,
-        email: userData.email,
-        phone: userData.phone,
-        joined_at: new Date(),
-      }),
-    });
-
-    toast.success("Network joined successfully");
-    logEvent({
-      type: 'network.joined',
-      message: `${userData.fullname} joined network: ${networkData.name || id}`,
-      userId: uid,
-      userName: userData.fullname,
-      mhspNumber: userData.mhspNumber,
-      metadata: { networkId: id, name: networkData.name },
-    }).catch(() => {})
-  } catch (error) {
-    console.error(error);
-    toast.error(error.message);
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-
-  // Get single network 
-  const getNetwork = async (id)=>{
-    setIsLoading(true)
-    try {
-        const userId = auth.currentUser.uid;
-        const currNetwork = doc(db , 'networks' , id)
-        const snapshot = await getDoc(currNetwork)
-        const data = snapshot.data()
-        if (snapshot.exists()) {
-          const isAuthorized =
-            data.directorId === userId ||
-            data.passengersIds?.includes(userId) ||
-            data.driversIds?.includes(userId);
-          return isAuthorized ? data : null;
-        }
-        return null
-    }
-    catch (error){
-        toast.error(error.message)
-    }
-    finally {
-      setIsLoading(false)
-    }
-    
   }
 
   const offerRide = async (rideData , networkId)=>{
@@ -154,17 +50,6 @@ export const NetworkProvider = ({children})=>{
 
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       const userData = userDoc.data();
-
-      const networkRef = doc(db, "networks", networkId);
-      const snapshot = await getDoc(networkRef);
-
-      const data = snapshot.data();
-      const member = data.drivers.find(p => p.id === auth.currentUser.uid) ||
-                     data.passengers.find(p => p.id === auth.currentUser.uid);
-
-      if (!member){
-        throw new Error('You must join this network before offering a ride')
-      }
 
       {
         await setDoc(doc(db , 'rides' , `ride-${inviteCode}`) ,
@@ -223,110 +108,12 @@ export const NetworkProvider = ({children})=>{
   }
 
 
-  const findRide = async ({departure , arrival , departure_date} , networkId)=>{
-    try {
-      setIsLoading(true)
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      const userData = userDoc.data();
-
-      const ridesRef = collection(db , 'rides')
-
-      const networkRef = doc(db, "networks", networkId);
-      const snapshot = await getDoc(networkRef);
-
-      const data = snapshot.data();
-      const member = data.passengers.find(p => p.id === auth.currentUser.uid) ||
-                     data.drivers.find(p => p.id === auth.currentUser.uid);
-
-      if (!member){
-        throw new Error('You must join this network before finding a ride')
-      }
-
-      const q = query(ridesRef, where("departure", "==", departure.toLowerCase()) ,
-                                where("arrival", "==", arrival.toLowerCase()),
-                                where("departure_date", "==", departure_date) ,
-                                where("network_id", "==", networkId) ,
-                                where ('ride_status' , "==" , "not started") ,
-                                );
-      const ridesSnapshot = await getDocs(q);
-      return ridesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
-                
-    }
-    catch (error){
-      toast.error(error.message)
-      return [] 
-    }
-    finally{
-      setIsLoading(false)
-    }
-  }
-
-  const changeUserStatus = async (id , newStatus , networkId , role)=>{
-    try {
-      setIsLoading(true)
-
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
-      const userData = userDoc.data();
-      const docRef = doc(db , 'networks' , networkId)
-      const snapshot = await getDoc(docRef)
-      const data = snapshot.data();
-
-      if (userData?.role == 'admin'){
-        let updateUsers
-        if (role === 'passenger'){
-          updateUsers = data.passengers.map(p => p.id === id ? {...p , status : newStatus} : p)
-          console.log(updateUsers)
-        }
-        else if (role === 'driver'){
-          updateUsers = data.drivers.map(p => p.id === id ? {...p , status : newStatus} : p)
-        }
-        
-        await updateDoc(docRef , {[`${role}s`] : updateUsers})
-        toast.success('User status changed successfully')
-
-        const targetMember = (role === 'passenger' ? data.passengers : data.drivers)?.find(p => p.id === id)
-        logEvent({
-          type: 'network.member_status_changed',
-          message: `${targetMember?.fullname || id} (${role}) set to ${newStatus} in network ${data.name || networkId}`,
-          userId: auth.currentUser.uid,
-          userName: userData.fullname,
-          mhspNumber: userData.mhspNumber,
-          metadata: { networkId, memberId: id, role, newStatus },
-        }).catch(() => {})
-      }
-      else {
-        throw new Error('You do not have permission to change status')
-      }
-    }
-    catch (error){
-      console.log(error)
-      toast.error(error.message)
-    }
-    finally{
-      setIsLoading(false)
-    }
-  }
-
-  const getRide = async (id , networkId)=>{
+  const getRide = async (id)=>{
     try {
         setIsLoading(true)
-        const userId = auth.currentUser.uid;
-        const network = doc(db , 'networks' , networkId)
-        const networkSnapshot = await getDoc(network)
-        const networkData = networkSnapshot.data()
-
         const ride = doc(db , 'rides' , id)
         const rideSnapshot = await getDoc(ride)
-        const rideData = rideSnapshot.data()
-        if (networkSnapshot.exists() && rideSnapshot.exists()) {
-          const isAuthorized =
-            networkData.directorId === userId ||
-            networkData.passengersIds?.includes(userId) ||
-            networkData.driversIds?.includes(userId);
-            console.log(isAuthorized)
-          return isAuthorized ? rideData : null;
-        }
-        return null
+        return rideSnapshot.exists() ? rideSnapshot.data() : null
     }
     catch (error){
         toast.error(error.message)
@@ -346,23 +133,11 @@ export const NetworkProvider = ({children})=>{
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       const userData = {id : auth.currentUser.uid , ...userDoc.data()};
 
-      const networkRef = doc(db, "networks", networkId);
-      const networkSnapshot = await getDoc(networkRef);
-
-      const networkData = networkSnapshot.data();
-      const networkmember = networkData.passengers.find(p => p.id === auth.currentUser.uid) ||
-                            networkData.drivers.find(p => p.id === auth.currentUser.uid);
-
-
       const rideRef = doc(db, "rides", rideId);
       const rideSnapshot = await getDoc(rideRef);
 
       const rideData = rideSnapshot.data();
       const ridepassenger = rideData.passengers.find(p => p.id === auth.currentUser.uid);
-
-      if (!networkmember){
-        throw new Error('You must join this network before booking a ride')
-      }
 
       if (!canBookRide(rideData)) {
         throw new Error('Bookings close 6 hours before a ride departs')
@@ -503,8 +278,8 @@ const getBooking = async (id)=>{
         const data = snapshot.data()
         if (snapshot.exists()) {
           const isAuthorized = data.passenger.id === userId || data.driver.id === userId
-          
-          const rideData = await getRide(data.ride_id , data.networkId)
+
+          const rideData = await getRide(data.ride_id)
           const rideStatus = rideData.ride_status
           return isAuthorized ? {...data , id , status : rideStatus} : null;
         }
@@ -545,66 +320,6 @@ const getRides = async () => {
     return [];
   } finally {
     setIsLoading(false);
-  }
-};
-
-const getNetworkList = async ()=>{
-            const user = auth.currentUser
-            try {
-                setIsLoading(true)
-                const userDoc = await getDoc(doc(db, 'users', user.uid));
-                const userData = userDoc.data();
-                const networksRef = collection(db , 'networks')
-                let results = [];
-
-                // Check all ways a user can belong to a network
-                const queries = [
-                  getDocs(query(networksRef, where("passengersIds", "array-contains", user.uid))),
-                  getDocs(query(networksRef, where("driversIds", "array-contains", user.uid))),
-                ];
-                if (userData?.role === 'admin') {
-                  queries.push(getDocs(query(networksRef, where("directorId", "==", user.uid))));
-                }
-                const snaps = await Promise.all(queries);
-                const seen = new Set();
-                for (const d of snaps.flatMap(s => s.docs)) {
-                  if (!seen.has(d.id)) {
-                    seen.add(d.id);
-                    results.push({ id: d.id, ...d.data() });
-                  }
-                }
-
-                return results.length === 0 ? [] : results
-            }
-            catch (err){
-                toast.error(err.message)
-            }
-            finally{
-                setIsLoading(false)
-            }
-}
-  
-
-const deleteNetwork = async (id) => {
-  try {
-    const networkSnap = await getDoc(doc(db, "networks", id))
-    const networkData = networkSnap.data()
-
-    await deleteDoc(doc(db, "networks", id));
-    toast.success("Network deleted successfully");
-
-    const actorDoc = await getDoc(doc(db, 'users', auth.currentUser.uid)).catch(() => null)
-    const actorData = actorDoc?.data() || {}
-    logEvent({
-      type: 'network.deleted',
-      message: `Network deleted: ${networkData?.name || id}`,
-      userId: auth.currentUser.uid,
-      userName: actorData.fullname,
-      mhspNumber: actorData.mhspNumber,
-      metadata: { networkId: id, name: networkData?.name },
-    }).catch(() => {})
-  } catch (err) {
-    toast.error(err.message);
   }
 };
 
@@ -918,23 +633,7 @@ const cancelBooking = async (bookingId, reason = '') => {
   }
 }
 
-  const NETWORK_IDS = ['network-HILLPATROL', 'network-MOUNTAINHOSTS', 'network-NORDIC']
-
-  const getAllNetworks = async () => {
-    try {
-      const snaps = await Promise.all(
-        NETWORK_IDS.map(id => getDoc(doc(db, 'networks', id)))
-      )
-      return snaps
-        .filter(s => s.exists())
-        .map(s => ({ id: s.id, ...s.data() }))
-    } catch (error) {
-      console.error('[getAllNetworks]', error)
-      return []
-    }
-  }
-
-    return <NetworkContext.Provider value={{createNetwork , joinNetwork , getRidesByNetworkId , deleteNetwork , changeBookingStatus , getNetwork , offerRide ,findRide , changeUserStatus , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , cancelBooking , finalizeRide , startRide , isLoading , getNetworkList , getAllNetworks , updateRide , dismissRideUpdate}}>
+    return <NetworkContext.Provider value={{getRidesByNetworkId , changeBookingStatus , offerRide , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , cancelBooking , finalizeRide , startRide , isLoading , saveFavorites , updateRide , dismissRideUpdate}}>
         {children}
     </NetworkContext.Provider>
 }

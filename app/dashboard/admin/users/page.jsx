@@ -6,13 +6,7 @@ import DashboardLayout from '@/app/dashboard/dashboardLayout'
 import AdminGuard from '@/components/AdminGuard'
 import { db } from '@/lib/firebaseClient'
 import { auth } from '@/lib/firebaseClient'
-import {
-  collection,
-  doc,
-  getDocs,
-  getDoc,
-  updateDoc,
-} from 'firebase/firestore'
+import { collection, getDocs } from 'firebase/firestore'
 import { logEvent } from '@/lib/activityLog'
 import {
   Table,
@@ -115,12 +109,15 @@ function UsersContent() {
     setResetting(true)
     try {
       const { uid, mhspNumber, fullname } = resetTarget
-      // Members are keyed by MHSP number as the document ID
-      const memberRef = doc(db, 'members', String(mhspNumber).trim())
-      const memberSnap = await getDoc(memberRef)
-      if (memberSnap.exists()) {
-        await updateDoc(memberRef, { claimed: false, claimedBy: null })
-      }
+      const token = await auth.currentUser.getIdToken()
+      const res = await fetch('/api/admin/reset-membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ uid, mhspNumber }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not reset membership')
+
+      setUsers(prev => prev.filter(u => u.uid !== uid))
       logEvent({
         type: 'membership.unclaimed',
         message: `Membership reset for ${fullname} (MHSP #${mhspNumber})`,
@@ -129,6 +126,8 @@ function UsersContent() {
         mhspNumber: currentUser?.mhspNumber,
         metadata: { targetUserId: uid, targetMhspNumber: mhspNumber },
       }).catch(() => {})
+    } catch (e) {
+      toast.error(e.message)
     } finally {
       setResetting(false)
       setResetTarget(null)
@@ -323,7 +322,7 @@ function UsersContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset membership for {resetTarget?.fullname}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will mark MHSP #{resetTarget?.mhspNumber} as unclaimed, allowing another account to register with it. This action cannot be undone.
+              This will permanently delete {resetTarget?.fullname}'s account and mark MHSP #{resetTarget?.mhspNumber} as unclaimed, allowing them (or anyone else) to re-register for it, including with the same email. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

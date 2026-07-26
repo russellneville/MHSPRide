@@ -44,6 +44,9 @@ next-env.d.ts
 resources/
 *.log
 
+# Playwright MCP session output
+.playwright-mcp/
+
 # Firebase service account key (never commit — contains private credentials)
 scripts/serviceAccountKey.json
 .envrc

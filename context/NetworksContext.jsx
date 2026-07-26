@@ -154,7 +154,8 @@ export const NetworkProvider = ({children})=>{
             {
                 passenger : {
                   id : userData.id , phone : userData.phone ,
-                  email : userData.email  , fullname : userData.fullname
+                  email : userData.email  , fullname : userData.fullname ,
+                  photoURL : userData.photoURL || ''
                 } ,
                 passengerId : userData.id ,
                 driver : {
@@ -186,6 +187,8 @@ export const NetworkProvider = ({children})=>{
               id : auth.currentUser.uid ,
               email : userData.email ,
               phone : userData.phone ,
+              fullname : userData.fullname ,
+              photoURL : userData.photoURL || '' ,
               booked_seats : booked_seats ,
               booked_at : new Date() ,
               booking_id : bookId,

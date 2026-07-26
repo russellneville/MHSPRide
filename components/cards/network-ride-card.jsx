@@ -6,6 +6,7 @@ import { usePopup } from "@/context/PopupContext";
 import DriverDetailsPopup from "@/components/popup-forms/DriverDetailsPopup";
 import { resolveLocation } from "@/lib/locations";
 import { formatDate, formatTime } from "@/lib/utils";
+import { UserAvatar } from "@/components/ui/user-avatar";
 
 export const STATUS_LABEL = {
   open:        'Open',
@@ -47,6 +48,7 @@ export default function NetworkRideCard({ ride, networkId, muted }) {
             </div>
             {ride.driver?.fullname && (
               <div className="text-sm text-muted-foreground flex items-center gap-1.5">
+                <UserAvatar user={ride.driver} size="sm" />
                 Driver: <span className="text-foreground font-medium">{ride.driver.fullname}</span>
                 <button
                   className="text-xs text-primary underline underline-offset-2 hover:text-primary/70 transition-colors"

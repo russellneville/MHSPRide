@@ -23,8 +23,11 @@ service cloud.firestore {
 
     // Users: owner can read their own doc even while suspended (so the app can
     // detect it and self-log-out with a message instead of a permission error).
-    // Owner cannot change role, mhspNumber, created_at, or suspended (server/admin only),
-    // and cannot write at all while suspended. Admins can read all user docs.
+    // Owner cannot change role, mhspNumber, created_at, suspended, or email
+    // (server/admin only) and cannot write at all while suspended. Admins can read
+    // all user docs. Email is excluded here so it can never drift from the Firebase
+    // Auth login email — changing it goes through app/api/account/update-email
+    // (Admin SDK), which updates both together, gated on a reauthenticated password check.
     match /users/{userId} {
       allow read: if request.auth != null
         && (request.auth.uid == userId || isAdmin());
@@ -32,7 +35,7 @@ service cloud.firestore {
         && request.auth.uid == userId
         && !isSuspended()
         && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['role', 'mhspNumber', 'created_at', 'suspended']);
+            .hasAny(['role', 'mhspNumber', 'created_at', 'suspended', 'email']);
     }
 
     // Networks: readable by any authenticated, non-suspended user. Admins can update

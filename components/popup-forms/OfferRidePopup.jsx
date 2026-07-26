@@ -18,6 +18,7 @@ import {
 import { LOCATIONS } from "@/lib/locations"
 import { estimateArrival } from "@/lib/drive-times"
 import { formatDate, toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils"
+import { hasActiveSameDayBooking, hasActiveSameDayRide } from "@/lib/rides"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { db, auth } from "@/lib/firebaseClient"
 
@@ -121,7 +122,7 @@ function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, loca
 
 export default function OfferRidePopup({ networkId, onSaved }) {
   const { closePopup } = usePopup()
-  const { isLoading, offerRide, getRides } = useNetwork()
+  const { isLoading, offerRide, getRides, getBookings } = useNetwork()
   const { user } = useAuth()
   const [showDayConflict, setShowDayConflict] = useState(false)
 
@@ -141,14 +142,16 @@ export default function OfferRidePopup({ networkId, onSaved }) {
   })
   const [validationError, setValidationErrors] = useState({})
 
-  // Days the driver already offers a ride get disabled in the date picker
+  // Days the user already offers or has booked a ride get disabled in the date picker
   useEffect(() => {
-    getRides().then(rides => {
-      const taken = (rides || [])
+    Promise.all([getRides(), getBookings()]).then(([rides, bookings]) => {
+      const rideDates = (rides || [])
         .filter(r => r.ride_status !== 'canceled' && r.ride_status !== 'cancled')
         .map(r => r.departure_date)
-        .filter(Boolean)
-      setTakenDates([...new Set(taken)])
+      const bookingDates = (bookings || [])
+        .filter(b => b.booking_status !== 'canceled' && b.booking_status !== 'cancled')
+        .map(b => b.departure_date)
+      setTakenDates([...new Set([...rideDates, ...bookingDates].filter(Boolean))])
     })
   }, [])
 
@@ -184,10 +187,8 @@ export default function OfferRidePopup({ networkId, onSaved }) {
   const handleOfferRide = async () => {
     if (validateForm()) {
       const dateStr = toLocalDateStr(date)
-      const existingRides = await getRides()
-      const conflict = (existingRides || []).some(
-        r => r.departure_date === dateStr && r.ride_status !== 'canceled' && r.ride_status !== 'cancled'
-      )
+      const [existingRides, existingBookings] = await Promise.all([getRides(), getBookings()])
+      const conflict = hasActiveSameDayRide(existingRides, dateStr) || hasActiveSameDayBooking(existingBookings, dateStr)
       if (conflict) {
         setShowDayConflict(true)
         return
@@ -248,8 +249,8 @@ export default function OfferRidePopup({ networkId, onSaved }) {
           {validationError.arrival && <p className="text-red-500 text-sm">{validationError.arrival}</p>}
         </div>
 
-        <div className="flex items-start gap-2">
-          <div className="flex-1 space-y-1">
+        <div className="flex flex-wrap items-start gap-2">
+          <div className="flex-1 min-w-[140px] space-y-1">
             <Label>Date</Label>
             <DatePicker
               date={date}
@@ -257,11 +258,11 @@ export default function OfferRidePopup({ networkId, onSaved }) {
               disabled={[{ before: new Date() }, ...takenDates.map(d => new Date(d + 'T12:00:00'))]}
             />
             {takenDates.length > 0 && (
-              <p className="text-xs text-muted-foreground">Days you already offer a ride are unavailable.</p>
+              <p className="text-xs text-muted-foreground">Days you already offer or have booked a ride are unavailable.</p>
             )}
             {validationError.date && <p className="text-red-500 text-sm">{validationError.date}</p>}
           </div>
-          <div className="flex-1 space-y-1">
+          <div className="flex-1 min-w-[220px] space-y-1">
             <Label htmlFor="departure_time">Departure time</Label>
             <TimeInput id="departure_time" onChange={handleChange} value={rideData.departure_time} />
             {validationError.departure_time && <p className="text-red-500 text-sm">{validationError.departure_time}</p>}
@@ -338,9 +339,9 @@ export default function OfferRidePopup({ networkId, onSaved }) {
       <AlertDialog open={showDayConflict} onOpenChange={setShowDayConflict}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Ride already offered that day</AlertDialogTitle>
+            <AlertDialogTitle>Ride conflict that day</AlertDialogTitle>
             <AlertDialogDescription>
-              You already have a ride offered on {formatDate(toLocalDateStr(date))}. Only one offered ride per day is allowed.
+              You already have a ride offered or booked on {formatDate(toLocalDateStr(date))}. Only one ride per day is allowed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -34,7 +34,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { usePopup } from "@/context/PopupContext";
 import { formatDate as formatDateStr, formatTime } from "@/lib/utils";
 import { resolveLocation } from "@/lib/locations";
-import { canCancelBooking, canBookRide, isCanceledStatus } from "@/lib/rides";
+import { canCancelBooking, canBookRide, isCanceledStatus, hasActiveSameDayBooking, hasActiveSameDayRide } from "@/lib/rides";
 import { Skeleton } from "@/components/ui/skeleton";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
 import CancelReasonDialog from "@/components/CancelReasonDialog";
@@ -46,7 +46,7 @@ import {
 
 export default function RidePage() {
   const { rideId, networkId } = useParams();
-  const { getRide, isLoading, bookRide, cancelRide, cancelBooking, getBookings } = useNetwork();
+  const { getRide, isLoading, bookRide, cancelRide, cancelBooking, getBookings, getRides } = useNetwork();
   const { user } = useAuth();
   const { openPopup } = usePopup();
 
@@ -58,6 +58,7 @@ export default function RidePage() {
   const [showCancelBookingConfirm, setShowCancelBookingConfirm] = useState(false);
   const [showDayConflict, setShowDayConflict] = useState(false);
   const [existingBookings, setExistingBookings] = useState([]);
+  const [existingRides, setExistingRides] = useState([]);
 
 
   const fetchRide = async () => {
@@ -68,17 +69,22 @@ export default function RidePage() {
 
   useEffect(() => {
     if (rideId) fetchRide();
-    if (user) getBookings().then(data => setExistingBookings(data || []));
+    if (user) {
+      getBookings().then(data => setExistingBookings(data || []));
+      getRides().then(data => setExistingRides(data || []));
+    }
   }, [user, rideId, networkId]);
+
+  // Other bookings/offered rides for this date — excludes this exact ride's own booking,
+  // which is already surfaced separately via currentBooking.
+  const hasOtherDateConflict = rideData
+    ? hasActiveSameDayBooking(existingBookings.filter(b => b.ride_id !== rideId), rideData.departure_date) ||
+      hasActiveSameDayRide(existingRides, rideData.departure_date)
+    : false;
 
   const handleBookSeats = async () => {
     if (!rideData) return;
-    const alreadyBookedThatDay = existingBookings.some(
-      b => b.departure_date === rideData.departure_date &&
-           b.booking_status !== 'canceled' &&
-           b.booking_status !== 'cancled'
-    );
-    if (alreadyBookedThatDay) {
+    if (hasOtherDateConflict) {
       setShowDayConflict(true);
       return;
     }
@@ -438,6 +444,10 @@ export default function RidePage() {
                         View My Scheduled Rides
                       </Link>
                       </>
+                    ) : hasOtherDateConflict ? (
+                      <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-sm">
+                        You have a ride booked or offered for this date. Only one ride per day is allowed.
+                      </div>
                     ) : canBookRide(rideData) ? (
                       <>
                         <p className="text-sm text-muted-foreground">
@@ -533,9 +543,9 @@ export default function RidePage() {
       <AlertDialog open={showDayConflict} onOpenChange={setShowDayConflict}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Ride already booked that day</AlertDialogTitle>
+            <AlertDialogTitle>Ride conflict that day</AlertDialogTitle>
             <AlertDialogDescription>
-              You already have a booked ride on {formatDateStr(rideData?.departure_date)}. Only one ride per day is allowed.
+              You already have a ride booked or offered on {formatDateStr(rideData?.departure_date)}. Only one ride per day is allowed.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

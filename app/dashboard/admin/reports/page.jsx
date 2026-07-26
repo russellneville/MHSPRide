@@ -4,7 +4,7 @@ import DashboardLayout from '@/app/dashboard/dashboardLayout'
 import AdminGuard from '@/components/AdminGuard'
 import { db } from '@/lib/firebaseClient'
 import { collection, getDocs, query, where } from 'firebase/firestore'
-import { resolveLocation } from '@/lib/locations'
+import { useLocations } from '@/context/LocationsContext'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -27,6 +27,7 @@ export default function AdminReportsPage() {
 }
 
 function ReportsContent() {
+  const { resolveLocation } = useLocations()
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({ totalUsers: 0, totalRides: 0, totalBookings: 0, activeRides: 0 })
   const [topDrivers, setTopDrivers] = useState([])

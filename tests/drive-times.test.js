@@ -1,24 +1,46 @@
-import { describe, expect, it } from "vitest";
-import { estimateArrival, getDriveMinutes } from "@/lib/drive-times";
+import { describe, expect, it, vi, beforeEach } from "vitest";
+
+const driveTimeDocs = {
+  "powell-butte": { timberline: 69 },
+  "buzz-bowman-center": { "buzz-bowman": 0 },
+  "sandy-fred-meyer": { timberline: 44 },
+};
+
+vi.mock("@/lib/firebaseClient", () => ({ db: {} }));
+vi.mock("firebase/firestore", () => ({
+  doc: (_db, _collection, id) => ({ id }),
+  getDoc: async (ref) => ({
+    exists: () => ref.id in driveTimeDocs,
+    data: () => driveTimeDocs[ref.id],
+  }),
+}));
 
 describe("drive time estimates", () => {
-  it("returns configured drive minutes for known pickup and destination pairs", () => {
-    expect(getDriveMinutes("powell-butte", "timberline")).toBe(69);
-    expect(getDriveMinutes("buzz-bowman-center", "buzz-bowman")).toBe(0);
+  beforeEach(() => {
+    vi.resetModules();
   });
 
-  it("returns null for unknown routes instead of guessing", () => {
-    expect(getDriveMinutes("unknown", "timberline")).toBeNull();
-    expect(getDriveMinutes("powell-butte", "unknown")).toBeNull();
+  it("returns configured drive minutes for known pickup and destination pairs", async () => {
+    const { getDriveMinutes } = await import("@/lib/drive-times");
+    expect(await getDriveMinutes("powell-butte", "timberline")).toBe(69);
+    expect(await getDriveMinutes("buzz-bowman-center", "buzz-bowman")).toBe(0);
   });
 
-  it("estimates arrival time using the static drive-time matrix", () => {
-    expect(estimateArrival("06:00", "powell-butte", "timberline")).toBe("07:09");
-    expect(estimateArrival("23:30", "sandy-fred-meyer", "timberline")).toBe("00:14");
+  it("returns null for unknown routes instead of guessing", async () => {
+    const { getDriveMinutes } = await import("@/lib/drive-times");
+    expect(await getDriveMinutes("unknown", "timberline")).toBeNull();
+    expect(await getDriveMinutes("powell-butte", "unknown")).toBeNull();
   });
 
-  it("does not estimate when the route or departure time is missing", () => {
-    expect(estimateArrival("", "powell-butte", "timberline")).toBeNull();
-    expect(estimateArrival("06:00", "powell-butte", "unknown")).toBeNull();
+  it("estimates arrival time using the fetched drive-time entry", async () => {
+    const { estimateArrival } = await import("@/lib/drive-times");
+    expect(await estimateArrival("06:00", "powell-butte", "timberline")).toBe("07:09");
+    expect(await estimateArrival("23:30", "sandy-fred-meyer", "timberline")).toBe("00:14");
+  });
+
+  it("does not estimate when the route or departure time is missing", async () => {
+    const { estimateArrival } = await import("@/lib/drive-times");
+    expect(await estimateArrival("", "powell-butte", "timberline")).toBeNull();
+    expect(await estimateArrival("06:00", "powell-butte", "unknown")).toBeNull();
   });
 });

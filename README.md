@@ -21,7 +21,7 @@ MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and ho
 - **Offer rides** — post departure time, pickup location, seat count, return time, and notes
 - **Book rides** — available rides are listed right on the dashboard, grouped by favorited network; reserve seats instantly, bookings close 6 hours before departure
 - **Four communities** — Hill Patrol, Mountain Hosts, Nordic, and Mountain Biking each have their own ride pool. Users favorite networks (rather than "joining" them) to control which pools show on their dashboard; defaults come from their Troopiter roster classification, and favorites can be reordered or changed anytime from the dashboard
-- **Smart arrival time** — auto-filled from a pre-computed drive-time matrix for all pickup/destination pairs
+- **Smart arrival time** — auto-filled from a drive-time matrix covering every pickup/destination pair, computed automatically (via the Google Directions API) whenever an admin adds a new location
 - **Ride management** — drivers can edit or cancel rides; canceling a ride cancels every booking tied to it and notifies each passenger by email
 - **Cancellation with reason** — canceling a booking or a ride (rider or driver, self-service) always prompts for a free-text reason first, which is included in the cancellation email(s) and the activity log. Cancellation is never blocked outright — but if a rider cancels within 12 hours of departure, they're shown a one-button warning to call or text the driver directly before it goes through
 - **Dashboard** — the single home screen: today's rides at a glance, scheduled rides (offered + booked), available rides per favorited network, and ride history — each list paginated 10/page with Previous/Next controls
@@ -95,6 +95,14 @@ NEXT_PUBLIC_GA_MEASUREMENT_ID=
 # Resend (resend.com) — transactional email
 RESEND_API_KEY=
 
+# Google Maps — Geocoding API (admin roster/location address lookup) and
+# Directions API (drive-time computation when an admin adds a location)
+GOOGLE_MAPS_API_KEY=
+
+# Firebase Admin SDK — full service account JSON, as a single-line string
+# (Firebase Console → Project Settings → Service Accounts → Generate new private key)
+FIREBASE_SERVICE_ACCOUNT_KEY=
+
 # Test data seed script (optional — see docs/test-data.md)
 TEST_EMAIL_BASE=you@gmail.com
 TEST_PASSWORD=yourpassword
@@ -131,6 +139,7 @@ Users with `role: 'admin'` see an Admin section in the sidebar with access to:
 - **Rides** — view (sorted most recent first, paginated 25/page), search by driver/rider/route, filter by status/network/date range, click a row to see full details including the rider list (with a per-rider **Remove** action that cancels that booking, restores the seat, and emails the passenger), or edit/cancel/delete. Edit and Cancel are hidden once a ride is Completed or Canceled. The status shown (not started/in progress/Completed) is computed live from each ride's departure/arrival/return times, not from the stored `ride_status` field — that field only changes when a driver manually starts/finishes a ride, so a ride left untouched by its driver would otherwise show "not started" forever even after it's over. This page is also the only place admins manage bookings — there is no separate Bookings page; a booking's canonical status lives on its own `bookings` doc, not on the ride's embedded rider list, which is display-only
 - **Roster** — browse the imported MHSP roster: search by name/MHSP#/email, filter by status or registration, click a member's coordinates to open them in Google Maps. The **Add** button opens a dialog to manually add a roster record (only Last Name, MHSP #, and Troopiter email are required — useful for test accounts that aren't in the Troopiter export)
 - **Roster Import** — upload a Troopiter CSV export, preview detected renames/new members/field updates/deactivations before anything is written, then commit (see [Roster import matching](#roster-import-matching) below). Each row in the Deactivated section has a checkbox — unchecking it keeps that member active instead of deactivating them, so a manually-added test account doesn't get wiped out just because it's not in the CSV. MHSP #s starting with `99` (the convention for manually-added test accounts) are unchecked by default
+- **Locations** — manage the pickup/arrival locations used throughout the app (Firestore-backed, replacing the old hardcoded list). Each location has a Role — Origin (pickup), Destination (mountain arrival), or Both (e.g. a site that's also a common pickup spot) — which controls which ride-offer dropdown(s) it appears in. Adding an Origin or Both location: type an address, confirm the geocoded pin (Google Geocoding API), then on save the app computes and stores drive times to every existing location it could pair with (Google Directions API) — this can take a few seconds. Destinations are entered as raw lat/lon. Editing is limited to name/lat-lon (doesn't recompute drive times). Deleting is blocked if any upcoming, non-canceled ride still uses that location; past rides that used a deleted location keep working but display a prettified fallback name instead
 - **Activity Log** — paginated event log of all key system actions, filterable by type, date range, user, and message text; auto-refreshes in the background every 30 seconds. Each event type is color-coded by family (e.g. `booking.*` light purple, `feedback.*` green, `admin.*` orange) for quick visual scanning, and the message column wraps instead of truncating so long messages (like a cancellation reason) are fully readable
 - **Feedback** — submissions from the in-app feedback widget (bottom-right corner of the dashboard on desktop, bottom-left on mobile to avoid covering page action buttons) and the [Contact](app/contact/page.jsx) form's Feedback/Bug/Support types, filterable by type and open/resolved status, with resolve/reopen and delete actions. **Respond** opens a dialog to email the submitter directly (via Resend), appends `RESPONSE: <reply>` to the entry's message, and marks it as responded. The sidebar's "Feedback" nav item shows a live, bolded count of unresponded items (e.g. "Feedback **(3)**")
 - **Reports** — stats cards (total users, rides, bookings), top drivers and top riders leaderboards, route popularity
@@ -147,7 +156,7 @@ node scripts/migrateDirectorToAdmin.mjs
 
 ### Firestore rules for admin access
 
-The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuspended()` helpers, and rules for `users`, `members`, `rides`, `networks`, `bookings`, `activity_log`, `rate_limits`, `registration_verifications`). `firebase.json`/`.firebaserc` link this directory to the `mhspride` project, so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months, including the admin Users page's role-change/suspend actions, which the deployed `users` rule was actually rejecting the whole time; that write path now goes through `app/api/admin/update-user` — Admin SDK, `verifyAdminRequest`-gated — instead of a client Firestore write).
+The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuspended()` helpers, and rules for `users`, `members`, `rides`, `networks`, `bookings`, `activity_log`, `locations`, `driveTimes`, `rate_limits`, `registration_verifications`). `locations`/`driveTimes` are client-readable (any authenticated, non-suspended user — needed for the ride-offer dropdowns) but writable only through the Admin SDK–gated `/api/admin/locations/*` routes. `firebase.json`/`.firebaserc` link this directory to the `mhspride` project, so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months, including the admin Users page's role-change/suspend actions, which the deployed `users` rule was actually rejecting the whole time; that write path now goes through `app/api/admin/update-user` — Admin SDK, `verifyAdminRequest`-gated — instead of a client Firestore write).
 
 Non-owner updates to `rides` are scoped to only the fields booking actually needs (`available_seats`/`passengers`), not a blanket "any authenticated user can rewrite the whole document." `networks` docs are legacy membership records — the app now treats networks as fixed categories (`lib/networks.js`) with per-user favorites stored on `users/{uid}.favorite_networks`, so network docs are admin-write-only.
 
@@ -233,7 +242,7 @@ MHSPRide/
 ├── app/
 │   ├── api/                    # Server-side API routes (email, admin actions)
 │   └── dashboard/              # Protected dashboard pages
-│       ├── admin/              # Admin-only pages (users, rides, bookings, logs, feedback, reports)
+│       ├── admin/              # Admin-only pages (users, rides, bookings, logs, feedback, reports, locations)
 │       ├── network/[networkId]/ # Network ride list (with filters), ride detail
 │       ├── profile/            # User profile
 │       ├── onboarding/         # First-login wizard
@@ -246,11 +255,12 @@ MHSPRide/
 │   └── ui/                     # shadcn components + FeedbackWidget, CookieConsent
 ├── context/
 │   ├── AuthContext.jsx         # Auth state, profile updates
-│   └── NetworksContext.jsx     # All Firestore ride/booking/network operations
+│   ├── NetworksContext.jsx     # All Firestore ride/booking/network operations
+│   └── LocationsContext.jsx    # Firestore-backed locations cache (origins/destinations, resolveLocation())
 ├── lib/
 │   ├── networks.js             # Fixed network list + classification→default-favorite mapping
-│   ├── locations.js            # Pickup locations + arrival destinations with coordinates
-│   ├── drive-times.js          # Static drive-time matrix (minutes, no traffic)
+│   ├── drive-times.js          # Client-side drive-time lookups against the `driveTimes` collection
+│   ├── serverLocations.js      # Admin SDK location-name lookups for code outside React (e.g. email.js)
 │   ├── activityLog.js          # logEvent() utility — writes to activity_log collection
 │   ├── rateLimit.js            # Fixed-window rate limiting — writes to rate_limits collection
 │   ├── email.js                # Resend email helpers (registration, booking, cancellation)

@@ -19,7 +19,7 @@ import OfferRidePopup from "@/components/popup-forms/OfferRidePopup"
 import AddFavoritePopup from "@/components/popup-forms/AddFavoritePopup"
 import RideRowCard from "@/components/cards/ride-row-card"
 import NetworkRideCard from "@/components/cards/network-ride-card"
-import { resolveLocation } from "@/lib/locations"
+import { useLocations } from "@/context/LocationsContext"
 import { computeRideStatus } from "@/lib/rides"
 import { NETWORKS, NETWORK_IDS, networkName, defaultFavoritesFor } from "@/lib/networks"
 
@@ -77,6 +77,7 @@ function Pager({ page, pageCount, onPrev, onNext }) {
 
 export default function Dashboard() {
   const { getRides, getBookings, getRidesByNetworkId, saveFavorites, dismissRideUpdate } = useNetwork()
+  const { resolveLocation } = useLocations()
   const router = useRouter()
   const { user } = useAuth()
   const { openPopup, isOpen } = usePopup()
@@ -525,6 +526,7 @@ export default function Dashboard() {
 }
 
 function RideUpdatedBanner({ booking, onDismiss }) {
+  const { resolveLocation } = useLocations()
   const r = booking.updated_ride_snapshot || booking
   return (
     <div className="rounded-xl border border-yellow-400 bg-yellow-50 dark:bg-yellow-950 dark:border-yellow-600 p-4 space-y-3">
@@ -557,6 +559,7 @@ function RideUpdatedBanner({ booking, onDismiss }) {
 }
 
 function TodayRideCard({ ride }) {
+  const { resolveLocation } = useLocations()
   const isOffering = ride._type === 'offered'
   const networkId  = ride.network_id || ride.networkId
   const rideId     = isOffering ? ride.id : ride.ride_id

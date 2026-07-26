@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { PopupProvider } from "@/context/PopupContext";
 import { Popup } from "@/components/Popup";
 import { NetworkProvider } from "@/context/NetworksContext";
+import { LocationsProvider } from "@/context/LocationsContext";
 import { ThemeProvider } from "@/context/ThemeContext";
 import CookieConsent from "@/components/CookieConsent";
 import Analytics from "@/components/Analytics";
@@ -46,6 +47,7 @@ export default function RootLayout({ children }) {
                   disableTransitionOnChange>
                 <AuthProvider>
                   <NetworkProvider>
+                  <LocationsProvider>
                     <PopupProvider>
                           {children}
                           <Popup />
@@ -72,6 +74,7 @@ export default function RootLayout({ children }) {
                           )}
                           <Analytics />
                     </PopupProvider>
+                  </LocationsProvider>
                   </NetworkProvider>
                 </AuthProvider>
               </ThemeProvider>

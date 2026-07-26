@@ -33,7 +33,7 @@ import { Input } from "@/components/ui/input";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { usePopup } from "@/context/PopupContext";
 import { formatDate as formatDateStr, formatTime } from "@/lib/utils";
-import { resolveLocation } from "@/lib/locations";
+import { useLocations } from "@/context/LocationsContext";
 import { canCancelBooking, canBookRide, isCanceledStatus, hasActiveSameDayBooking, hasActiveSameDayRide } from "@/lib/rides";
 import { Skeleton } from "@/components/ui/skeleton";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
@@ -47,6 +47,7 @@ import {
 export default function RidePage() {
   const { rideId, networkId } = useParams();
   const { getRide, isLoading, bookRide, cancelRide, cancelBooking, getBookings, getRides } = useNetwork();
+  const { resolveLocation } = useLocations();
   const { user } = useAuth();
   const { openPopup } = usePopup();
 

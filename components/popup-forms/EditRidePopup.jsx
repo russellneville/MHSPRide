@@ -5,27 +5,13 @@ import TimeInput from "../ui/time-input"
 import DatePicker from "../ui/date-picker"
 import { usePopup } from "@/context/PopupContext"
 import { useNetwork } from "@/context/NetworksContext"
+import { useLocations } from "@/context/LocationsContext"
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Checkbox } from "../ui/checkbox"
-import { LOCATIONS } from "@/lib/locations"
 import { estimateArrival } from "@/lib/drive-times"
 import { toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils"
-
-const DEPARTURE_LOCATIONS = LOCATIONS.filter(l => l.id !== "timberline-lodge").sort((a, b) => a.name.localeCompare(b.name))
-
-const ARRIVAL_LOCATIONS = [
-  { id: "buzz-bowman",  name: "Buzz Bowman Ski Patrol Building" },
-  { id: "summit-pass",  name: "Summit Pass" },
-  { id: "timberline",   name: "Timberline" },
-  { id: "ski-bowl",     name: "Ski Bowl" },
-  { id: "meadows",      name: "Meadows" },
-  { id: "tea-cup",      name: "Tea Cup" },
-].sort((a, b) => a.name.localeCompare(b.name))
-
-const KNOWN_DEP_IDS  = new Set(DEPARTURE_LOCATIONS.map(l => l.id))
-const KNOWN_ARR_IDS  = new Set(ARRIVAL_LOCATIONS.map(l => l.id))
 
 function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, locations, selectPlaceholder }) {
   return (
@@ -56,17 +42,29 @@ function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, loca
   )
 }
 
+// Wrapper mounts the actual form only once locations have loaded — the form
+// seeds its departure/arrival select-vs-other state from the known location
+// ids on first render only (useState initializers run once), so it must not
+// mount until that lookup is real.
 export default function EditRidePopup({ ride, onSaved }) {
+  const { origins, destinations, isLoading: locationsLoading } = useLocations()
+  if (locationsLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
+  return <EditRidePopupForm ride={ride} onSaved={onSaved} origins={origins} destinations={destinations} />
+}
+
+function EditRidePopupForm({ ride, onSaved, origins, destinations }) {
   const { closePopup } = usePopup()
   const { isLoading, updateRide, getRides, getBookings } = useNetwork()
 
   // Seed departure — known ID or free-text
-  const initDepSelect = KNOWN_DEP_IDS.has(ride.departure) ? ride.departure : ''
-  const initDepOther  = KNOWN_DEP_IDS.has(ride.departure) ? '' : (ride.departure || '')
+  const knownDepIds = new Set(origins.map(l => l.id))
+  const knownArrIds = new Set(destinations.map(l => l.id))
+  const initDepSelect = knownDepIds.has(ride.departure) ? ride.departure : ''
+  const initDepOther  = knownDepIds.has(ride.departure) ? '' : (ride.departure || '')
 
   // Seed arrival — known ID or free-text
-  const initArrSelect = KNOWN_ARR_IDS.has(ride.arrival) ? ride.arrival : ''
-  const initArrOther  = KNOWN_ARR_IDS.has(ride.arrival) ? '' : (ride.arrival || '')
+  const initArrSelect = knownArrIds.has(ride.arrival) ? ride.arrival : ''
+  const initArrOther  = knownArrIds.has(ride.arrival) ? '' : (ride.arrival || '')
 
   const [departureSelect, setDepartureSelect] = useState(initDepSelect)
   const [departureOther,  setDepartureOther]  = useState(initDepOther)
@@ -100,13 +98,21 @@ export default function EditRidePopup({ ride, onSaved }) {
   const effectiveDeparture = departureOther.trim() || departureSelect
   const effectiveArrival   = arrivalOther.trim()   || arrivalSelect
 
+  // Recompute arrival time whenever departure time, origin, or destination changes —
+  // mirrors OfferRidePopup's effect so switching pickup/dropoff after a time is
+  // already set keeps the estimate in sync.
+  useEffect(() => {
+    if (!rideData.departure_time || !effectiveDeparture || !effectiveArrival) return
+    let cancelled = false
+    estimateArrival(rideData.departure_time, effectiveDeparture, effectiveArrival).then(est => {
+      if (cancelled || !est) return
+      setRideData(prev => (prev.arrival_time === est ? prev : { ...prev, arrival_time: est }))
+    })
+    return () => { cancelled = true }
+  }, [rideData.departure_time, effectiveDeparture, effectiveArrival])
+
   const handleChange = (e) => {
-    const updated = { ...rideData, [e.target.id]: e.target.value }
-    if (e.target.id === "departure_time" && effectiveDeparture && effectiveArrival) {
-      const est = estimateArrival(e.target.value, effectiveDeparture, effectiveArrival)
-      if (est) updated.arrival_time = est
-    }
-    setRideData(updated)
+    setRideData(prev => ({ ...prev, [e.target.id]: e.target.value }))
   }
 
   const validateForm = () => {
@@ -154,7 +160,7 @@ export default function EditRidePopup({ ride, onSaved }) {
             onSelectChange={setDepartureSelect}
             otherValue={departureOther}
             onOtherChange={setDepartureOther}
-            locations={DEPARTURE_LOCATIONS}
+            locations={origins}
             selectPlaceholder="Select pickup location"
           />
           {validationError.departure && <p className="text-red-500 text-sm">{validationError.departure}</p>}
@@ -167,7 +173,7 @@ export default function EditRidePopup({ ride, onSaved }) {
             onSelectChange={setArrivalSelect}
             otherValue={arrivalOther}
             onOtherChange={setArrivalOther}
-            locations={ARRIVAL_LOCATIONS}
+            locations={destinations}
             selectPlaceholder="Select arrival location"
           />
           {validationError.arrival && <p className="text-red-500 text-sm">{validationError.arrival}</p>}

@@ -294,7 +294,8 @@ const UNREGISTERED_MEMBERS = [
   },
 ]
 
-// Departure and arrival pool — must match lib/locations.js IDs
+// Departure and arrival pool — must match ids seeded into the Firestore
+// `locations` collection (see scripts/migrateLocationsToFirestore.mjs)
 const HP_DEPARTURES = ['powell-butte', 'sandy-fred-meyer', 'troutdale-fred-meyer', 'gresham-transit']
 const ARRIVALS_HP = ['timberline', 'buzz-bowman']
 const ARRIVALS_NORDIC = ['timberline', 'buzz-bowman', 'meadows']

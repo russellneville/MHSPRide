@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Clock, MapPin, MoveRight, Users } from "lucide-react";
 import { usePopup } from "@/context/PopupContext";
 import DriverDetailsPopup from "@/components/popup-forms/DriverDetailsPopup";
-import { resolveLocation } from "@/lib/locations";
+import { useLocations } from "@/context/LocationsContext";
 import { formatDate, formatTime } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
 
@@ -28,6 +28,7 @@ export const STATUS_CLASS = {
 // the network page). Expects ride._status to be set via computeRideStatus.
 export default function NetworkRideCard({ ride, networkId, muted }) {
   const { openPopup } = usePopup()
+  const { resolveLocation } = useLocations()
 
   return (
     <Link href={`/dashboard/network/${networkId}/rides/${ride.id}`}>

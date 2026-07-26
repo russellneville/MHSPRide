@@ -34,9 +34,10 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { usePopup } from "@/context/PopupContext";
 import { formatDate as formatDateStr, formatTime } from "@/lib/utils";
 import { resolveLocation } from "@/lib/locations";
-import { canCancelBooking, isCanceledStatus } from "@/lib/rides";
+import { canCancelBooking, canBookRide, isCanceledStatus } from "@/lib/rides";
 import { Skeleton } from "@/components/ui/skeleton";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
+import CancelReasonDialog from "@/components/CancelReasonDialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -86,14 +87,14 @@ export default function RidePage() {
   };
 
 
-  const handleCancelRide = async ()=>{
-    await cancelRide(rideId)
+  const handleCancelRide = async (reason)=>{
+    await cancelRide(rideId, reason)
     fetchRide()
   }
 
-  const handleCancelBooking = async () => {
+  const handleCancelBooking = async (reason) => {
     if (!currentBooking?.booking_id) return
-    await cancelBooking(currentBooking.booking_id)
+    await cancelBooking(currentBooking.booking_id, reason)
     fetchRide()
   }
 
@@ -336,50 +337,33 @@ export default function RidePage() {
                 </Card>
               )}
 
-              <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Cancel this ride?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {(() => {
-                        const booked = (rideData?.total_seats || 0) - (rideData?.available_seats || 0)
-                        return booked > 0
-                          ? `This cancels the ride and its ${booked} booked seat${booked !== 1 ? 's' : ''}. Passengers will be notified by email, but you should also contact them directly. This cannot be undone.`
-                          : 'This removes the ride from the network. This cannot be undone.'
-                      })()}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Keep ride</AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="cancel"
-                      onClick={() => { setShowCancelConfirm(false); handleCancelRide() }}
-                    >
-                      Cancel ride
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <CancelReasonDialog
+                open={showCancelConfirm}
+                onOpenChange={setShowCancelConfirm}
+                title="Cancel this ride?"
+                description={(() => {
+                  const booked = (rideData?.total_seats || 0) - (rideData?.available_seats || 0)
+                  return booked > 0
+                    ? `This cancels the ride and its ${booked} booked seat${booked !== 1 ? 's' : ''}. Passengers will be notified by email, but you should also contact them directly. This cannot be undone.`
+                    : 'This removes the ride from the network. This cannot be undone.'
+                })()}
+                showShortNotice={false}
+                onConfirm={reason => { setShowCancelConfirm(false); handleCancelRide(reason) }}
+              />
 
-              <AlertDialog open={showCancelBookingConfirm} onOpenChange={setShowCancelBookingConfirm}>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Cancel your booking?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This frees your seat on this ride and notifies the driver by email.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Keep booking</AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="cancel"
-                      onClick={() => { setShowCancelBookingConfirm(false); handleCancelBooking() }}
-                    >
-                      Cancel booking
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+              <CancelReasonDialog
+                open={showCancelBookingConfirm}
+                onOpenChange={setShowCancelBookingConfirm}
+                title="Cancel your booking?"
+                description="This frees your seat on this ride and notifies the driver by email."
+                showShortNotice={!!currentBooking && !canCancelBooking({
+                  departure_date: rideData?.departure_date,
+                  departure_time: rideData?.departure_time,
+                  booking_status: currentBooking?.status,
+                })}
+                driverPhone={rideData?.driver?.phone}
+                onConfirm={reason => { setShowCancelBookingConfirm(false); handleCancelBooking(reason) }}
+              />
 
               <AlertDialog open={showEditWarn} onOpenChange={setShowEditWarn}>
                 <AlertDialogContent>
@@ -435,26 +419,14 @@ export default function RidePage() {
                       </div>
 
                       {!isCanceledStatus(currentBooking.status) && (
-                        canCancelBooking({
-                          departure_date: rideData.departure_date,
-                          departure_time: rideData.departure_time,
-                          booking_status: currentBooking.status,
-                        }) ? (
-                          <Button
-                            variant="cancel"
-                            className="w-full"
-                            disabled={isLoading}
-                            onClick={() => setShowCancelBookingConfirm(true)}
-                          >
-                            Cancel My Booking <X className="size-4 ml-1" />
-                          </Button>
-                        ) : (
-                          <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-sm">
-                            Too close to departure to cancel online. Contact your driver directly
-                            {rideData.driver?.phone ? ` at ${rideData.driver.phone}` : ""}
-                            {rideData.driver?.email ? ` (${rideData.driver.email})` : ""}.
-                          </div>
-                        )
+                        <Button
+                          variant="cancel"
+                          className="w-full"
+                          disabled={isLoading}
+                          onClick={() => setShowCancelBookingConfirm(true)}
+                        >
+                          Cancel My Booking <X className="size-4 ml-1" />
+                        </Button>
                       )}
 
                       <Link
@@ -464,7 +436,7 @@ export default function RidePage() {
                         View My Booked Rides
                       </Link>
                       </>
-                    ) : (
+                    ) : canBookRide(rideData) ? (
                       <>
                         <p className="text-sm text-muted-foreground">
                           Choose how many seats you’d like to reserve.
@@ -499,6 +471,10 @@ export default function RidePage() {
                             : `Book ${seatsToBook} Seat${seatsToBook > 1 ? "s" : ""}`}
                         </Button>
                       </>
+                    ) : (
+                      <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-sm">
+                        Bookings for this ride close 6 hours before departure.
+                      </div>
                     )}
                   </CardContent>
                 </Card>

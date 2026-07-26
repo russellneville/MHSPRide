@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canBookRide,
   canCancelBooking,
   computeRideStatus,
   getAvailableSeatsAfterBooking,
@@ -115,5 +116,29 @@ describe("passenger self-cancel cutoff", () => {
 
   it("blocks cancellation when departure_date is missing", () => {
     expect(canCancelBooking({ booking_status: "booked" })).toBe(false);
+  });
+});
+
+describe("booking cutoff", () => {
+  const ride = {
+    departure_date: "2026-02-10",
+    departure_time: "18:00",
+  };
+
+  it("allows booking well before the 6h cutoff", () => {
+    expect(canBookRide(ride, new Date("2026-02-10T05:00:00"))).toBe(true);
+  });
+
+  it("blocks booking inside the 6h cutoff window", () => {
+    expect(canBookRide(ride, new Date("2026-02-10T13:00:00"))).toBe(false);
+  });
+
+  it("treats exactly 6h before departure as the cutoff boundary", () => {
+    expect(canBookRide(ride, new Date("2026-02-10T12:00:00"))).toBe(false);
+    expect(canBookRide(ride, new Date("2026-02-10T11:59:59"))).toBe(true);
+  });
+
+  it("blocks booking when departure_date is missing", () => {
+    expect(canBookRide({})).toBe(false);
   });
 });

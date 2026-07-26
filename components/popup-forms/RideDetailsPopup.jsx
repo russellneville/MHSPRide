@@ -8,11 +8,7 @@ import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/ui/user-avatar"
 import { useNetwork } from "@/context/NetworksContext"
 import { usePopup } from "@/context/PopupContext"
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel,
-  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
-  AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import CancelReasonDialog from "@/components/CancelReasonDialog"
 
 export default function RideDetailsPopup({ booking, onCanceled }) {
   const { cancelBooking, isLoading } = useNetwork()
@@ -30,8 +26,8 @@ export default function RideDetailsPopup({ booking, onCanceled }) {
     canceled: 'bg-gray-100 text-gray-600 border-gray-300',
   }[booking.booking_status] || 'bg-muted text-muted-foreground'
 
-  const handleCancelBooking = async () => {
-    const ok = await cancelBooking(booking.id)
+  const handleCancelBooking = async (reason) => {
+    const ok = await cancelBooking(booking.id, reason)
     if (ok) {
       onCanceled?.()
       closePopup()
@@ -135,44 +131,26 @@ export default function RideDetailsPopup({ booking, onCanceled }) {
       {!isCanceledStatus(booking.booking_status) && (
         <>
           <div className="border-t border-border" />
-          {canCancelBooking(booking) ? (
-            <Button
-              variant="cancel"
-              className="w-full"
-              disabled={isLoading}
-              onClick={() => setShowCancelConfirm(true)}
-            >
-              Cancel Booking <X className="size-4 ml-1" />
-            </Button>
-          ) : (
-            <div className="rounded-md bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2 text-sm">
-              Too close to departure to cancel online. Contact your driver directly
-              {driver.phone ? ` at ${driver.phone}` : ""}
-              {driver.email ? ` (${driver.email})` : ""}.
-            </div>
-          )}
+          <Button
+            variant="cancel"
+            className="w-full"
+            disabled={isLoading}
+            onClick={() => setShowCancelConfirm(true)}
+          >
+            Cancel Booking <X className="size-4 ml-1" />
+          </Button>
         </>
       )}
 
-      <AlertDialog open={showCancelConfirm} onOpenChange={setShowCancelConfirm}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancel your booking?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This frees your seat on this ride and notifies the driver by email.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Keep booking</AlertDialogCancel>
-            <AlertDialogAction
-              variant="cancel"
-              onClick={() => { setShowCancelConfirm(false); handleCancelBooking() }}
-            >
-              Cancel booking
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <CancelReasonDialog
+        open={showCancelConfirm}
+        onOpenChange={setShowCancelConfirm}
+        title="Cancel your booking?"
+        description="This frees your seat on this ride and notifies the driver by email."
+        showShortNotice={!canCancelBooking(booking)}
+        driverPhone={driver.phone}
+        onConfirm={reason => { setShowCancelConfirm(false); handleCancelBooking(reason) }}
+      />
     </div>
   )
 }

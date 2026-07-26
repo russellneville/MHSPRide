@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuth } from '@/context/AuthContext'
+import { TEXTAREA_MAX_LENGTH } from '@/lib/utils'
 
 export default function ContactPage() {
   const { user } = useAuth()
@@ -127,6 +128,7 @@ export default function ContactPage() {
                   onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
                   placeholder="Tell us what's on your mind…"
                   className="resize-none h-32"
+                  maxLength={TEXTAREA_MAX_LENGTH}
                   required
                 />
               </div>

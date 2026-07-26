@@ -14,6 +14,7 @@ import {
   updateDoc,
 } from 'firebase/firestore'
 import { logEvent } from '@/lib/activityLog'
+import { TEXTAREA_MAX_LENGTH } from '@/lib/utils'
 import { useAuth } from '@/context/AuthContext'
 import { toast } from 'sonner'
 import {
@@ -324,6 +325,7 @@ function FeedbackContent() {
             placeholder="Write your response…"
             value={responseText}
             onChange={e => setResponseText(e.target.value)}
+            maxLength={TEXTAREA_MAX_LENGTH}
             className="resize-none h-28 text-sm"
           />
           <AlertDialogFooter>

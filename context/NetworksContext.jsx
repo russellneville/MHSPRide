@@ -4,7 +4,7 @@ import { arrayUnion, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc,
 import { toast } from "sonner";
 import { createContext, useContext, useEffect, useState } from 'react'
 import { logEvent } from '@/lib/activityLog'
-import { canCancelBooking, isCanceledStatus } from '@/lib/rides'
+import { canBookRide, isCanceledStatus } from '@/lib/rides'
 const NetworkContext = createContext()
 
 export const NetworkProvider = ({children})=>{
@@ -364,6 +364,10 @@ export const NetworkProvider = ({children})=>{
         throw new Error('You must join this network before booking a ride')
       }
 
+      if (!canBookRide(rideData)) {
+        throw new Error('Bookings close 6 hours before a ride departs')
+      }
+
       const booked = ridepassenger !== undefined && !isCanceledStatus(ridepassenger.status)
 
       const bookId = `book-${inviteCode}`
@@ -685,7 +689,7 @@ const dismissRideUpdate = async (bookingId) => {
   }
 }
 
-const cancelRide = async (rideId)=>{
+const cancelRide = async (rideId, reason = '')=>{
   try {
     setIsLoading(true)
 
@@ -701,21 +705,21 @@ const cancelRide = async (rideId)=>{
       const bookingRef = doc(db, 'bookings', p.booking_id)
       const bookingSnap = await getDoc(bookingRef)
       if (!bookingSnap.exists()) return
-      await updateDoc(bookingRef, { booking_status: 'canceled' })
+      await updateDoc(bookingRef, { booking_status: 'canceled', cancellation_reason: reason })
     }))
 
-    await updateDoc(rideRef , {ride_status : 'canceled'})
+    await updateDoc(rideRef , {ride_status : 'canceled', cancellation_reason: reason})
     toast.success('Ride canceled successfully')
 
     const cancelerDoc = await getDoc(doc(db, 'users', auth.currentUser.uid)).catch(() => null)
     const cancelerData = cancelerDoc?.data() || {}
     logEvent({
       type: 'ride.canceled',
-      message: `Ride canceled: ${rideData.departure} → ${rideData.arrival} on ${rideData.departure_date}`,
+      message: `Ride canceled: ${rideData.departure} → ${rideData.arrival} on ${rideData.departure_date}${reason ? ` — Reason: ${reason}` : ''}`,
       userId: auth.currentUser.uid,
       userName: cancelerData.fullname,
       mhspNumber: cancelerData.mhspNumber,
-      metadata: { rideId, departure: rideData.departure, arrival: rideData.arrival, departure_date: rideData.departure_date },
+      metadata: { rideId, departure: rideData.departure, arrival: rideData.arrival, departure_date: rideData.departure_date, reason },
     }).catch(() => {})
 
     // Notify passengers by email (fire-and-forget)
@@ -848,7 +852,7 @@ const changeBookingStatus = async (passengerId  , rideId , bookingId , status)=>
 
 
 
-const cancelBooking = async (bookingId) => {
+const cancelBooking = async (bookingId, reason = '') => {
   try {
     setIsLoading(true)
     const bookingRef = doc(db, 'bookings', bookingId)
@@ -863,11 +867,8 @@ const cancelBooking = async (bookingId) => {
     if (isCanceledStatus(bookingData.booking_status)) {
       throw new Error('This booking is already canceled')
     }
-    if (!canCancelBooking(bookingData)) {
-      throw new Error('Too close to departure to cancel online — contact your driver directly')
-    }
 
-    await updateDoc(bookingRef, { booking_status: 'canceled' })
+    await updateDoc(bookingRef, { booking_status: 'canceled', cancellation_reason: reason })
 
     if (bookingData.ride_id) {
       const rideRef = doc(db, 'rides', bookingData.ride_id)
@@ -890,11 +891,11 @@ const cancelBooking = async (bookingId) => {
     const actorData = actorDoc?.data() || {}
     logEvent({
       type: 'booking.canceled',
-      message: `Booking canceled by passenger: ${bookingData.departure} → ${bookingData.arrival} on ${bookingData.departure_date}`,
+      message: `Booking canceled by passenger: ${bookingData.departure} → ${bookingData.arrival} on ${bookingData.departure_date}${reason ? ` — Reason: ${reason}` : ''}`,
       userId: auth.currentUser.uid,
       userName: actorData.fullname,
       mhspNumber: actorData.mhspNumber,
-      metadata: { bookingId, rideId: bookingData.ride_id, selfCanceled: true },
+      metadata: { bookingId, rideId: bookingData.ride_id, selfCanceled: true, reason },
     }).catch(() => {})
 
     // Notify driver + passenger by email (fire-and-forget)

@@ -33,19 +33,25 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 const PAGE_SIZE = 25
 
-// Badge color mapping by type prefix
-function badgeVariant(type) {
-  if (!type) return 'secondary'
-  if (type.startsWith('ride.'))     return 'default'        // blue-ish (default)
-  if (type.startsWith('booking.'))  return 'outline'        // green not available natively, use outline
-  if (type.startsWith('user.'))     return 'secondary'      // purple-ish
-  if (type.startsWith('admin.'))    return 'destructive'    // red
-  if (type.startsWith('feedback.')) return 'outline'
-  if (type.startsWith('membership.')) return 'secondary'
-  if (type.startsWith('member.'))   return 'secondary'
-  if (type.startsWith('network.'))  return 'default'
-  if (type.startsWith('security.')) return 'destructive'
-  return 'secondary'
+// Badge color by type prefix — one distinct hue per event family so they're
+// easy to tell apart at a glance (member./membership. share one, both being
+// roster-related; every other prefix gets its own color).
+const TYPE_FAMILY_COLORS = {
+  ride:       'bg-blue-100 text-blue-800 border-blue-300',
+  booking:    'bg-violet-100 text-violet-800 border-violet-300',
+  feedback:   'bg-emerald-100 text-emerald-800 border-emerald-300',
+  member:     'bg-amber-100 text-amber-800 border-amber-300',
+  membership: 'bg-amber-100 text-amber-800 border-amber-300',
+  network:    'bg-cyan-100 text-cyan-800 border-cyan-300',
+  user:       'bg-yellow-100 text-yellow-800 border-yellow-300',
+  admin:      'bg-orange-100 text-orange-800 border-orange-300',
+  security:   'bg-red-100 text-red-800 border-red-300',
+}
+const DEFAULT_TYPE_COLOR = 'bg-gray-100 text-gray-800 border-gray-300'
+
+function badgeColor(type) {
+  const family = (type || '').split('.')[0]
+  return TYPE_FAMILY_COLORS[family] || DEFAULT_TYPE_COLOR
 }
 
 const EVENT_TYPES = [
@@ -224,13 +230,13 @@ function ActivityLogContent() {
                     <TableRow key={log.id}>
                       <TableCell className="text-sm whitespace-nowrap">{formatTs(log.timestamp)}</TableCell>
                       <TableCell>
-                        <Badge variant={badgeVariant(log.type)} className="text-xs">
+                        <Badge variant="outline" className={`text-xs ${badgeColor(log.type)}`}>
                           {log.type || '—'}
                         </Badge>
                       </TableCell>
                       <TableCell className="text-sm">{log.userName || '—'}</TableCell>
                       <TableCell className="text-sm font-mono">{log.userMhspHex || '—'}</TableCell>
-                      <TableCell className="text-sm max-w-xs truncate">{log.message || '—'}</TableCell>
+                      <TableCell className="text-sm max-w-md whitespace-normal break-words">{log.message || '—'}</TableCell>
                     </TableRow>
                   ))
                 )}

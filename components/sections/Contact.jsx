@@ -5,6 +5,7 @@ import { Label } from "@radix-ui/react-label";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Button } from "../ui/button";
+import { TEXTAREA_MAX_LENGTH } from "@/lib/utils";
 
 export default function Contact() {
   return (
@@ -53,6 +54,7 @@ export default function Contact() {
                   required
                   className="resize-none h-40"
                   rows={5}
+                  maxLength={TEXTAREA_MAX_LENGTH}
                 />
               </div>
 

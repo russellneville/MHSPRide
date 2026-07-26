@@ -66,6 +66,7 @@ export default function DashboardLayout({ children, banner, headerActions }) {
                   const SEGMENT_MAP = {
                     network: { label: 'Networks', href: null }, // no /dashboard/network index page
                     admin:   { label: 'Admin',    href: null }, // no /dashboard/admin page
+                    rides:   { label: 'Rides',    href: null }, // no /dashboard/network/[id]/rides index page
                   }
                   const override = SEGMENT_MAP[segment]
                   const href = override !== undefined

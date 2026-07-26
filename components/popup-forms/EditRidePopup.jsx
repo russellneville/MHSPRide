@@ -58,7 +58,7 @@ function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, loca
 
 export default function EditRidePopup({ ride, onSaved }) {
   const { closePopup } = usePopup()
-  const { isLoading, updateRide, getRides } = useNetwork()
+  const { isLoading, updateRide, getRides, getBookings } = useNetwork()
 
   // Seed departure — known ID or free-text
   const initDepSelect = KNOWN_DEP_IDS.has(ride.departure) ? ride.departure : ''
@@ -84,14 +84,16 @@ export default function EditRidePopup({ ride, onSaved }) {
   const [validationError, setValidationErrors] = useState({})
   const [takenDates, setTakenDates] = useState([])
 
-  // Days with another offered ride get disabled in the date picker
+  // Days with another offered or booked ride get disabled in the date picker
   useEffect(() => {
-    getRides().then(rides => {
-      const taken = (rides || [])
+    Promise.all([getRides(), getBookings()]).then(([rides, bookings]) => {
+      const rideDates = (rides || [])
         .filter(r => r.id !== ride.id && r.ride_status !== 'canceled' && r.ride_status !== 'cancled')
         .map(r => r.departure_date)
-        .filter(Boolean)
-      setTakenDates([...new Set(taken)])
+      const bookingDates = (bookings || [])
+        .filter(b => b.booking_status !== 'canceled' && b.booking_status !== 'cancled')
+        .map(b => b.departure_date)
+      setTakenDates([...new Set([...rideDates, ...bookingDates].filter(Boolean))])
     })
   }, [])
 
@@ -171,8 +173,8 @@ export default function EditRidePopup({ ride, onSaved }) {
           {validationError.arrival && <p className="text-red-500 text-sm">{validationError.arrival}</p>}
         </div>
 
-        <div className="flex items-start gap-2">
-          <div className="flex-1 space-y-1">
+        <div className="flex flex-wrap items-start gap-2">
+          <div className="flex-1 min-w-[140px] space-y-1">
             <Label>Date</Label>
             <DatePicker
               date={date}
@@ -180,11 +182,11 @@ export default function EditRidePopup({ ride, onSaved }) {
               disabled={[{ before: new Date() }, ...takenDates.map(d => new Date(d + 'T12:00:00'))]}
             />
             {takenDates.length > 0 && (
-              <p className="text-xs text-muted-foreground">Days you already offer a ride are unavailable.</p>
+              <p className="text-xs text-muted-foreground">Days you already offer or have booked a ride are unavailable.</p>
             )}
             {validationError.date && <p className="text-red-500 text-sm">{validationError.date}</p>}
           </div>
-          <div className="flex-1 space-y-1">
+          <div className="flex-1 min-w-[220px] space-y-1">
             <Label htmlFor="departure_time">Departure time</Label>
             <TimeInput id="departure_time" onChange={handleChange} value={rideData.departure_time} />
             {validationError.departure_time && <p className="text-red-500 text-sm">{validationError.departure_time}</p>}

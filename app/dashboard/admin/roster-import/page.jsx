@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { auth } from '@/lib/firebaseClient'
 import { ChevronDown, ChevronRight, UploadCloud, CheckCircle2, AlertTriangle } from 'lucide-react'
@@ -94,9 +95,25 @@ function UploadStep({ onPreview }) {
   )
 }
 
+// MHSP numbers starting with 99 are the convention for manually-added test
+// accounts — default them unchecked so a roster import doesn't wipe them out.
+function isTestMhspNumber(id) {
+  return String(id).startsWith('99')
+}
+
 // --- Step 2: Review ---
 function ReviewStep({ preview, onConfirm, onCancel, loading }) {
   const { renames, newMembers, updated, deactivated, ambiguous } = preview
+
+  const [deactivateSelection, setDeactivateSelection] = useState(() =>
+    Object.fromEntries(deactivated.map(d => [d.id, !isTestMhspNumber(d.id)]))
+  )
+  const selectedDeactivateIds = deactivated.filter(d => deactivateSelection[d.id]).map(d => d.id)
+  const selectedDeactivateCount = selectedDeactivateIds.length
+
+  function toggleDeactivate(id, checked) {
+    setDeactivateSelection(prev => ({ ...prev, [id]: checked }))
+  }
 
   const claimedDeactivated = deactivated.filter(d => d.hasClaim).length
   const claimedRenames     = renames.filter(r => r.hasClaim).length
@@ -106,7 +123,7 @@ function ReviewStep({ preview, onConfirm, onCancel, loading }) {
     newMembers.length  && `${newMembers.length} new`,
     renames.length     && `${renames.length} ID change${renames.length !== 1 ? 's' : ''}`,
     updated.length     && `${updated.length} field update${updated.length !== 1 ? 's' : ''}`,
-    deactivated.length && `${deactivated.length} deactivated${claimedDeactivated ? ` (${claimedDeactivated} with active accounts)` : ''}`,
+    deactivated.length && `${selectedDeactivateCount} of ${deactivated.length} deactivated${claimedDeactivated ? ` (${claimedDeactivated} with active accounts)` : ''}`,
   ].filter(Boolean)
 
   return (
@@ -233,9 +250,14 @@ function ReviewStep({ preview, onConfirm, onCancel, loading }) {
               {claimedDeactivated} account{claimedDeactivated !== 1 ? 's' : ''} will have login disabled.
             </p>
           )}
+          <p className="mt-2 text-xs text-muted-foreground">
+            Uncheck a row to keep that member active — useful for test accounts added manually
+            that aren't in the Troopiter export. MHSP #s starting with 99 are unchecked by default.
+          </p>
           <Table className="mt-2 text-xs">
             <TableHeader>
               <TableRow>
+                <TableHead className="w-8"></TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>MHSP #</TableHead>
                 <TableHead>Has account?</TableHead>
@@ -244,6 +266,13 @@ function ReviewStep({ preview, onConfirm, onCancel, loading }) {
             <TableBody>
               {deactivated.map(d => (
                 <TableRow key={d.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={!!deactivateSelection[d.id]}
+                      onCheckedChange={checked => toggleDeactivate(d.id, checked)}
+                      aria-label={`Deactivate ${d.name}`}
+                    />
+                  </TableCell>
                   <TableCell className="font-medium">{d.name}</TableCell>
                   <TableCell className="font-mono">{d.id}</TableCell>
                   <TableCell className={d.hasClaim ? 'text-destructive font-medium' : 'text-muted-foreground'}>
@@ -264,7 +293,7 @@ function ReviewStep({ preview, onConfirm, onCancel, loading }) {
 
       <div className="flex gap-3 pt-2">
         <Button
-          onClick={onConfirm}
+          onClick={() => onConfirm(selectedDeactivateIds)}
           disabled={loading || hasAmbiguous || summaryParts.length === 0}
         >
           {loading ? 'Importing…' : 'Confirm Import'}
@@ -317,10 +346,14 @@ export default function RosterImportPage() {
     setStep(2)
   }
 
-  async function handleConfirm() {
+  async function handleConfirm(deactivateIds) {
     setConfirming(true)
     try {
-      const res = await adminFetch(`/api/admin/roster-import/${sessionId}/commit`, { method: 'POST' })
+      const res = await adminFetch(`/api/admin/roster-import/${sessionId}/commit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deactivateIds }),
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Commit failed')
       setSummary(data)

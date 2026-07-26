@@ -22,6 +22,8 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Button } from '@/components/ui/button'
+import { usePopup } from '@/context/PopupContext'
+import AddRosterRecordPopup from '@/components/popup-forms/AddRosterRecordPopup'
 
 const PAGE_SIZE = 50
 
@@ -48,14 +50,15 @@ function statusVariant(status) {
 }
 
 export default function RosterPage() {
+  const { openPopup } = usePopup()
   const [members, setMembers]   = useState([])
   const [loading, setLoading]   = useState(true)
   const [search, setSearch]     = useState('')
   const [activeFilter, setActiveFilter] = useState('active') // 'active' | 'inactive' | 'registered' | 'all'
   const [page, setPage]         = useState(1)
 
-  useEffect(() => {
-    getDocs(collection(db, 'members'))
+  function fetchMembers() {
+    return getDocs(collection(db, 'members'))
       .then(snap => {
         const rows = snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
@@ -67,6 +70,10 @@ export default function RosterPage() {
       })
       .catch(err => console.error('[roster]', err))
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    fetchMembers()
   }, [])
 
   const filtered = useMemo(() => {
@@ -117,11 +124,19 @@ export default function RosterPage() {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-xl font-semibold">Roster</h3>
-            {!loading && (
-              <span className="text-sm text-muted-foreground">
-                {filtered.length.toLocaleString()} of {members.length.toLocaleString()} members
-              </span>
-            )}
+            <div className="flex items-center gap-3">
+              {!loading && (
+                <span className="text-sm text-muted-foreground">
+                  {filtered.length.toLocaleString()} of {members.length.toLocaleString()} members
+                </span>
+              )}
+              <Button
+                size="sm"
+                onClick={() => openPopup('Add roster record', <AddRosterRecordPopup onSaved={fetchMembers} />)}
+              >
+                Add
+              </Button>
+            </div>
           </div>
 
           {/* Controls */}

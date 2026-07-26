@@ -1,6 +1,6 @@
 'use client';
 import { auth, db, storage } from '@/lib/firebaseClient';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, updateEmail } from 'firebase/auth';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { doc, getDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { logEvent } from '@/lib/activityLog';
@@ -215,6 +215,84 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  // Both the email and password change routes mutate Firebase Auth via the Admin SDK
+  // server-side (never the client updateEmail/updatePassword calls) — Firebase's
+  // client-side email change can require verifyBeforeUpdateEmail depending on project
+  // settings, which sends a verification email through Firebase's own mailer instead of
+  // Resend. The client reauthenticates for immediate UX feedback, but the server route
+  // independently re-verifies currentPassword before mutating anything — a stolen/valid
+  // ID token alone isn't accepted as proof of current-password knowledge.
+  const changeEmail = async (currentPassword, newEmail) => {
+    setIsLoading(true)
+    try {
+      // Reauth against `user.email` (this context's own state), not auth.currentUser.email —
+      // the Admin SDK email change below never touches the client SDK's cached user object,
+      // so auth.currentUser.email goes stale the moment an email change succeeds and would
+      // break reauth on any subsequent change within the same session.
+      const credential = EmailAuthProvider.credential(user?.email, currentPassword)
+      await reauthenticateWithCredential(auth.currentUser, credential)
+
+      const token = await auth.currentUser.getIdToken()
+      const res = await fetch('/api/account/update-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ newEmail, currentPassword }),
+      })
+      const data = await res.json()
+      if (!data.ok) throw new Error(data.error || 'Could not update email')
+
+      setUser(prev => ({ ...prev, email: newEmail }))
+      toast.success('Email updated successfully')
+      logEvent({
+        type: 'user.email_updated',
+        message: `Email updated: ${user?.fullname || auth.currentUser.uid}`,
+        userId: auth.currentUser.uid,
+        userName: user?.fullname,
+        mhspNumber: user?.mhspNumber,
+      }).catch(() => {})
+      return { ok: true }
+    } catch (error) {
+      const wrongPassword = ['auth/wrong-password', 'auth/invalid-credential'].includes(error.code)
+      toast.error(wrongPassword ? 'Current password is incorrect.' : (error.message || 'Could not update email'))
+      return { ok: false }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const changePassword = async (currentPassword, newPassword) => {
+    setIsLoading(true)
+    try {
+      const credential = EmailAuthProvider.credential(user?.email, currentPassword)
+      await reauthenticateWithCredential(auth.currentUser, credential)
+
+      const token = await auth.currentUser.getIdToken()
+      const res = await fetch('/api/account/update-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ newPassword, currentPassword }),
+      })
+      const data = await res.json()
+      if (!data.ok) throw new Error(data.error || 'Could not update password')
+
+      toast.success('Password updated successfully')
+      logEvent({
+        type: 'user.password_updated',
+        message: `Password updated: ${user?.fullname || auth.currentUser.uid}`,
+        userId: auth.currentUser.uid,
+        userName: user?.fullname,
+        mhspNumber: user?.mhspNumber,
+      }).catch(() => {})
+      return { ok: true }
+    } catch (error) {
+      const wrongPassword = ['auth/wrong-password', 'auth/invalid-credential'].includes(error.code)
+      toast.error(wrongPassword ? 'Current password is incorrect.' : (error.message || 'Could not update password'))
+      return { ok: false }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const uploadPhoto = async (file) => {
     if (!file.type.startsWith('image/')) {
       toast.error('File must be an image.')
@@ -285,7 +363,7 @@ export const AuthProvider = ({ children }) => {
 
 
   return (
-    <AuthContext.Provider value={{ isLoading, user, verifyMembership, verifyRegistrationCode, completeRegistration, loginUser , updateProfile , logOut, uploadPhoto, resetPassword, suspendedMessage }}>
+    <AuthContext.Provider value={{ isLoading, user, verifyMembership, verifyRegistrationCode, completeRegistration, loginUser , updateProfile , logOut, uploadPhoto, resetPassword, changeEmail, changePassword, suspendedMessage }}>
       {children}
     </AuthContext.Provider>
   );

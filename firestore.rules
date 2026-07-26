@@ -64,7 +64,7 @@ service cloud.firestore {
             || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['available_seats', 'passengers']));
       allow delete: if request.auth != null
         && !isSuspended()
-        && resource.data.driverId == request.auth.uid;
+        && (resource.data.driverId == request.auth.uid || isAdmin());
     }
 
     // Bookings: readable by passenger, driver, or admin; writable by passenger or driver (unless suspended)

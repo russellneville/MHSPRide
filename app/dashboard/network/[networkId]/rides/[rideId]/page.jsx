@@ -268,10 +268,12 @@ export default function RidePage() {
                         {rideData.passengers.map((p, i) => (
                           <li
                             key={i}
-                            className="border rounded-lg p-2 hover:bg-accent transition"
+                            className="border rounded-lg p-2 hover:bg-accent transition flex items-start gap-2"
                           >
+                            <UserAvatar user={p} size="sm" className="mt-0.5" />
+                            <div>
                               <p className="font-medium text-foreground">
-                                {p.fullname}
+                                {p.fullname || "Unknown"}
                               </p>
                               <p className="flex items-center gap-1">
                                 <Mail className="size-3" /> {p.email}
@@ -293,7 +295,7 @@ export default function RidePage() {
                                 Status : {" "}
                                 {<Badge variant={p.status}>{p.status}</Badge>}
                               </p>
-                            
+                            </div>
                           </li>
                         ))}
                       </ul>

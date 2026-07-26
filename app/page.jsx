@@ -11,8 +11,9 @@ import {
   ShieldCheck,
   Users,
 } from "lucide-react";
+import { NETWORKS } from "@/lib/networks";
 
-const networks = ["Hill Patrol", "Mountain Hosts", "Nordic"];
+const networks = NETWORKS.map(n => n.name);
 
 const highlights = [
   "Coordinate carpool rides to Mount Hood in seconds",

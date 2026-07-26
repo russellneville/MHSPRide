@@ -2,6 +2,7 @@
 import DashboardLayout from '@/app/dashboard/dashboardLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { NETWORKS } from '@/lib/networks'
 
 function QA({ q, children }) {
   return (
@@ -27,8 +28,8 @@ export default function FaqPage() {
           <CardContent className="space-y-4 pt-6">
             <QA q="What is MHSPRide?">
               MHSPRide connects Mount Hood Ski Patrol volunteers for carpooling to and from the mountain.
-              It's organized around three networks — Hill Patrol, Mountain Hosts, and Nordic — each with its
-              own pool of offered rides. You can join one or more networks under Book/Offer Rides.
+              It's organized around {NETWORKS.length} networks — {NETWORKS.map(n => n.name).join(', ')} — each with its
+              own pool of offered rides. Favorite the networks you want to see on your dashboard; you can change your favorites anytime.
             </QA>
           </CardContent>
         </Card>

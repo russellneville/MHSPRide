@@ -38,20 +38,13 @@ service cloud.firestore {
             .hasAny(['role', 'mhspNumber', 'created_at', 'suspended', 'email']);
     }
 
-    // Networks: readable by any authenticated, non-suspended user. Admins can update
-    // anything (director-managed status changes etc). Non-admins can only join
-    // themselves — passengersIds must equal the existing array with exactly their
-    // own uid appended, and passengers must grow by exactly one entry — so a member
-    // can't rewrite other members' entries or unrelated network metadata.
-    // No client-side creates or deletes.
+    // Networks: legacy membership docs. The app now treats networks as fixed
+    // categories (lib/networks.js) with per-user favorites on users/{uid}, so
+    // nothing client-side writes these anymore — admin-only, read allowed for
+    // any authenticated, non-suspended user.
     match /networks/{networkId} {
       allow read: if request.auth != null && !isSuspended();
-      allow update: if isAdmin()
-        || (request.auth != null
-            && !isSuspended()
-            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['passengersIds', 'passengers'])
-            && request.resource.data.passengersIds == resource.data.passengersIds.concat([request.auth.uid])
-            && request.resource.data.passengers.size() == resource.data.passengers.size() + 1);
+      allow update: if isAdmin();
       allow create, delete: if false;
     }
 

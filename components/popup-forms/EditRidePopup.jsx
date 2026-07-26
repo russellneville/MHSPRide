@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Label } from "../ui/label"
 import { Input } from "../ui/input"
+import TimeInput from "../ui/time-input"
 import DatePicker from "../ui/date-picker"
 import { usePopup } from "@/context/PopupContext"
 import { useNetwork } from "@/context/NetworksContext"
@@ -185,14 +186,14 @@ export default function EditRidePopup({ ride, onSaved }) {
           </div>
           <div className="flex-1 space-y-1">
             <Label htmlFor="departure_time">Departure time</Label>
-            <Input type="time" id="departure_time" onChange={handleChange} value={rideData.departure_time} />
+            <TimeInput id="departure_time" onChange={handleChange} value={rideData.departure_time} />
             {validationError.departure_time && <p className="text-red-500 text-sm">{validationError.departure_time}</p>}
           </div>
         </div>
 
         <div className="space-y-1">
           <Label htmlFor="arrival_time">Arrival time</Label>
-          <Input type="time" id="arrival_time" onChange={handleChange} value={rideData.arrival_time} />
+          <TimeInput id="arrival_time" onChange={handleChange} value={rideData.arrival_time} />
         </div>
       </div>
 
@@ -208,7 +209,7 @@ export default function EditRidePopup({ ride, onSaved }) {
         {!oneWay && (
           <div className="space-y-1">
             <Label htmlFor="return_departure_time">Return departure time</Label>
-            <Input type="time" id="return_departure_time" onChange={handleChange} value={rideData.return_departure_time} />
+            <TimeInput id="return_departure_time" onChange={handleChange} value={rideData.return_departure_time} />
             {validationError.return_departure_time && <p className="text-red-500 text-sm">{validationError.return_departure_time}</p>}
           </div>
         )}

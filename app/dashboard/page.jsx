@@ -11,28 +11,30 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { AlertTriangle, Car, ChevronDown, ChevronRight, Clock, Info, MapPin, MoveRight, Navigation, Plus, Search, X } from "lucide-react"
+import { AlertTriangle, ArrowDown, ArrowUp, Car, ChevronDown, ChevronLeft, ChevronRight, Clock, Info, MapPin, MoveRight, Navigation, Plus, X } from "lucide-react"
 import Link from "next/link"
 import UserAvatar from "@/components/ui/user-avatar"
 import { Skeleton } from "@/components/ui/skeleton"
 import OfferRidePopup from "@/components/popup-forms/OfferRidePopup"
+import AddFavoritePopup from "@/components/popup-forms/AddFavoritePopup"
 import RideRowCard from "@/components/cards/ride-row-card"
+import NetworkRideCard from "@/components/cards/network-ride-card"
 import { resolveLocation } from "@/lib/locations"
+import { computeRideStatus } from "@/lib/rides"
+import { NETWORKS, NETWORK_IDS, networkName, defaultFavoritesFor } from "@/lib/networks"
 
-const KNOWN_NETWORKS = [
-  { id: "network-HILLPATROL",    name: "Hill Patrol" },
-  { id: "network-MOUNTAINHOSTS", name: "Mountain Hosts" },
-  { id: "network-NORDIC",        name: "Nordic" },
-]
-
-const PAGE_SIZE = 25
+const PAGE_SIZE = 10
 
 function normalizeStatus(s) {
   return s === 'cancled' ? 'canceled' : (s || '—')
 }
 
+function rideNetworkId(r) {
+  return r.network_id || r.networkId
+}
+
 function rideHref(r) {
-  const networkId = r.network_id || r.networkId
+  const networkId = rideNetworkId(r)
   const rideId = r._type === 'offered' ? r.id : r.ride_id
   return networkId && rideId ? `/dashboard/network/${networkId}/rides/${rideId}` : null
 }
@@ -49,35 +51,79 @@ function seatsText(r) {
     : `${r.booked_seats || 1} seat${(r.booked_seats || 1) !== 1 ? 's' : ''}`
 }
 
+// Clamps a raw page index to a valid range and slices `items` into that page.
+// Returns the clamped page alongside the slice so callers can drive a Pager
+// without a page ever pointing past the end of a list that's since shrunk.
+function paginate(items, rawPage) {
+  const pageCount = Math.max(1, Math.ceil(items.length / PAGE_SIZE))
+  const page = Math.min(rawPage, pageCount - 1)
+  return { page, pageCount, paged: items.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE) }
+}
+
+function Pager({ page, pageCount, onPrev, onNext }) {
+  if (pageCount <= 1) return null
+  return (
+    <div className="flex items-center gap-3 text-sm">
+      <Button variant="outline" size="sm" disabled={page === 0} onClick={onPrev}>
+        <ChevronLeft className="size-3.5 mr-1" /> Previous
+      </Button>
+      <span className="text-muted-foreground">Page {page + 1} of {pageCount}</span>
+      <Button variant="outline" size="sm" disabled={page >= pageCount - 1} onClick={onNext}>
+        Next <ChevronRight className="size-3.5 ml-1" />
+      </Button>
+    </div>
+  )
+}
+
 export default function Dashboard() {
-  const { getRides, getBookings, getNetworkList, dismissRideUpdate } = useNetwork()
+  const { getRides, getBookings, getRidesByNetworkId, saveFavorites, dismissRideUpdate } = useNetwork()
   const router = useRouter()
   const { user } = useAuth()
   const { openPopup, isOpen } = usePopup()
   const [rides, setRides] = useState([])
   const [bookings, setBookings] = useState([])
-  const [joinedNetworks, setJoinedNetworks] = useState([])
+  const [networkRides, setNetworkRides] = useState(null)
   const [loaded, setLoaded] = useState(false)
   const [pastPage, setPastPage] = useState(0)
   const [pastOpen, setPastOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState({})
+  const [scheduledPage, setScheduledPage] = useState(0)
+  const [availablePages, setAvailablePages] = useState({})
   const fetchDataRef = useRef(null)
+  const migratedRef = useRef(false)
+
+  // Ordered favorites from the live user doc, restricted to known networks
+  const favorites = (Array.isArray(user?.favorite_networks) ? user.favorite_networks : [])
+    .filter(id => NETWORK_IDS.includes(id))
+
+  // Lazy migration: users from before favorites existed (or who somehow have
+  // none) get defaults from their roster classifications, else all networks.
+  useEffect(() => {
+    if (!user || favorites.length > 0 || migratedRef.current) return
+    migratedRef.current = true
+    const defaults = defaultFavoritesFor(user.classifications)
+    saveFavorites(defaults.length > 0 ? defaults : NETWORK_IDS)
+  }, [user, favorites.length])
 
   useEffect(() => {
     if (!user) return
     let cancelled = false
     const fetchData = async () => {
-      const [rideData, bookingData, netList] = await Promise.all([getRides(), getBookings(), getNetworkList()])
+      const [rideData, bookingData, ...networkLists] = await Promise.all([
+        getRides(),
+        getBookings(),
+        ...favorites.map(id => getRidesByNetworkId(id)),
+      ])
       if (cancelled) return
       setRides(rideData || [])
       setBookings(bookingData || [])
-      const ids = new Set((netList || []).map(n => n.id))
-      setJoinedNetworks(KNOWN_NETWORKS.filter(n => ids.has(n.id)))
+      setNetworkRides(Object.fromEntries(favorites.map((id, i) => [id, networkLists[i] || []])))
       setLoaded(true)
     }
     fetchDataRef.current = fetchData
     fetchData()
     return () => { cancelled = true }
-  }, [user, isOpen])
+  }, [user, isOpen, favorites.join(',')])
 
   // Refresh when the tab regains focus (e.g. after booking a ride on the detail page)
   useEffect(() => {
@@ -139,10 +185,46 @@ export default function Dashboard() {
       `${b.departure_date}${b.departure_time}`.localeCompare(`${a.departure_date}${a.departure_time}`)
     )
 
-  const pastPageCount = Math.ceil(past.length / PAGE_SIZE)
-  const pagedPast = past.slice(pastPage * PAGE_SIZE, (pastPage + 1) * PAGE_SIZE)
+  const { page: effectivePastPage, pageCount: pastPageCount, paged: pagedPast } = paginate(past, pastPage)
+
+  const { page: effectiveScheduledPage, pageCount: scheduledPageCount, paged: pagedUpcoming } = paginate(upcoming, scheduledPage)
+
+  // Rides someone else offers that this user could book: open/full, upcoming,
+  // not their own offer, not already actively booked (those sit in Scheduled).
+  const activeBookedRideIds = new Set(
+    dedupedBookings.filter(b => !isCanceled({ ...b, _type: 'booked' })).map(b => b.ride_id)
+  )
+  const availableByNetwork = Object.fromEntries(favorites.map(id => [
+    id,
+    (networkRides?.[id] || [])
+      .map(r => ({ ...r, _status: computeRideStatus(r) }))
+      .filter(r =>
+        (r._status === 'open' || r._status === 'full') &&
+        r.driverId !== user?.uid &&
+        !activeBookedRideIds.has(r.id)
+      )
+      .sort((a, b) =>
+        `${a.departure_date}${a.departure_time}`.localeCompare(`${b.departure_date}${b.departure_time}`)
+      ),
+  ]))
+
+  const toggleSection = (key) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
+
+  const moveFavorite = (id, dir) => {
+    const i = favorites.indexOf(id)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= favorites.length) return
+    const next = [...favorites]
+    ;[next[i], next[j]] = [next[j], next[i]]
+    saveFavorites(next)
+  }
+
+  const unfavorite = (id) => {
+    if (favorites.length > 1) saveFavorites(favorites.filter(f => f !== id))
+  }
 
   const openOffer = (networkId) => openPopup('Offer ride', <OfferRidePopup networkId={networkId} />)
+  const openAddFavorite = () => openPopup('Add favorite network', <AddFavoritePopup favorites={favorites} />)
 
   const banner = (
     <div
@@ -160,38 +242,24 @@ export default function Dashboard() {
   )
 
   const headerActions = (
-    <div className="flex items-center gap-2">
-      <Button variant="outline" size="sm" asChild>
-        <Link href={joinedNetworks.length === 1 ? `/dashboard/network/${joinedNetworks[0].id}` : "/dashboard/networks"}>
-          <Search className="size-4 mr-1" /> Book Ride
-        </Link>
-      </Button>
-      {joinedNetworks.length === 1 && (
-        <Button size="sm" onClick={() => openOffer(joinedNetworks[0].id)}>
-          <Plus className="size-4 mr-1" /> Offer Ride
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button size="sm">
+          <Plus className="size-4 mr-1" /> Offer Ride <ChevronDown className="size-3.5 ml-1" />
         </Button>
-      )}
-      {joinedNetworks.length > 1 && (
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button size="sm">
-              <Plus className="size-4 mr-1" /> Offer Ride <ChevronDown className="size-3.5 ml-1" />
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-48 p-1" align="end">
-            {joinedNetworks.map(net => (
-              <button
-                key={net.id}
-                className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
-                onClick={() => openOffer(net.id)}
-              >
-                {net.name}
-              </button>
-            ))}
-          </PopoverContent>
-        </Popover>
-      )}
-    </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-48 p-1" align="end">
+        {NETWORKS.map(net => (
+          <button
+            key={net.id}
+            className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
+            onClick={() => openOffer(net.id)}
+          >
+            {net.name}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
   )
 
   return (
@@ -216,23 +284,27 @@ export default function Dashboard() {
           </section>
         )}
 
-        {/* ── Upcoming Rides ──────────────────────────────── */}
-        <section className="space-y-3">
-          <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Upcoming Rides {upcoming.length > 0 && <span className="text-foreground ml-1">({upcoming.length})</span>}
-          </h4>
-          {!loaded ? (
+        {/* ── Scheduled Rides ─────────────────────────────── */}
+        <section className="space-y-3 rounded-lg border border-border bg-muted/45 dark:bg-[oklch(0.39_0_0)] p-3">
+          <button
+            className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => toggleSection('scheduled')}
+          >
+            {collapsed['scheduled'] ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+            Scheduled Rides {upcoming.length > 0 && <span className="text-foreground ml-1">({upcoming.length})</span>}
+          </button>
+          {!collapsed['scheduled'] && (!loaded ? (
             <div className="space-y-2">
               <Skeleton className="h-9 w-full" />
               <Skeleton className="h-9 w-full" />
               <Skeleton className="h-9 w-full" />
             </div>
           ) : upcoming.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No upcoming rides. <Link href="/dashboard/networks" className="text-primary underline">Browse your networks</Link> to offer or book one.</p>
+            <p className="text-sm text-muted-foreground">No scheduled rides. Book one from the available rides below, or offer a ride.</p>
           ) : (<>
             {/* Mobile cards */}
             <div className="space-y-2 md:hidden">
-              {upcoming.map((r, i) => (
+              {pagedUpcoming.map((r, i) => (
                 <RideRowCard
                   key={i}
                   departure={r.departure}
@@ -244,6 +316,7 @@ export default function Dashboard() {
                   )}
                   badges={<>
                     {typeBadge(r)}
+                    <Badge variant="outline">{networkName(rideNetworkId(r))}</Badge>
                     <Badge variant="outline">{seatsText(r)}</Badge>
                   </>}
                   onClick={rideHref(r) ? () => router.push(rideHref(r)) : undefined}
@@ -258,12 +331,13 @@ export default function Dashboard() {
                     <TableHead>Type</TableHead>
                     <TableHead>Date &amp; Time</TableHead>
                     <TableHead>Route</TableHead>
+                    <TableHead>Network</TableHead>
                     <TableHead>Return</TableHead>
                     <TableHead>Seats</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {upcoming.map((r, i) => {
+                  {pagedUpcoming.map((r, i) => {
                     const href = rideHref(r)
                     return (
                       <TableRow
@@ -274,6 +348,7 @@ export default function Dashboard() {
                         <TableCell>{typeBadge(r)}</TableCell>
                         <TableCell className="whitespace-nowrap">{formatDate(r.departure_date)} at {formatTime(r.departure_time)}</TableCell>
                         <TableCell>{resolveLocation(r.departure)} → {resolveLocation(r.arrival)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{networkName(rideNetworkId(r))}</TableCell>
                         <TableCell>{formatTime(r.return_departure_time)}</TableCell>
                         <TableCell className="whitespace-nowrap">{seatsText(r)}</TableCell>
                       </TableRow>
@@ -282,7 +357,99 @@ export default function Dashboard() {
                 </TableBody>
               </Table>
             </div>
-          </>)}
+            <Pager
+              page={effectiveScheduledPage}
+              pageCount={scheduledPageCount}
+              onPrev={() => setScheduledPage(p => p - 1)}
+              onNext={() => setScheduledPage(p => p + 1)}
+            />
+          </>))}
+        </section>
+
+        {/* ── Available Rides ─────────────────────────────── */}
+        <section className="space-y-5">
+          <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Available Rides</h4>
+
+          {networkRides === null ? (
+            <div className="space-y-2">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+            </div>
+          ) : (
+            favorites.map((id, idx) => {
+              const available = availableByNetwork[id] || []
+              const { page: availPage, pageCount: availPageCount, paged: pagedAvailable } = paginate(available, availablePages[id] || 0)
+              const setAvailPage = (updater) => setAvailablePages(prev => ({ ...prev, [id]: updater(prev[id] || 0) }))
+              return (
+                <div key={id} className="space-y-2 rounded-lg border border-border bg-muted/45 dark:bg-[oklch(0.39_0_0)] p-3">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      className="flex items-center gap-2 font-semibold hover:text-primary transition-colors"
+                      onClick={() => toggleSection(id)}
+                    >
+                      {collapsed[id] ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+                      {networkName(id)}
+                      {available.length > 0 && <span className="text-muted-foreground font-normal">({available.length})</span>}
+                    </button>
+                    <div className="flex items-center gap-1 ml-auto">
+                      {favorites.length > 1 && (
+                        <button
+                          className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors mr-1"
+                          onClick={() => unfavorite(id)}
+                        >
+                          unfavorite
+                        </button>
+                      )}
+                      <Button
+                        variant="ghost" size="icon" className="size-7"
+                        disabled={idx === 0}
+                        onClick={() => moveFavorite(id, -1)}
+                        aria-label={`Move ${networkName(id)} up`}
+                      >
+                        <ArrowUp className="size-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost" size="icon" className="size-7"
+                        disabled={idx === favorites.length - 1}
+                        onClick={() => moveFavorite(id, 1)}
+                        aria-label={`Move ${networkName(id)} down`}
+                      >
+                        <ArrowDown className="size-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  {!collapsed[id] && (
+                    available.length === 0 ? (
+                      <Card>
+                        <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                          No rides available. Be the first to{' '}
+                          <button className="text-primary underline" onClick={() => openOffer(id)}>
+                            offer one
+                          </button>.
+                        </CardContent>
+                      </Card>
+                    ) : (<>
+                      {pagedAvailable.map(ride => (
+                        <NetworkRideCard key={ride.id} ride={ride} networkId={id} />
+                      ))}
+                      <Pager
+                        page={availPage}
+                        pageCount={availPageCount}
+                        onPrev={() => setAvailPage(p => p - 1)}
+                        onNext={() => setAvailPage(p => p + 1)}
+                      />
+                    </>)
+                  )}
+                </div>
+              )
+            })
+          )}
+
+          {favorites.length > 0 && favorites.length < NETWORKS.length && (
+            <Button variant="outline" size="sm" onClick={openAddFavorite}>
+              <Plus className="size-4 mr-1" /> Add favorite
+            </Button>
+          )}
         </section>
 
         {/* ── Past Rides ──────────────────────────────────── */}
@@ -342,17 +509,12 @@ export default function Dashboard() {
                   </TableBody>
                 </Table>
               </div>
-              {pastPageCount > 1 && (
-                <div className="flex items-center gap-3 text-sm">
-                  <Button variant="outline" size="sm" disabled={pastPage === 0} onClick={() => setPastPage(p => p - 1)}>
-                    Previous
-                  </Button>
-                  <span className="text-muted-foreground">Page {pastPage + 1} of {pastPageCount}</span>
-                  <Button variant="outline" size="sm" disabled={pastPage >= pastPageCount - 1} onClick={() => setPastPage(p => p + 1)}>
-                    Next
-                  </Button>
-                </div>
-              )}
+              <Pager
+                page={effectivePastPage}
+                pageCount={pastPageCount}
+                onPrev={() => setPastPage(p => p - 1)}
+                onNext={() => setPastPage(p => p + 1)}
+              />
             </>}
           </section>
         )}

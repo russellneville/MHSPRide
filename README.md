@@ -19,12 +19,12 @@ MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and ho
 ## What it does
 
 - **Offer rides** — post departure time, pickup location, seat count, return time, and notes
-- **Book rides** — browse upcoming rides in your network, reserve seats instantly; bookings close 6 hours before departure
-- **Three communities** — Hill Patrol, Mountain Hosts, and Nordic each have their own ride pool
+- **Book rides** — available rides are listed right on the dashboard, grouped by favorited network; reserve seats instantly, bookings close 6 hours before departure
+- **Four communities** — Hill Patrol, Mountain Hosts, Nordic, and Mountain Biking each have their own ride pool. Users favorite networks (rather than "joining" them) to control which pools show on their dashboard; defaults come from their Troopiter roster classification, and favorites can be reordered or changed anytime from the dashboard
 - **Smart arrival time** — auto-filled from a pre-computed drive-time matrix for all pickup/destination pairs
 - **Ride management** — drivers can edit or cancel rides; canceling a ride cancels every booking tied to it and notifies each passenger by email
 - **Cancellation with reason** — canceling a booking or a ride (rider or driver, self-service) always prompts for a free-text reason first, which is included in the cancellation email(s) and the activity log. Cancellation is never blocked outright — but if a rider cancels within 12 hours of departure, they're shown a one-button warning to call or text the driver directly before it goes through
-- **Dashboard** — see today's rides at a glance, upcoming rides, and a paginated ride history
+- **Dashboard** — the single home screen: today's rides at a glance, scheduled rides (offered + booked), available rides per favorited network, and ride history — each list paginated 10/page with Previous/Next controls
 - **FAQ** — a Riders/Drivers reference covering the site's actual business rules (booking cutoff, cancellation policy, how ride status and arrival times are calculated, etc.); shown right after the onboarding wizard completes, and always reachable from the sidebar afterward
 - **Email notifications** — registration verification codes and welcome email, booking receipts, ride change notices, and cancellations via Resend
 - **Admin panel** — user management, ride oversight, booking management, activity log, and leaderboard reports
@@ -149,7 +149,7 @@ node scripts/migrateDirectorToAdmin.mjs
 
 The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuspended()` helpers, and rules for `users`, `members`, `rides`, `networks`, `bookings`, `activity_log`, `rate_limits`, `registration_verifications`). `firebase.json`/`.firebaserc` link this directory to the `mhspride` project, so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months, including the admin Users page's role-change/suspend actions, which the deployed `users` rule was actually rejecting the whole time; that write path now goes through `app/api/admin/update-user` — Admin SDK, `verifyAdminRequest`-gated — instead of a client Firestore write).
 
-Non-owner updates to `rides` and `networks` are scoped to only the fields booking/joining actually needs (`available_seats`/`passengers` on rides; a validated self-join — append-only, one new entry — on networks), not a blanket "any authenticated user can rewrite the whole document."
+Non-owner updates to `rides` are scoped to only the fields booking actually needs (`available_seats`/`passengers`), not a blanket "any authenticated user can rewrite the whole document." `networks` docs are legacy membership records — the app now treats networks as fixed categories (`lib/networks.js`) with per-user favorites stored on `users/{uid}.favorite_networks`, so network docs are admin-write-only.
 
 `members` is admin-read-only — registration no longer reads it from the client at all. The whole membership-verification/code/account-creation flow runs server-side through `app/api/register/verify-membership`, `verify-code`, and `complete` (Admin SDK), so there's no client path that can enumerate or read roster data pre-signup.
 
@@ -234,9 +234,7 @@ MHSPRide/
 │   ├── api/                    # Server-side API routes (email, admin actions)
 │   └── dashboard/              # Protected dashboard pages
 │       ├── admin/              # Admin-only pages (users, rides, bookings, logs, feedback, reports)
-│       ├── network/[networkId]/ # Network detail, ride list, ride detail, members
-│       ├── rides/              # My Offered Rides
-│       ├── bookings/           # My Booked Rides
+│       ├── network/[networkId]/ # Network ride list (with filters), ride detail
 │       ├── profile/            # User profile
 │       ├── onboarding/         # First-login wizard
 │       └── faq/                # Riders/Drivers FAQ — lands here right after onboarding
@@ -250,6 +248,7 @@ MHSPRide/
 │   ├── AuthContext.jsx         # Auth state, profile updates
 │   └── NetworksContext.jsx     # All Firestore ride/booking/network operations
 ├── lib/
+│   ├── networks.js             # Fixed network list + classification→default-favorite mapping
 │   ├── locations.js            # Pickup locations + arrival destinations with coordinates
 │   ├── drive-times.js          # Static drive-time matrix (minutes, no traffic)
 │   ├── activityLog.js          # logEvent() utility — writes to activity_log collection

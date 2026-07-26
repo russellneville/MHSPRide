@@ -61,7 +61,7 @@ export default function RidePage() {
 
 
   const fetchRide = async () => {
-    const data = await getRide(rideId, networkId);
+    const data = await getRide(rideId);
     setRideData(data);
     setRideLoaded(true);
   };
@@ -430,10 +430,10 @@ export default function RidePage() {
                       )}
 
                       <Link
-                        href="/dashboard/bookings"
+                        href="/dashboard"
                         className="inline-flex items-center justify-center w-full text-sm font-medium rounded-md border border-border px-3 py-2 hover:bg-accent transition-colors"
                       >
-                        View My Booked Rides
+                        View My Scheduled Rides
                       </Link>
                       </>
                     ) : canBookRide(rideData) ? (

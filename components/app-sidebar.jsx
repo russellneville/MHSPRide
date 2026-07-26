@@ -5,6 +5,7 @@ import {
   Activity,
   BarChart2,
   Car,
+  HelpCircle,
   Home,
   List,
   Mail,
@@ -57,6 +58,7 @@ export function AppSidebar({ user, ...props }) {
     { name: "My Offered Rides", icon: Waypoints, href: "/dashboard/rides" },
     { name: "Book/Offer Rides", icon: Users, href: "/dashboard/networks" },
     { name: "Profile", icon: User, href: "/dashboard/profile" },
+    { name: "FAQ", icon: HelpCircle, href: "/dashboard/faq" },
   ]
 
   const [unrespondedFeedbackCount, setUnrespondedFeedbackCount] = useState(0)

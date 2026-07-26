@@ -89,13 +89,11 @@ export default function FaqPage() {
             </QA>
             <QA q="What happens when I cancel a ride?">
               Canceling a ride cancels every booking on it. You'll be asked for a cancellation reason, and
-              every booked rider gets a cancellation email that includes it. Unlike a rider canceling their
-              own seat, there's no separate short-notice step for drivers — a ride can have multiple riders,
-              so there's no single "other party" to call.
+              every booked rider gets a cancellation email that includes it.
             </QA>
             <QA q="Does anyone approve or manage my ride's status?">
               No. Whether a ride shows as Not Started, In Progress, or Completed is calculated automatically
-              from its scheduled times — you don't need to (and can't) mark it manually.
+              from its scheduled times — you don't need to mark it manually.
             </QA>
             <QA q="What vehicle information do riders see?">
               Whatever you've filled in on your profile — make, model, year, color, license plate, and seat

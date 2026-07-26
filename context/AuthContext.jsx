@@ -216,10 +216,12 @@ export const AuthProvider = ({ children }) => {
   }
 
   // Both the email and password change routes mutate Firebase Auth via the Admin SDK
-  // server-side (never the client updateEmail/updatePassword calls) — the client only
-  // reauthenticates to prove the current password, since Firebase's client-side email
-  // change can require verifyBeforeUpdateEmail depending on project settings, which
-  // sends a verification email through Firebase's own mailer instead of Resend.
+  // server-side (never the client updateEmail/updatePassword calls) — Firebase's
+  // client-side email change can require verifyBeforeUpdateEmail depending on project
+  // settings, which sends a verification email through Firebase's own mailer instead of
+  // Resend. The client reauthenticates for immediate UX feedback, but the server route
+  // independently re-verifies currentPassword before mutating anything — a stolen/valid
+  // ID token alone isn't accepted as proof of current-password knowledge.
   const changeEmail = async (currentPassword, newEmail) => {
     setIsLoading(true)
     try {
@@ -234,7 +236,7 @@ export const AuthProvider = ({ children }) => {
       const res = await fetch('/api/account/update-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ newEmail }),
+        body: JSON.stringify({ newEmail, currentPassword }),
       })
       const data = await res.json()
       if (!data.ok) throw new Error(data.error || 'Could not update email')
@@ -268,7 +270,7 @@ export const AuthProvider = ({ children }) => {
       const res = await fetch('/api/account/update-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ newPassword }),
+        body: JSON.stringify({ newPassword, currentPassword }),
       })
       const data = await res.json()
       if (!data.ok) throw new Error(data.error || 'Could not update password')

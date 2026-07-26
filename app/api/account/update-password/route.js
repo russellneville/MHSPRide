@@ -1,21 +1,28 @@
 import { NextResponse } from 'next/server'
-import { verifyAuthRequest } from '@/lib/adminAuth'
+import { verifyAuthRequest, verifyCurrentPassword } from '@/lib/adminAuth'
 import { getAdminAuth } from '@/lib/firebaseAdmin'
 
-// Goes through the Admin SDK — the client already proved the current password via
-// reauthenticateWithCredential before calling this route.
+// Goes through the Admin SDK. A valid ID token alone only proves an active session, not
+// that the caller just reauthenticated — the client-side reauth is a UX nicety a stolen
+// token would skip entirely, so currentPassword is independently verified here first.
 export async function POST(request) {
   const auth = await verifyAuthRequest(request)
   if (auth.error) return auth.error
 
-  const { newPassword } = await request.json()
+  const { newPassword, currentPassword } = await request.json()
 
   if (!newPassword || newPassword.length < 8) {
     return NextResponse.json({ ok: false, error: 'Password must be at least 8 characters.' }, { status: 400 })
   }
 
+  const adminAuth = getAdminAuth()
+  const currentUser = await adminAuth.getUser(auth.uid)
+  if (!(await verifyCurrentPassword(currentUser.email, currentPassword))) {
+    return NextResponse.json({ ok: false, error: 'Current password is incorrect.' }, { status: 401 })
+  }
+
   try {
-    await getAdminAuth().updateUser(auth.uid, { password: newPassword })
+    await adminAuth.updateUser(auth.uid, { password: newPassword })
   } catch (error) {
     return NextResponse.json({ ok: false, error: 'Could not update password. Please try again.' }, { status: 400 })
   }

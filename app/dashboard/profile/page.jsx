@@ -11,7 +11,7 @@ import { toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import DriverProfile from "@/components/forms/DriverProfile";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Camera, User } from "lucide-react";
 import {
     AlertDialog, AlertDialogContent, AlertDialogDescription,
@@ -295,15 +295,23 @@ export default function ProfilePage (){
         <CardContent>
             <div className="flex items-center justify-between gap-4">
                 <div>
-                    <Label htmlFor="dark-mode-toggle">Dark mode</Label>
-                    <p className="text-muted-foreground text-sm">Switch between light and dark theme.</p>
+                    <Label htmlFor="theme-select">Appearance</Label>
+                    <p className="text-muted-foreground text-sm">Choose how MHSP Ride looks on this device.</p>
                 </div>
-                <Switch
-                    id="dark-mode-toggle"
-                    checked={themeMounted && theme === 'dark'}
-                    onCheckedChange={checked => setTheme(checked ? 'dark' : 'light')}
+                <Select
+                    value={themeMounted ? theme : undefined}
+                    onValueChange={setTheme}
                     disabled={!themeMounted}
-                />
+                >
+                    <SelectTrigger id="theme-select" className="w-40">
+                        <SelectValue placeholder="Select theme" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="light">Light</SelectItem>
+                        <SelectItem value="dark">Dark</SelectItem>
+                        <SelectItem value="system">System</SelectItem>
+                    </SelectContent>
+                </Select>
             </div>
         </CardContent>
        </Card>

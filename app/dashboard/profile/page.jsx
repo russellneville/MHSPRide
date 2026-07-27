@@ -5,11 +5,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@radix-ui/react-label";
 import { Input } from "@/components/ui/input";
 import { useEffect, useRef, useState } from "react";
+import { useTheme } from "next-themes";
 import DatePicker from "@/components/ui/date-picker";
 import { toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import DriverProfile from "@/components/forms/DriverProfile";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Camera, User } from "lucide-react";
 import {
     AlertDialog, AlertDialogContent, AlertDialogDescription,
@@ -19,6 +21,8 @@ import { getPasswordError, PASSWORD_REQUIREMENT_TEXT } from "@/lib/passwordPolic
 
 export default function ProfilePage (){
     const { user , updateProfile , uploadPhoto, isLoading, changeEmail, changePassword, resetPassword } = useAuth()
+    const { theme, setTheme } = useTheme()
+    const [themeMounted, setThemeMounted] = useState(false)
     const [date, setDate] = useState(undefined)
     const [uploading, setUploading] = useState(false)
     const fileInputRef = useRef(null)
@@ -45,6 +49,10 @@ export default function ProfilePage (){
           setEmailValue(user.email || '')
         }
     }, [user]);
+
+    useEffect(() => {
+        setThemeMounted(true)
+    }, []);
 
 
     const handleChange = e =>{
@@ -256,6 +264,28 @@ export default function ProfilePage (){
                         Update Password
                     </Button>
                 </div>
+            </div>
+        </CardContent>
+       </Card>
+
+       <Card className="mt-4">
+        <CardHeader className='!pb-3 border-b border-border'>
+            <CardTitle>
+                Preferences
+            </CardTitle>
+        </CardHeader>
+        <CardContent>
+            <div className="flex items-center justify-between gap-4">
+                <div>
+                    <Label htmlFor="dark-mode-toggle">Dark mode</Label>
+                    <p className="text-muted-foreground text-sm">Switch between light and dark theme.</p>
+                </div>
+                <Switch
+                    id="dark-mode-toggle"
+                    checked={themeMounted && theme === 'dark'}
+                    onCheckedChange={checked => setTheme(checked ? 'dark' : 'light')}
+                    disabled={!themeMounted}
+                />
             </div>
         </CardContent>
        </Card>

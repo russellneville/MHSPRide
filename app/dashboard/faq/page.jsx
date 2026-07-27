@@ -103,6 +103,23 @@ export default function FaqPage() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardContent className="pt-6">
+            <QA q="Still have questions?">
+              Join our Discord for casual chat, tips, and feedback with other MHSPRide users:{' '}
+              <a
+                href="https://discord.gg/hEAfvAYk2j"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-foreground underline"
+              >
+                discord.gg/hEAfvAYk2j
+              </a>
+              . For account or booking issues, use the Contact Us page instead.
+            </QA>
+          </CardContent>
+        </Card>
+
         <p className="text-xs text-muted-foreground">
           Using MHSPRide means agreeing to its Terms of Use, including that the site may only be used through
           the interfaces it provides — attempts to script, automate, or otherwise interfere with the site are

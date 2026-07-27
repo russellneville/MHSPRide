@@ -77,6 +77,13 @@ export default function ContactPage() {
         <div className="contact-card">
           <h1>Contact Us</h1>
           <p className="contact-sub">Questions, feedback, or something not working? We want to hear from you.</p>
+          <p className="contact-sub">
+            For casual chat, tips, and feedback with other MHSPRide users, join our{' '}
+            <a href="https://discord.gg/hEAfvAYk2j" target="_blank" rel="noopener noreferrer">
+              Discord
+            </a>
+            . For account or booking issues, use the form below instead.
+          </p>
 
           {submitted ? (
             <div className="contact-success">

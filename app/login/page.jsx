@@ -16,7 +16,7 @@ export default function Login() {
   })
   const [mounted, setMounted] = useState(false);
   const [validationError , setValidationErrors] = useState({})
-  const { isLoading , loginUser , user, resetPassword, suspendedMessage } = useAuth()
+  const { isLoading , loginUser , user, resetPassword, suspendedMessage, maintenanceMode, maintenanceMessage } = useAuth()
   const [forgotMode, setForgotMode] = useState(false)
   const [resetEmail, setResetEmail] = useState('')
   const router = useRouter()
@@ -93,10 +93,21 @@ export default function Login() {
         </CardHeader>
 
         <CardContent>
+        {maintenanceMode?.enabled && !suspendedMessage && !maintenanceMessage && (
+          <div className="mb-4 rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-900 p-3">
+            <p className="text-center text-sm text-amber-800 dark:text-amber-300">
+              MHSP Ride is in maintenance mode. Only admins can log in right now.
+            </p>
+          </div>
+        )}
         <form onSubmit={handleSubmit} className="space-y-5">
           {suspendedMessage ? (
             <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/40 dark:border-red-900 p-4">
               <p className="text-center font-bold text-red-700 dark:text-red-400">{suspendedMessage}</p>
+            </div>
+          ) : maintenanceMessage ? (
+            <div className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/40 dark:border-red-900 p-4">
+              <p className="text-center font-bold text-red-700 dark:text-red-400">{maintenanceMessage}</p>
             </div>
           ) : forgotMode ? (
             <div className="space-y-3">

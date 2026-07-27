@@ -34,7 +34,7 @@ export default function Register() {
   const [verificationToken, setVerificationToken] = useState(null)
   const [code, setCode] = useState('')
   const [codeError, setCodeError] = useState('')
-  const { verifyMembership, verifyRegistrationCode, completeRegistration, isLoading } = useAuth()
+  const { verifyMembership, verifyRegistrationCode, completeRegistration, isLoading, maintenanceMode } = useAuth()
 
   const validateStep1 = () => {
     const newErrors = {}
@@ -137,6 +137,30 @@ export default function Register() {
     }).then(result => {
       if (result.expired) resetToStart()
     })
+  }
+
+  if (maintenanceMode?.enabled) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6 md:px-16 lg:px-20 py-10">
+        <Card className="w-full max-w-md shadow-lg border border-border">
+          <CardHeader className="flex flex-col items-center gap-3 text-center">
+            <div className="flex justify-center">
+              <Image src="/assets/mhspride_logo.png" alt="MHSPRide" height={130} width={164} className="rounded-xl border-2 border-slate-900" />
+            </div>
+            <CardTitle className="text-2xl font-semibold">Registration Disabled</CardTitle>
+            <CardDescription className="text-sm text-muted-foreground">
+              MHSP Ride is in maintenance mode. Registration is temporarily disabled — please check back shortly.
+            </CardDescription>
+          </CardHeader>
+          <CardFooter className="text-sm text-center text-muted-foreground">
+            Already have an account?{" "}
+            <Link href="/login" className="ml-1 text-blue-600 hover:underline dark:text-blue-400">
+              Log in
+            </Link>
+          </CardFooter>
+        </Card>
+      </div>
+    )
   }
 
   return (

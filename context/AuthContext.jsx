@@ -13,6 +13,12 @@ const AuthContext = createContext();
 
 const SUSPENDED_MESSAGE = 'Your account has been suspended. Please contact an MHSPRide admin.'
 
+// super-admin is a strict superset of admin — maintenance mode never signs
+// either of them out or blocks their login (issue #108).
+const ADMIN_ROLES = ['admin', 'super-admin']
+const MAINTENANCE_MESSAGE = (message) =>
+  `MHSP Ride is in maintenance mode. Please check back shortly.${message ? ` SYSTEM MESSAGE: ${message}` : ''}`
+
 // Firebase's raw error.message (e.g. "Firebase: Error (auth/invalid-credential).")
 // isn't something we want surfaced to users — map known auth error codes to
 // site-defined copy instead.
@@ -38,7 +44,35 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [suspendedMessage, setSuspendedMessage] = useState(null);
+  const [maintenanceMode, setMaintenanceMode] = useState({ enabled: false, message: '' });
+  const [maintenanceMessage, setMaintenanceMessage] = useState(null);
   const router = useRouter();
+
+  // Publicly readable (config/maintenance) so this works for signed-out
+  // visitors too — independent of the auth-state effect below.
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, 'config', 'maintenance'),
+      snap => {
+        const data = snap.data()
+        setMaintenanceMode({ enabled: !!data?.enabled, message: data?.message || '' })
+      },
+      err => console.error('[maintenanceMode]', err)
+    )
+    return unsubscribe
+  }, []);
+
+  // Forces a standard member's session to end the moment maintenance mode
+  // turns on (not just on their next user-doc change or page load) — mirrors
+  // the suspended-account precedent below but keyed off maintenanceMode
+  // instead of the user doc, since toggling maintenance on doesn't touch any
+  // signed-in user's own document.
+  useEffect(() => {
+    if (maintenanceMode.enabled && user && !ADMIN_ROLES.includes(user.role)) {
+      signOut(auth)
+      setMaintenanceMessage(MAINTENANCE_MESSAGE(maintenanceMode.message))
+    }
+  }, [maintenanceMode.enabled, user]);
 
     useEffect(() => {
       let unsubDoc = null;
@@ -152,6 +186,7 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsLoading(true)
       setSuspendedMessage(null)
+      setMaintenanceMessage(null)
 
       // Ask before attempting — blocks in the UI without ever calling Firebase
       // if this email/IP is in cooldown from recent failures. Fails open.
@@ -183,6 +218,14 @@ export const AuthProvider = ({ children }) => {
         }).catch(() => {})
         await signOut(auth)
         setSuspendedMessage(SUSPENDED_MESSAGE)
+        return
+      }
+
+      // Standard members are locked out during maintenance mode; admins and
+      // super-admins bypass this entirely (issue #108).
+      if (maintenanceMode.enabled && !ADMIN_ROLES.includes(userData?.role)) {
+        await signOut(auth)
+        setMaintenanceMessage(MAINTENANCE_MESSAGE(maintenanceMode.message))
         return
       }
 
@@ -384,7 +427,7 @@ export const AuthProvider = ({ children }) => {
 
 
   return (
-    <AuthContext.Provider value={{ isLoading, user, verifyMembership, verifyRegistrationCode, completeRegistration, loginUser , updateProfile , logOut, uploadPhoto, resetPassword, changeEmail, changePassword, suspendedMessage }}>
+    <AuthContext.Provider value={{ isLoading, user, verifyMembership, verifyRegistrationCode, completeRegistration, loginUser , updateProfile , logOut, uploadPhoto, resetPassword, changeEmail, changePassword, suspendedMessage, maintenanceMode, maintenanceMessage }}>
       {children}
     </AuthContext.Provider>
   );

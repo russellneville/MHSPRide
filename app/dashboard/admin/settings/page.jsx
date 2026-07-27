@@ -7,6 +7,8 @@ import { doc, getDoc, setDoc, collection, onSnapshot } from 'firebase/firestore'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Table,
@@ -226,6 +228,107 @@ function SystemMessagesSection() {
   )
 }
 
+const MAX_MAINTENANCE_MESSAGE_LENGTH = 500
+
+function MaintenanceModeSection() {
+  const { user: currentUser } = useAuth()
+  const [enabled, setEnabled] = useState(false)
+  const [message, setMessage] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  // Live subscription so the toggle reflects the current state immediately,
+  // including changes made from another tab or another super-admin.
+  useEffect(() => {
+    const unsubscribe = onSnapshot(
+      doc(db, 'config', 'maintenance'),
+      snap => {
+        const data = snap.data()
+        setEnabled(!!data?.enabled)
+        setMessage(data?.message || '')
+        setLoading(false)
+      },
+      err => {
+        console.error('[settings/maintenance]', err)
+        setLoading(false)
+      }
+    )
+    return unsubscribe
+  }, [])
+
+  const handleSave = async () => {
+    setSaving(true)
+    try {
+      const token = await auth.currentUser.getIdToken()
+      const res = await fetch('/api/admin/maintenance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ enabled, message: message.trim() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || 'Could not update maintenance mode')
+
+      logEvent({
+        type: 'admin.maintenance_mode_updated',
+        message: `Maintenance mode ${enabled ? 'enabled' : 'disabled'}`,
+        userId: currentUser?.uid,
+        userName: currentUser?.fullname,
+        mhspNumber: currentUser?.mhspNumber,
+        metadata: { enabled, message: message.trim() },
+      }).catch(() => {})
+
+      toast.success('Maintenance mode updated')
+    } catch (err) {
+      toast.error(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card className="w-full max-w-md">
+      <CardHeader>
+        <CardTitle className="text-base">Maintenance Mode</CardTitle>
+        <CardDescription>
+          Logs out standard members and disables login/registration. Admins and
+          super-admins can still log in. The landing page shows a notice with the
+          message below (if set) and the Contact Us page stays available.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <p className="text-sm text-muted-foreground py-4">Loading…</p>
+        ) : (
+          <div className="space-y-4">
+            <div className="flex items-center gap-3">
+              <Switch id="maintenance-enabled" checked={enabled} onCheckedChange={setEnabled} />
+              <Label htmlFor="maintenance-enabled" className="font-normal">
+                {enabled ? 'Maintenance mode is ON' : 'Maintenance mode is off'}
+              </Label>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="maintenance-message">System message (optional)</Label>
+              <Textarea
+                id="maintenance-message"
+                value={message}
+                onChange={e => setMessage(e.target.value)}
+                maxLength={MAX_MAINTENANCE_MESSAGE_LENGTH}
+                placeholder="e.g. Back online by 6pm Saturday."
+              />
+              <p className="text-xs text-muted-foreground text-right">
+                {message.length}/{MAX_MAINTENANCE_MESSAGE_LENGTH}
+              </p>
+            </div>
+            <Button onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving…' : 'Save'}
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 export default function AdminSettingsPage() {
   const { user } = useAuth()
   const [supportEmail, setSupportEmail] = useState('')
@@ -297,6 +400,8 @@ export default function AdminSettingsPage() {
               </CardContent>
             </Card>
           )}
+
+          <MaintenanceModeSection />
 
           <SystemMessagesSection />
         </div>

@@ -128,6 +128,12 @@ function FeedbackContent() {
     return '—'
   }
 
+  function submittedFrom(item) {
+    if (item.page) return item.page
+    if (item.source === 'contact_form') return '/contact'
+    return '—'
+  }
+
   function recipientEmail(item) {
     if (!item) return null
     return item.email || userDirectory[item.userId]?.email || null
@@ -245,6 +251,7 @@ function FeedbackContent() {
                 <TableHead>Type</TableHead>
                 <TableHead>Message</TableHead>
                 <TableHead>Submitted By</TableHead>
+                <TableHead>Page</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
@@ -252,7 +259,7 @@ function FeedbackContent() {
             <TableBody>
               {filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                     No feedback found.
                   </TableCell>
                 </TableRow>
@@ -265,6 +272,7 @@ function FeedbackContent() {
                     </TableCell>
                     <TableCell className="text-sm max-w-md whitespace-pre-wrap">{item.message || '—'}</TableCell>
                     <TableCell className="text-sm whitespace-nowrap">{submittedBy(item)}</TableCell>
+                    <TableCell className="text-sm whitespace-nowrap">{submittedFrom(item)}</TableCell>
                     <TableCell>
                       <Badge variant={item.resolved ? 'approved' : 'pending'}>
                         {item.resolved ? 'Resolved' : 'Open'}

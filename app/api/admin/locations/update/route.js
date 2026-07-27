@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
-import { verifyAdminRequest } from '@/lib/adminAuth'
+import { verifySuperAdminRequest } from '@/lib/adminAuth'
 import { getAdminDb } from '@/lib/firebaseAdmin'
 import { FieldValue } from 'firebase-admin/firestore'
 
 // Per issue #66, editing a location only ever touches name/lat/lon — drive
 // times are not recomputed here (only when a location is first added).
 export async function POST(request) {
-  const auth = await verifyAdminRequest(request)
+  const auth = await verifySuperAdminRequest(request)
   if (auth.error) return auth.error
 
   const { id, name, lat, lon } = await request.json()

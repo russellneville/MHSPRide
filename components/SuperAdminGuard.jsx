@@ -3,17 +3,15 @@ import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 
-const ADMIN_ROLES = ['admin', 'super-admin']
-
-export default function AdminGuard({ children }) {
+export default function SuperAdminGuard({ children }) {
   const { user, isLoading } = useAuth()
   const router = useRouter()
   useEffect(() => {
-    if (!isLoading && user && !ADMIN_ROLES.includes(user.role)) {
+    if (!isLoading && user && user.role !== 'super-admin') {
       router.replace('/dashboard')
     }
   }, [user, isLoading, router])
   if (isLoading || !user) return null
-  if (!ADMIN_ROLES.includes(user.role)) return null
+  if (user.role !== 'super-admin') return null
   return children
 }

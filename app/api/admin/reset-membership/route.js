@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { verifyAdminRequest } from '@/lib/adminAuth'
+import { verifySuperAdminRequest } from '@/lib/adminAuth'
 import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin'
 
 // Resetting a membership is meant to let someone re-register from scratch, but just
@@ -8,7 +8,7 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin'
 // auth/email-already-exists, since that account still existed. Deleting the old
 // account here is what actually frees the email up for reuse.
 export async function POST(request) {
-  const authResult = await verifyAdminRequest(request)
+  const authResult = await verifySuperAdminRequest(request)
   if (authResult.error) return authResult.error
 
   try {

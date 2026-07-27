@@ -9,7 +9,13 @@ service cloud.firestore {
 
     function isAdmin() {
       return request.auth != null
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super-admin']
+        && !isSuspended();
+    }
+
+    function isSuperAdmin() {
+      return request.auth != null
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super-admin'
         && !isSuspended();
     }
 
@@ -83,10 +89,11 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Feedback: anyone can submit; admins can read/update/delete
+    // Feedback: anyone can submit; admins can read/update; only super-admins can delete
     match /feedback/{id} {
       allow create: if true;
-      allow read, update, delete: if isAdmin();
+      allow read, update: if isAdmin();
+      allow delete: if isSuperAdmin();
     }
 
     // Activity log: any authenticated, non-suspended user may log their own actions;
@@ -113,8 +120,9 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // System settings (app/dashboard/admin/settings): super-admin only (issue #107)
     match /config/{id} {
-      allow read, write: if isAdmin();
+      allow read, write: if isSuperAdmin();
     }
 
     match /import_sessions/{id} {

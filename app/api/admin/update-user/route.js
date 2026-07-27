@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { verifyAdminRequest } from '@/lib/adminAuth'
+import { verifyAdminRequest, isSuperAdminUser } from '@/lib/adminAuth'
 import { getAdminDb } from '@/lib/firebaseAdmin'
 
 // Firestore rules only let a user write their own users/{uid} doc, and even
 // then block the role/suspended fields for everyone — role and suspension
 // changes on another user's doc have to go through the Admin SDK.
-const ALLOWED_ROLES = ['member', 'admin']
+const ALLOWED_ROLES = ['member', 'admin', 'super-admin']
 
 export async function POST(request) {
   const auth = await verifyAdminRequest(request)
@@ -17,6 +17,11 @@ export async function POST(request) {
 
     const updates = {}
     if (role !== undefined) {
+      // Per issue #107: only super-admins may change anyone's role, including
+      // an admin (or admin+suspend combo) changing their own suspend target's role.
+      if (!(await isSuperAdminUser(auth.uid))) {
+        return NextResponse.json({ error: 'Only super-admins can change roles' }, { status: 403 })
+      }
       if (!ALLOWED_ROLES.includes(role)) {
         return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
       }

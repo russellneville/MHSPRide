@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { parse } from 'csv-parse/sync'
 import { randomUUID } from 'crypto'
-import { verifyAdminRequest } from '@/lib/adminAuth'
+import { verifySuperAdminRequest } from '@/lib/adminAuth'
 import { getAdminDb } from '@/lib/firebaseAdmin'
 import { computeDiff, parseCsvRows } from '@/lib/rosterDiff'
 
 export async function POST(request) {
-  const auth = await verifyAdminRequest(request)
+  const auth = await verifySuperAdminRequest(request)
   if (auth.error) return auth.error
 
   let text

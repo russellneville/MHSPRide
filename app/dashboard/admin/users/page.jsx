@@ -141,7 +141,11 @@ function UsersContent() {
       const { uid, fullname, email, role, suspended } = suspendTarget
       const nextSuspended = !suspended
       const updates = { suspended: nextSuspended }
-      if (nextSuspended && role === 'admin') {
+      // Demoting on suspend is a role change — only a super-admin can do it
+      // (issue #107). A plain admin can still suspend a fellow admin, it just
+      // won't touch their role.
+      const isPrivileged = role === 'admin' || role === 'super-admin'
+      if (nextSuspended && isPrivileged && currentUser?.role === 'super-admin') {
         updates.role = 'member'
       }
 
@@ -187,6 +191,10 @@ function UsersContent() {
       (u.email || '').toLowerCase().includes(s)
     )
   })
+
+  const isSuperAdmin = currentUser?.role === 'super-admin'
+  const suspendTargetIsPrivileged = suspendTarget?.role === 'admin' || suspendTarget?.role === 'super-admin'
+  const willDemote = suspendTargetIsPrivileged && !suspendTarget?.suspended && isSuperAdmin
 
   return (
     <div className="space-y-4">
@@ -238,31 +246,38 @@ function UsersContent() {
                     <TableCell className="text-sm text-muted-foreground">{u.email || '—'}</TableCell>
                     <TableCell>{u.mhspNumber || '—'}</TableCell>
                     <TableCell>
-                      <Select
-                        value={u.role || 'member'}
-                        onValueChange={val => handleRoleChange(u.uid, val, u)}
-                      >
-                        <SelectTrigger className="w-28 h-8 text-xs">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="member">member</SelectItem>
-                          <SelectItem value="admin">admin</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      {isSuperAdmin ? (
+                        <Select
+                          value={u.role || 'member'}
+                          onValueChange={val => handleRoleChange(u.uid, val, u)}
+                        >
+                          <SelectTrigger className="w-32 h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="member">member</SelectItem>
+                            <SelectItem value="admin">admin</SelectItem>
+                            <SelectItem value="super-admin">super-admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <span className="text-sm">{u.role || 'member'}</span>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {formatDate(u.created_at)}
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setResetTarget({ uid: u.uid, mhspNumber: u.mhspNumber, fullname: u.fullname })}
-                        >
-                          Reset Membership
-                        </Button>
+                        {isSuperAdmin && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setResetTarget({ uid: u.uid, mhspNumber: u.mhspNumber, fullname: u.fullname })}
+                          >
+                            Reset Membership
+                          </Button>
+                        )}
                         <Button
                           variant="outline"
                           size="sm"
@@ -340,16 +355,18 @@ function UsersContent() {
             <AlertDialogTitle>
               {suspendTarget?.suspended
                 ? `Unsuspend ${suspendTarget?.fullname}?`
-                : suspendTarget?.role === 'admin'
-                  ? 'You are suspending an admin'
+                : willDemote
+                  ? `You are suspending a${suspendTarget?.role === 'admin' ? 'n admin' : ' super-admin'}`
                   : `Suspend ${suspendTarget?.fullname}?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {suspendTarget?.suspended
                 ? `${suspendTarget?.fullname} will regain access immediately and be notified by email.`
-                : suspendTarget?.role === 'admin'
+                : willDemote
                   ? `Set this user to a 'member' and suspend them?`
-                  : `${suspendTarget?.fullname} will be logged out immediately, unable to log back in, and notified by email.`}
+                  : suspendTargetIsPrivileged
+                    ? `${suspendTarget?.fullname} will be logged out immediately, unable to log back in, and notified by email. Only a super-admin can also demote their role.`
+                    : `${suspendTarget?.fullname} will be logged out immediately, unable to log back in, and notified by email.`}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -359,7 +376,7 @@ function UsersContent() {
                 ? 'Working…'
                 : suspendTarget?.suspended
                   ? 'Unsuspend'
-                  : suspendTarget?.role === 'admin'
+                  : willDemote
                     ? 'Demote & Suspend'
                     : 'Suspend'}
             </AlertDialogAction>

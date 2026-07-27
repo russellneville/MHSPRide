@@ -550,6 +550,8 @@
 .contact-page {
   min-height: 100vh;
   background: #f0f7ff;
+  color: #0f3558;
+  color-scheme: light;
   display: flex;
   flex-direction: column;
 }

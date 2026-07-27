@@ -1,5 +1,8 @@
 'use client'
 
+import { useState } from 'react'
+import { resolveLivePhotoUrl } from '@/lib/profilePhoto'
+
 const SIZES = {
   sm: 'w-8 h-8 text-xs',
   md: 'w-10 h-10 text-sm',
@@ -33,16 +36,32 @@ function getColor(fullname) {
 }
 
 export function UserAvatar({ user, size = 'md', className = '' }) {
+  const [src, setSrc] = useState(user?.photoURL || null)
+  const [triedLive, setTriedLive] = useState(false)
   const sizeClasses = SIZES[size] ?? SIZES.md
   const base = `inline-flex items-center justify-center rounded-full overflow-hidden shrink-0 ${sizeClasses} ${className}`
 
-  if (user?.photoURL) {
+  // Snapshotted photoURLs (driver/passenger info copied onto ride/booking docs)
+  // go stale whenever the owner re-uploads a photo. On load failure, try the
+  // live photo once before giving up to initials.
+  const handleError = () => {
+    const uid = user?.id || user?.uid
+    if (!triedLive && uid) {
+      setTriedLive(true)
+      resolveLivePhotoUrl(uid).then(setSrc)
+    } else {
+      setSrc(null)
+    }
+  }
+
+  if (src) {
     return (
       <div className={base}>
         <img
-          src={user.photoURL}
+          src={src}
           alt={user?.fullname ?? 'User photo'}
           className="w-full h-full object-cover"
+          onError={handleError}
         />
       </div>
     )

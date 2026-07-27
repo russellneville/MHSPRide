@@ -1,5 +1,6 @@
 'use client'
 import { useState } from "react"
+import { usePathname } from "next/navigation"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { db, auth } from "@/lib/firebaseClient"
 import { logEvent } from "@/lib/activityLog"
@@ -12,6 +13,7 @@ import { TEXTAREA_MAX_LENGTH } from "@/lib/utils"
 
 export default function FeedbackWidget() {
   const { user } = useAuth()
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
   const [type, setType] = useState("feedback")
   const [text, setText] = useState("")
@@ -25,6 +27,7 @@ export default function FeedbackWidget() {
         type,
         message: text.trim(),
         userId: auth.currentUser?.uid || null,
+        page: pathname,
         submittedAt: serverTimestamp(),
       })
       logEvent({

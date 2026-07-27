@@ -130,5 +130,10 @@ service cloud.firestore {
     match /registration_verifications/{id} {
       allow read, write: if false;
     }
+
+    // Password reset tokens: Admin SDK only, never touched by client SDKs
+    match /password_resets/{id} {
+      allow read, write: if false;
+    }
   }
 }

@@ -5,31 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { verifyPasswordResetCode, confirmPasswordReset } from "firebase/auth";
-import { auth } from "@/lib/firebaseClient";
 import { getPasswordError, PASSWORD_REQUIREMENT_TEXT } from "@/lib/passwordPolicy";
 
 export default function ResetPasswordForm() {
   const searchParams = useSearchParams()
-  const oobCode = searchParams.get('oobCode')
+  const token = searchParams.get('token')
 
-  const [status, setStatus] = useState('verifying') // verifying | ready | invalid | done
+  const [status, setStatus] = useState(token ? 'ready' : 'invalid') // ready | invalid | done
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
-
-  useEffect(() => {
-    if (!oobCode) {
-      setStatus('invalid')
-      return
-    }
-    verifyPasswordResetCode(auth, oobCode)
-      .then(() => setStatus('ready'))
-      .catch(() => setStatus('invalid'))
-  }, [oobCode])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -46,12 +34,20 @@ export default function ResetPasswordForm() {
     setError('')
     setSubmitting(true)
     try {
-      await confirmPasswordReset(auth, oobCode, password)
+      const res = await fetch('/api/reset-password/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, newPassword: password }),
+      })
+      const data = await res.json()
+      if (!data.ok) {
+        if (data.expired) setStatus('invalid')
+        else setError(data.error || 'Could not reset password. Please try again.')
+        return
+      }
       setStatus('done')
     } catch (err) {
-      setError(['auth/expired-action-code', 'auth/invalid-action-code'].includes(err.code)
-        ? 'This reset link has expired or already been used. Please request a new one.'
-        : 'Could not reset password. Please try again.')
+      setError('Could not reset password. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -83,10 +79,6 @@ export default function ResetPasswordForm() {
         </CardHeader>
 
         <CardContent>
-          {status === 'verifying' && (
-            <p className="text-center text-sm text-muted-foreground">Checking your reset link...</p>
-          )}
-
           {status === 'invalid' && (
             <div className="space-y-3 text-center">
               <p className="text-sm text-muted-foreground">

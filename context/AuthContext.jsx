@@ -13,6 +13,27 @@ const AuthContext = createContext();
 
 const SUSPENDED_MESSAGE = 'Your account has been suspended. Please contact an MHSPRide admin.'
 
+// Firebase's raw error.message (e.g. "Firebase: Error (auth/invalid-credential).")
+// isn't something we want surfaced to users — map known auth error codes to
+// site-defined copy instead.
+const getLoginErrorMessage = (code) => {
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+    case 'auth/user-not-found':
+    case 'auth/invalid-email':
+      return 'Incorrect email or password. Please try again.'
+    case 'auth/user-disabled':
+      return 'This account has been disabled. Please contact an MHSPRide admin.'
+    case 'auth/too-many-requests':
+      return 'Too many failed attempts. Please wait a moment and try again.'
+    case 'auth/network-request-failed':
+      return 'Network error. Please check your connection and try again.'
+    default:
+      return 'Unable to log in. Please try again.'
+  }
+}
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -177,7 +198,7 @@ export const AuthProvider = ({ children }) => {
       router.push('/dashboard')
     }
     catch(error){
-      toast.error(error.message)
+      toast.error(getLoginErrorMessage(error.code))
       // No authenticated session exists at this point, so this can't go through
       // the client Firestore SDK (activity_log requires auth) — use the API route.
       fetch('/api/log-auth-event', {

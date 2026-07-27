@@ -18,6 +18,7 @@ import {
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { getPasswordError, PASSWORD_REQUIREMENT_TEXT } from "@/lib/passwordPolicy";
+import { resolveLivePhotoUrl } from "@/lib/profilePhoto";
 
 export default function ProfilePage (){
     const { user , updateProfile , uploadPhoto, isLoading, changeEmail, changePassword, resetPassword } = useAuth()
@@ -25,6 +26,8 @@ export default function ProfilePage (){
     const [themeMounted, setThemeMounted] = useState(false)
     const [date, setDate] = useState(undefined)
     const [uploading, setUploading] = useState(false)
+    const [photoSrc, setPhotoSrc] = useState(null)
+    const [photoTriedLive, setPhotoTriedLive] = useState(false)
     const fileInputRef = useRef(null)
     const [ profile , setProfile ] = useState({
         fullname : '',
@@ -49,6 +52,20 @@ export default function ProfilePage (){
           setEmailValue(user.email || '')
         }
     }, [user]);
+
+    useEffect(() => {
+        setPhotoSrc(user?.photoURL || null)
+        setPhotoTriedLive(false)
+    }, [user?.photoURL]);
+
+    const handlePhotoError = () => {
+        if (!photoTriedLive && user?.uid) {
+            setPhotoTriedLive(true)
+            resolveLivePhotoUrl(user.uid).then(setPhotoSrc)
+        } else {
+            setPhotoSrc(null)
+        }
+    }
 
     useEffect(() => {
         setThemeMounted(true)
@@ -147,11 +164,12 @@ export default function ProfilePage (){
         <CardContent className='space-y-4'>
             <div className="flex items-center gap-4 pb-2">
                 <div className="relative shrink-0">
-                    {user?.photoURL ? (
+                    {photoSrc ? (
                         <img
-                            src={user.photoURL}
+                            src={photoSrc}
                             alt="Profile photo"
                             className="w-16 h-16 rounded-full object-cover border border-border"
+                            onError={handlePhotoError}
                         />
                     ) : (
                         <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center border border-border">

@@ -58,16 +58,15 @@ export default function Home() {
 
         <header className="landing-header">
           <Link href="/" className="landing-brand">
-            <Image
-              src="/assets/MHSP-Logo.png"
-              alt="MHSPRide logo"
-              width={54}
-              height={54}
-            />
-            <div>
-              <p>MHSPRide</p>
-              <span>Mount Hood Ski Patrol Carpooling</span>
-            </div>
+            <span className="landing-brand-card">
+              <Image
+                src="/assets/mhspride_logo.png"
+                alt="MHSPRide logo"
+                width={96}
+                height={76}
+              />
+            </span>
+            <span>Mount Hood Ski Patrol Carpooling</span>
           </Link>
 
           <nav className="landing-nav">
@@ -185,12 +184,12 @@ export default function Home() {
         <div className="landing-download-card">
           <div className="landing-download-brand">
             <Image
-              src="/assets/MHSP-Logo.png"
-              alt="MHSPRide mark"
-              width={44}
-              height={44}
+              src="/assets/mhsp_title_logo_sm.png"
+              alt="MHSPRide logo"
+              width={110}
+              height={34}
+              className="landing-brand-mark"
             />
-            <span>MHSPRide</span>
           </div>
 
           <h2>Register and Start Carpooling to the Mountain</h2>

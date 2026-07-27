@@ -185,21 +185,29 @@
   gap: 0.85rem;
 }
 
-.landing-brand p {
-  margin: 0;
-  color: #ffffff;
-  font-size: clamp(1.2rem, 2.2vw, 1.65rem);
-  font-weight: 700;
-  line-height: 1;
+.landing-brand-mark {
+  border-radius: 0.5rem;
+}
+
+.landing-brand-card {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ffffff;
+  border-radius: 0.85rem;
+  padding: 0.4rem 0.55rem;
 }
 
 .landing-brand span {
   display: block;
-  margin-top: 0.2rem;
   color: #d9ecff;
-  font-size: 0.76rem;
-  font-weight: 500;
+  font-size: clamp(1rem, 2.6vw, 1.4rem);
+  font-weight: 700;
   letter-spacing: 0.01em;
+}
+
+.contact-header .landing-brand span {
+  color: #17415f;
 }
 
 .landing-nav {
@@ -635,9 +643,11 @@
 }
 
 @media (max-width: 980px) {
-  .landing-header {
+  .landing-header,
+  .contact-header {
     align-items: flex-start;
     flex-direction: column;
+    gap: 0.75rem;
   }
 
   .landing-content {
@@ -665,10 +675,15 @@
   }
 
   .landing-brand span {
-    font-size: 0.68rem;
+    font-size: 1rem;
+  }
+
+  .contact-header {
+    padding: 1rem 1.25rem;
   }
 
   .landing-nav {
+    display: flex;
     flex-wrap: wrap;
     width: 100%;
     justify-content: center;

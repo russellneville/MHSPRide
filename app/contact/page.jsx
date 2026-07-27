@@ -53,11 +53,14 @@ export default function ContactPage() {
     <main className="contact-page">
       <header className="contact-header">
         <Link href="/" className="landing-brand">
-          <Image src="/assets/MHSP-Logo.png" alt="MHSPRide logo" width={44} height={44} />
-          <div>
-            <p>MHSPRide</p>
-            <span>Mount Hood Ski Patrol Carpooling</span>
-          </div>
+          <Image
+            src="/assets/mhsp_title_logo_sm.png"
+            alt="MHSPRide logo"
+            width={120}
+            height={35}
+            className="landing-brand-mark"
+          />
+          <span>Mount Hood Ski Patrol Carpooling</span>
         </Link>
         <nav className="landing-nav">
           <a href="/#home">Home</a>

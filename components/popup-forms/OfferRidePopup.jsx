@@ -132,6 +132,15 @@ export default function OfferRidePopup({ networkId, onSaved }) {
   })
   const [validationError, setValidationErrors] = useState({})
 
+  // Pre-select the arrival location that's flagged as the default for this network
+  // (e.g. Timberline for Mountain Biking, Tea Cup for Nordic Patrol) — only while the
+  // field is still untouched, so it never overrides a choice the user already made.
+  useEffect(() => {
+    if (arrivalSelect || arrivalOther) return
+    const defaultDest = destinations.find(d => d.defaultForNetworkId === networkId)
+    if (defaultDest) setArrivalSelect(defaultDest.id)
+  }, [networkId, destinations])
+
   // Days the user already offers or has booked a ride get disabled in the date picker
   useEffect(() => {
     Promise.all([getRides(), getBookings()]).then(([rides, bookings]) => {

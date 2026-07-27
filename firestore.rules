@@ -120,6 +120,16 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Maintenance mode (app/dashboard/admin/settings, issue #108): publicly
+    // readable since signed-out visitors on the landing/login page must see it
+    // too. Writes only happen through the admin API route via the Admin SDK.
+    // More specific than the config/{id} rule below, so it takes precedence
+    // for this one document.
+    match /config/maintenance {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // System settings (app/dashboard/admin/settings): super-admin only (issue #107)
     match /config/{id} {
       allow read, write: if isSuperAdmin();

@@ -26,6 +26,11 @@ export async function POST(request) {
       return NextResponse.json({ ok: false, error: passwordError }, { status: 400 })
     }
 
+    const maintenanceSnap = await getAdminDb().collection('config').doc('maintenance').get()
+    if (maintenanceSnap.exists && maintenanceSnap.data().enabled) {
+      return NextResponse.json({ ok: false, error: 'Registration is currently disabled. MHSP Ride is in maintenance mode.' }, { status: 503 })
+    }
+
     const ip = getClientIp(request)
     const ipResult = await recordAttempt({ key: `register:ip:${ip}`, ...REGISTER_IP_LIMIT })
     if (ipResult.blocked) {

@@ -1,3 +1,4 @@
+'use client';
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { NETWORKS } from "@/lib/networks";
 import SystemMessageBanner from "@/components/SystemMessageBanner";
+import { useAuth } from "@/context/AuthContext";
 
 const networks = NETWORKS.map(n => n.name);
 
@@ -43,7 +45,48 @@ const steps = [
   },
 ];
 
+function MaintenancePage({ message }) {
+  return (
+    <main className="landing-page">
+      <SystemMessageBanner loginOnly />
+      <div className="min-h-[80vh] flex flex-col items-center justify-center gap-6 px-6 py-16 text-center">
+        <Image
+          src="/assets/mhspride_logo.png"
+          alt="MHSPRide logo"
+          width={96}
+          height={76}
+        />
+        <h1 className="text-2xl md:text-3xl font-semibold">Pardon the temporary disruption.</h1>
+        <p className="max-w-md text-muted-foreground">
+          MHSP Ride is in maintenance mode. Please check back shortly.
+        </p>
+        {message && (
+          <p className="max-w-md font-medium">SYSTEM MESSAGE: {message}</p>
+        )}
+        <Image
+          src="/assets/maintenance.png"
+          alt="Site under maintenance"
+          width={500}
+          height={338}
+          className="rounded-lg max-w-full h-auto"
+          priority
+        />
+        <nav className="flex gap-6 text-sm">
+          <Link href="/contact" className="text-blue-600 hover:underline dark:text-blue-400">Contact Us</Link>
+          <Link href="/login" className="text-blue-600 hover:underline dark:text-blue-400">Log In</Link>
+        </nav>
+      </div>
+    </main>
+  );
+}
+
 export default function Home() {
+  const { maintenanceMode } = useAuth();
+
+  if (maintenanceMode?.enabled) {
+    return <MaintenancePage message={maintenanceMode.message} />;
+  }
+
   return (
     <main className="landing-page">
       <SystemMessageBanner loginOnly />

@@ -133,20 +133,32 @@ Open [http://localhost:3000](http://localhost:3000)
 
 ## Admin panel
 
-Users with `role: 'admin'` see an Admin section in the sidebar with access to:
+Users with `role: 'admin'` or `role: 'super-admin'` see an Admin section in the sidebar with access to:
 
-- **Users** — view all registered users, change roles, reset claimed memberships (deletes the member's Auth account and `users` doc via `app/api/admin/reset-membership` so their email is freed up for re-registration, and unclaims the `members` doc), suspend/unsuspend accounts (suspended users are force-logged-out, blocked from logging back in, and notified by email)
+- **Users** — view all registered users, suspend/unsuspend accounts (suspended users are force-logged-out, blocked from logging back in, and notified by email), reset passwords. Changing a user's role and resetting a claimed membership are **super-admin only** (see below) — a plain admin sees the role as read-only text and no Reset Membership button. Suspending an admin/super-admin also demotes them to `member` in the same action, but only when the actor is a super-admin; a plain admin can still suspend a fellow admin, it just won't touch their role
 - **Rides** — view (sorted most recent first, paginated 25/page), search by driver/rider/route, filter by status/network/date range, click a row to see full details including the rider list (with a per-rider **Remove** action that cancels that booking, restores the seat, and emails the passenger), or edit/cancel/delete. Edit and Cancel are hidden once a ride is Completed or Canceled. The status shown (not started/in progress/Completed) is computed live from each ride's departure/arrival/return times, not from the stored `ride_status` field — that field only changes when a driver manually starts/finishes a ride, so a ride left untouched by its driver would otherwise show "not started" forever even after it's over. This page is also the only place admins manage bookings — there is no separate Bookings page; a booking's canonical status lives on its own `bookings` doc, not on the ride's embedded rider list, which is display-only
 - **Roster** — browse the imported MHSP roster: search by name/MHSP#/email, filter by status or registration, click a member's coordinates to open them in Google Maps. The **Add** button opens a dialog to manually add a roster record (only Last Name, MHSP #, and Troopiter email are required — useful for test accounts that aren't in the Troopiter export)
-- **Roster Import** — upload a Troopiter CSV export, preview detected renames/new members/field updates/deactivations before anything is written, then commit (see [Roster import matching](#roster-import-matching) below). Each row in the Deactivated section has a checkbox — unchecking it keeps that member active instead of deactivating them, so a manually-added test account doesn't get wiped out just because it's not in the CSV. MHSP #s starting with `99` (the convention for manually-added test accounts) are unchecked by default
-- **Locations** — manage the pickup/arrival locations used throughout the app (Firestore-backed, replacing the old hardcoded list). Each location has a Role — Origin (pickup), Destination (mountain arrival), or Both (e.g. a site that's also a common pickup spot) — which controls which ride-offer dropdown(s) it appears in. Adding an Origin or Both location: type an address, confirm the geocoded pin (Google Geocoding API), then on save the app computes and stores drive times to every existing location it could pair with (Google Directions API) — this can take a few seconds. Destinations are entered as raw lat/lon. Editing is limited to name/lat-lon (doesn't recompute drive times). Deleting is blocked if any upcoming, non-canceled ride still uses that location; past rides that used a deleted location keep working but display a prettified fallback name instead
+- **Roster Import** *(super-admin only)* — upload a Troopiter CSV export, preview detected renames/new members/field updates/deactivations before anything is written, then commit (see [Roster import matching](#roster-import-matching) below). Each row in the Deactivated section has a checkbox — unchecking it keeps that member active instead of deactivating them, so a manually-added test account doesn't get wiped out just because it's not in the CSV. MHSP #s starting with `99` (the convention for manually-added test accounts) are unchecked by default
+- **Locations** *(super-admin only)* — manage the pickup/arrival locations used throughout the app (Firestore-backed, replacing the old hardcoded list). Each location has a Role — Origin (pickup), Destination (mountain arrival), or Both (e.g. a site that's also a common pickup spot) — which controls which ride-offer dropdown(s) it appears in. Adding an Origin or Both location: type an address, confirm the geocoded pin (Google Geocoding API), then on save the app computes and stores drive times to every existing location it could pair with (Google Directions API) — this can take a few seconds. Destinations are entered as raw lat/lon. Editing is limited to name/lat-lon (doesn't recompute drive times). Deleting is blocked if any upcoming, non-canceled ride still uses that location; past rides that used a deleted location keep working but display a prettified fallback name instead
 - **Activity Log** — paginated event log of all key system actions, filterable by type, date range, user, and message text; auto-refreshes in the background every 30 seconds. Each event type is color-coded by family (e.g. `booking.*` light purple, `feedback.*` green, `admin.*` orange) for quick visual scanning, and the message column wraps instead of truncating so long messages (like a cancellation reason) are fully readable
-- **Feedback** — submissions from the in-app feedback widget (bottom-right corner of the dashboard on desktop, bottom-left on mobile to avoid covering page action buttons) and the [Contact](app/contact/page.jsx) form's Feedback/Bug/Support types, filterable by type and open/resolved status, with resolve/reopen and delete actions. Each row shows a **Page** column with the path the submitter was on when they opened the widget (contact form submissions show `/contact`, since that's the only page that form is reachable from). **Respond** opens a dialog to email the submitter directly (via Resend), appends `RESPONSE: <reply>` to the entry's message, and marks it as responded. The sidebar's "Feedback" nav item shows a live, bolded count of unresponded items (e.g. "Feedback **(3)**")
+- **Feedback** — submissions from the in-app feedback widget (bottom-right corner of the dashboard on desktop, bottom-left on mobile to avoid covering page action buttons) and the [Contact](app/contact/page.jsx) form's Feedback/Bug/Support types, filterable by type and open/resolved status, with resolve/reopen actions. Each row shows a **Page** column with the path the submitter was on when they opened the widget (contact form submissions show `/contact`, since that's the only page that form is reachable from). **Respond** opens a dialog to email the submitter directly (via Resend), appends `RESPONSE: <reply>` to the entry's message, and marks it as responded. Deleting a feedback entry is **super-admin only**. The sidebar's "Feedback" nav item shows a live, bolded count of unresponded items (e.g. "Feedback **(3)**")
 - **Reports** — stats cards (total users, rides, bookings), top drivers and top riders leaderboards, route popularity
+- **Settings** *(super-admin only)* — site-wide config (currently just the support email the public contact form sends to), stored on `config/site`
+
+### Super-admin role (issue #107)
+
+`role: 'super-admin'` is a strict superset of `admin` — everywhere `isAdmin()`/`verifyAdminRequest` gates a feature, a super-admin passes too. On top of that, the following are gated to super-admin only, via `verifySuperAdminRequest`/`isSuperAdminUser` (`lib/adminAuth.js`), the `SuperAdminGuard` component, and matching `firestore.rules` checks:
+
+- Locations page and its `/api/admin/locations/*` routes
+- Roster Import page and its `/api/admin/roster-import*` routes
+- Settings page and the `config/{id}` Firestore rule
+- Reset User Membership (`/api/admin/reset-membership`)
+- Deleting feedback (`feedback/{id}` delete rule)
+- Changing any user's role, including the auto-demote that happens when suspending an admin/super-admin (`/api/admin/update-user`) — a plain admin can still toggle `suspended` on its own
 
 ### Setting up an admin user
 
-Set `role: 'admin'` directly in **Firebase Console → Firestore → users → [uid]**.
+Set `role: 'admin'` directly in **Firebase Console → Firestore → users → [uid]**. Once at least one super-admin exists, they can promote/demote roles from the Users page instead.
 
 To migrate existing `director` role users to `admin`:
 
@@ -154,9 +166,17 @@ To migrate existing `director` role users to `admin`:
 node scripts/migrateDirectorToAdmin.mjs
 ```
 
+### Setting up the first super-admin
+
+There's no in-app way to grant `super-admin` before one exists (it's the role that grants it). Bootstrap the first one by email:
+
+```bash
+node scripts/promoteSuperAdmin.mjs someone@example.com
+```
+
 ### Firestore rules for admin access
 
-The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuspended()` helpers, and rules for `users`, `members`, `rides`, `networks`, `bookings`, `activity_log`, `locations`, `driveTimes`, `rate_limits`, `registration_verifications`). `locations`/`driveTimes` are client-readable (any authenticated, non-suspended user — needed for the ride-offer dropdowns) but writable only through the Admin SDK–gated `/api/admin/locations/*` routes. `firebase.json`/`.firebaserc` link this directory to the `mhspride` project, so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months, including the admin Users page's role-change/suspend actions, which the deployed `users` rule was actually rejecting the whole time; that write path now goes through `app/api/admin/update-user` — Admin SDK, `verifyAdminRequest`-gated — instead of a client Firestore write).
+The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuperAdmin()`/`isSuspended()` helpers, and rules for `users`, `members`, `rides`, `networks`, `bookings`, `activity_log`, `locations`, `driveTimes`, `config`, `rate_limits`, `registration_verifications`). `locations`/`driveTimes` are client-readable (any authenticated, non-suspended user — needed for the ride-offer dropdowns) but writable only through the Admin SDK–gated `/api/admin/locations/*` routes, which now require super-admin. `firebase.json`/`.firebaserc` link this directory to the `mhspride` project, so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months, including the admin Users page's role-change/suspend actions, which the deployed `users` rule was actually rejecting the whole time; that write path now goes through `app/api/admin/update-user` — Admin SDK, `verifyAdminRequest`-gated — instead of a client Firestore write).
 
 Non-owner updates to `rides` are scoped to only the fields booking actually needs (`available_seats`/`passengers`), not a blanket "any authenticated user can rewrite the whole document." `networks` docs are legacy membership records — the app now treats networks as fixed categories (`lib/networks.js`) with per-user favorites stored on `users/{uid}.favorite_networks`, so network docs are admin-write-only.
 
@@ -262,6 +282,7 @@ MHSPRide/
 │   ├── CancelReasonDialog.jsx   # Shared reason + short-notice cancel flow (bookings & rides)
 │   ├── forms/                  # Registration sub-forms
 │   ├── AdminGuard.jsx          # Redirects non-admins away from admin routes
+│   ├── SuperAdminGuard.jsx     # Redirects non-super-admins away from super-admin-only routes
 │   └── ui/                     # shadcn components + FeedbackWidget, CookieConsent
 ├── context/
 │   ├── AuthContext.jsx         # Auth state, profile updates

@@ -289,9 +289,11 @@ function FeedbackContent() {
                       <Button variant="outline" size="sm" onClick={() => handleToggleResolved(item)}>
                         {item.resolved ? 'Reopen' : 'Resolve'}
                       </Button>
-                      <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(item)}>
-                        Delete
-                      </Button>
+                      {currentUser?.role === 'super-admin' && (
+                        <Button variant="destructive" size="sm" onClick={() => setDeleteTarget(item)}>
+                          Delete
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))

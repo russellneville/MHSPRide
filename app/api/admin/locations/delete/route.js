@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { verifyAdminRequest } from '@/lib/adminAuth'
+import { verifySuperAdminRequest } from '@/lib/adminAuth'
 import { getAdminDb } from '@/lib/firebaseAdmin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { isCanceledStatus } from '@/lib/rides'
@@ -12,7 +12,7 @@ const canPair = (roleA, roleB) =>
   (canBeOrigin(roleA) && canBeDestination(roleB)) || (canBeDestination(roleA) && canBeOrigin(roleB))
 
 export async function POST(request) {
-  const auth = await verifyAdminRequest(request)
+  const auth = await verifySuperAdminRequest(request)
   if (auth.error) return auth.error
 
   const { id } = await request.json()

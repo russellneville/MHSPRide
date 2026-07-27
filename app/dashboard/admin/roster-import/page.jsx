@@ -1,7 +1,7 @@
 'use client'
 import { useRef, useState } from 'react'
 import DashboardLayout from '@/app/dashboard/dashboardLayout'
-import AdminGuard from '@/components/AdminGuard'
+import SuperAdminGuard from '@/components/SuperAdminGuard'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -374,7 +374,7 @@ export default function RosterImportPage() {
   const stepLabel = { 1: 'Upload', 2: 'Review', 3: 'Complete' }
 
   return (
-    <AdminGuard>
+    <SuperAdminGuard>
       <DashboardLayout>
         <div className="space-y-6">
           <div>
@@ -396,6 +396,6 @@ export default function RosterImportPage() {
           {step === 3 && <DoneStep summary={summary} />}
         </div>
       </DashboardLayout>
-    </AdminGuard>
+    </SuperAdminGuard>
   )
 }

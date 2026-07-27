@@ -36,16 +36,21 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar"
 
+const ADMIN_ROLES = ["admin", "super-admin"]
+
+// superAdminOnly items are gated to role === 'super-admin' (issue #107) —
+// their pages are wrapped in SuperAdminGuard, this just keeps them out of a
+// plain admin's nav.
 const ADMIN_MENU = [
   { name: "Users",          icon: Users,         href: "/dashboard/admin/users" },
   { name: "Roster",         icon: List,          href: "/dashboard/admin/roster" },
   { name: "Rides",          icon: Car,           href: "/dashboard/admin/rides" },
-  { name: "Roster Import",  icon: Upload,        href: "/dashboard/admin/roster-import" },
-  { name: "Locations",      icon: MapPin,        href: "/dashboard/admin/locations" },
+  { name: "Roster Import",  icon: Upload,        href: "/dashboard/admin/roster-import", superAdminOnly: true },
+  { name: "Locations",      icon: MapPin,        href: "/dashboard/admin/locations", superAdminOnly: true },
   { name: "Activity Log",   icon: Activity,      href: "/dashboard/admin/activity-log" },
   { name: "Feedback",       icon: MessageSquare, href: "/dashboard/admin/feedback" },
   { name: "Reports",        icon: BarChart2,     href: "/dashboard/admin/reports" },
-  { name: "Settings",       icon: Settings,      href: "/dashboard/admin/settings" },
+  { name: "Settings",       icon: Settings,      href: "/dashboard/admin/settings", superAdminOnly: true },
 ]
 
 export function AppSidebar({ user, ...props }) {
@@ -58,12 +63,14 @@ export function AppSidebar({ user, ...props }) {
   const [unrespondedFeedbackCount, setUnrespondedFeedbackCount] = useState(0)
 
   useEffect(() => {
-    if (user?.role !== 'admin') return
+    if (!ADMIN_ROLES.includes(user?.role)) return
     const unsub = onSnapshot(collection(db, 'feedback'), snap => {
       setUnrespondedFeedbackCount(snap.docs.filter(d => !d.data().responded).length)
     })
     return () => unsub()
   }, [user?.role])
+
+  const visibleAdminMenu = ADMIN_MENU.filter(item => !item.superAdminOnly || user?.role === 'super-admin')
 
   return (
     <Sidebar collapsible="icon" {...props}>
@@ -96,13 +103,13 @@ export function AppSidebar({ user, ...props }) {
       <SidebarContent>
         <NavMain menu={menu} />
 
-        {user?.role === 'admin' && (
+        {ADMIN_ROLES.includes(user?.role) && (
           <>
             <SidebarSeparator />
             <SidebarGroup>
               <SidebarGroupLabel>Admin</SidebarGroupLabel>
               <SidebarMenu>
-                {ADMIN_MENU.map(item => (
+                {visibleAdminMenu.map(item => (
                   <SidebarMenuItem key={item.name}>
                     <SidebarMenuButton href={item.href} tooltip={item.name}>
                       <item.icon />

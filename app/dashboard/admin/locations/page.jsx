@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/app/dashboard/dashboardLayout'
-import AdminGuard from '@/components/AdminGuard'
+import SuperAdminGuard from '@/components/SuperAdminGuard'
 import { auth, db } from '@/lib/firebaseClient'
 import { collection, getDocs } from 'firebase/firestore'
 import { networkName } from '@/lib/networks'
@@ -39,11 +39,11 @@ function googleMapsUrl(lat, lon) {
 
 export default function AdminLocationsPage() {
   return (
-    <AdminGuard>
+    <SuperAdminGuard>
       <DashboardLayout>
         <LocationsContent />
       </DashboardLayout>
-    </AdminGuard>
+    </SuperAdminGuard>
   )
 }
 

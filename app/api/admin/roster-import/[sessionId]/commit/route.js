@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { verifyAdminRequest } from '@/lib/adminAuth'
+import { verifySuperAdminRequest } from '@/lib/adminAuth'
 import { getAdminDb, getAdminAuth } from '@/lib/firebaseAdmin'
 import { geocodeAddress } from '@/lib/geocodeAddress'
 
 export async function POST(request, { params }) {
-  const auth = await verifyAdminRequest(request)
+  const auth = await verifySuperAdminRequest(request)
   if (auth.error) return auth.error
 
   const { sessionId } = await params

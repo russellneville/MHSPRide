@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/app/dashboard/dashboardLayout'
-import AdminGuard from '@/components/AdminGuard'
+import SuperAdminGuard from '@/components/SuperAdminGuard'
 import { db } from '@/lib/firebaseClient'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { Input } from '@/components/ui/input'
@@ -50,7 +50,7 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <AdminGuard>
+    <SuperAdminGuard>
       <DashboardLayout>
         <h3 className="text-xl font-semibold mb-4">Settings</h3>
         {loading ? (
@@ -83,6 +83,6 @@ export default function AdminSettingsPage() {
           </Card>
         )}
       </DashboardLayout>
-    </AdminGuard>
+    </SuperAdminGuard>
   )
 }

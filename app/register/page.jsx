@@ -144,7 +144,7 @@ export default function Register() {
       <Card className="w-full max-w-md shadow-lg border border-border">
         <CardHeader className="flex flex-col items-center gap-3 text-center">
           <div className="flex justify-center">
-            <Image src="/assets/mhsp_title_logo.png" alt="MHSPRide" height={40} width={130} />
+            <Image src="/assets/mhspride_logo.png" alt="MHSPRide" height={130} width={164} className="rounded-xl border-2 border-slate-900" />
           </div>
           <CardTitle className="text-2xl font-semibold">Create Account</CardTitle>
           <CardDescription className="text-sm text-muted-foreground">

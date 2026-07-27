@@ -76,18 +76,11 @@ export default function Login() {
         <CardHeader className="flex flex-col items-center gap-3 text-center">
           <div className="flex justify-center">
             <Image
-              className="dark:hidden"
-              src="/assets/mhsp_title_logo.png"
+              className="rounded-xl border-2 border-slate-900"
+              src="/assets/mhspride_logo.png"
               alt="logo"
-              height={40}
-              width={130}
-            />
-            <Image
-              className="hidden dark:block"
-              src="/assets/mhsp_title_logo.png"
-              alt="logo"
-              height={40}
-              width={130}
+              height={130}
+              width={164}
             />
           </div>
           <CardTitle className="text-2xl font-semibold">{forgotMode ? 'Reset Password' : 'Welcome Back'}</CardTitle>

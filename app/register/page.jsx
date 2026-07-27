@@ -8,6 +8,7 @@ import RegisterMemberForm from "@/components/forms/RegisterMemberForm";
 import VerifyCodeForm from "@/components/forms/VerifyCodeForm";
 import AccountSetupForm from "@/components/forms/AccountSetupForm";
 import { useAuth } from "@/context/AuthContext";
+import { getPasswordError } from "@/lib/passwordPolicy";
 
 const STEP_LABELS = {
   1: "Verify your MHSP membership",
@@ -51,9 +52,8 @@ export default function Register() {
 
     if (!registerForm.email.trim()) newErrors.email = "Email is required"
     else if (!/^\S+@\S+\.\S+$/.test(registerForm.email)) newErrors.email = "Invalid email address"
-    if (!registerForm.password.trim()) newErrors.password = "Password is required"
-    else if (registerForm.password.length < 8)
-      newErrors.password = "Password must be at least 8 characters"
+    const passwordError = getPasswordError(registerForm.password)
+    if (passwordError) newErrors.password = passwordError
     else if (registerForm.password !== registerForm.confirmpassword)
       newErrors.confirmpassword = "Passwords do not match"
 

@@ -192,6 +192,16 @@ Registration is a two-secret flow on top of the table above: membership match (M
 
 ---
 
+## Password requirements
+
+One standard (`lib/passwordPolicy.js`), enforced everywhere a password gets set: at least 10 characters, including at least one number or symbol. No forced upper/lowercase mix — length plus one non-letter character is a better security/usability tradeoff (NIST 800-63B) than traditional complexity rules.
+
+Applied at registration (`app/api/register/complete`), profile password changes (`app/api/account/update-password`), and self-service/admin-initiated password reset.
+
+Password reset doesn't use Firebase's own reset-link system (`generatePasswordResetLink`/`oobCode`) at all — that always lands on Firebase's hosted reset page, and getting a custom action URL requires Firebase Hosting's domain-verification flow, which isn't available on this Vercel-hosted domain. Instead it follows the same pattern as registration verification: `app/api/reset-password` mints a random token, stores it on `password_resets/{token}` (Admin SDK only, 1-hour expiry, single use), and emails a link to our own branded `/reset-password` page (`components/forms/ResetPasswordForm.jsx`). Submitting the form hits `app/api/reset-password/confirm`, which validates the token and standard server-side and updates the password via the Admin SDK directly.
+
+---
+
 ## Test data
 
 A seed script generates a full set of synthetic test users, rides, and bookings for local development and QA. Seven pre-registered accounts cover admin access, network-scoped membership, pure riders, pure drivers, a cancellation history, and ride modification with booked passengers. Five unregistered member records support testing the registration flow.

@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { NETWORKS } from "@/lib/networks";
+import SystemMessageBanner from "@/components/SystemMessageBanner";
 
 const networks = NETWORKS.map(n => n.name);
 
@@ -45,6 +46,7 @@ const steps = [
 export default function Home() {
   return (
     <main className="landing-page">
+      <SystemMessageBanner loginOnly />
       <section id="home" className="landing-hero">
         <Image
           src="/assets/IMG_1106.jpg"

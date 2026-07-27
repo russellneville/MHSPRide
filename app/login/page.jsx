@@ -5,9 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import Image from "next/image";
 import Link from "next/link";
-import { useAuth } from "@/context/AuthContext"; 
+import { useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import SystemMessageBanner from "@/components/SystemMessageBanner";
 
 export default function Login() {
   const [loginForm , setLoginForm] = useState({
@@ -71,7 +72,9 @@ export default function Login() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-6 md:px-16 lg:px-20 py-10">
+    <div className="min-h-screen flex flex-col">
+      <SystemMessageBanner loginOnly />
+      <div className="flex-1 flex items-center justify-center px-6 md:px-16 lg:px-20 py-10">
       <Card className="w-full max-w-md shadow-lg border border-border">
         <CardHeader className="flex flex-col items-center gap-3 text-center">
           <div className="flex justify-center">
@@ -146,6 +149,7 @@ export default function Login() {
           </Link>
         </CardFooter>
       </Card>
+      </div>
     </div>
   );
-} 
+}

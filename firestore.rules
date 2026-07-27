@@ -125,6 +125,15 @@ service cloud.firestore {
       allow read, write: if isSuperAdmin();
     }
 
+    // System message banner (app/dashboard/admin/settings, issue #106): publicly
+    // readable since the login page must show it to signed-out visitors too.
+    // Writes only happen through admin API routes via the Admin SDK, which also
+    // enforce the non-overlap validation Firestore rules can't express across documents.
+    match /system_messages/{id} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     match /import_sessions/{id} {
       allow read, write: if false;
     }

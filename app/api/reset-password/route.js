@@ -5,7 +5,10 @@ import { sendPasswordResetEmail } from '@/lib/email'
 import { verifyAdminRequest } from '@/lib/adminAuth'
 import { recordAttempt, getClientIp, normalizeEmail, isValidEmailInput } from '@/lib/rateLimit'
 
-const RESET_REDIRECT_URL = 'https://mhspride.com/login'
+// handleCodeInApp routes the reset link straight at our own page (with mode/oobCode
+// query params attached) instead of Firebase's generic hosted reset UI, so our
+// password standard (lib/passwordPolicy.js) actually gets enforced on this flow.
+const RESET_ACTION_CODE_SETTINGS = { url: 'https://mhspride.com/reset-password', handleCodeInApp: true }
 const RESET_EMAIL_LIMIT = { limit: 3, windowMs: 60 * 60 * 1000 }
 const RESET_IP_LIMIT = { limit: 10, windowMs: 60 * 60 * 1000 }
 
@@ -43,7 +46,7 @@ export async function POST(request) {
   }
 
   try {
-    const link = await getAdminAuth().generatePasswordResetLink(email, { url: RESET_REDIRECT_URL })
+    const link = await getAdminAuth().generatePasswordResetLink(email, RESET_ACTION_CODE_SETTINGS)
     await sendPasswordResetEmail({ email, link, adminInitiated: !!adminInitiated })
   } catch (error) {
     // Don't reveal whether the email has an account — log server-side only.

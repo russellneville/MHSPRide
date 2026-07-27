@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { verifyAuthRequest, verifyCurrentPassword } from '@/lib/adminAuth'
 import { getAdminAuth } from '@/lib/firebaseAdmin'
+import { getPasswordError } from '@/lib/passwordPolicy'
 
 // Goes through the Admin SDK. A valid ID token alone only proves an active session, not
 // that the caller just reauthenticated — the client-side reauth is a UX nicety a stolen
@@ -11,8 +12,9 @@ export async function POST(request) {
 
   const { newPassword, currentPassword } = await request.json()
 
-  if (!newPassword || newPassword.length < 8) {
-    return NextResponse.json({ ok: false, error: 'Password must be at least 8 characters.' }, { status: 400 })
+  const passwordError = getPasswordError(newPassword)
+  if (passwordError) {
+    return NextResponse.json({ ok: false, error: passwordError }, { status: 400 })
   }
 
   const adminAuth = getAdminAuth()

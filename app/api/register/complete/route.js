@@ -3,6 +3,7 @@ import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { recordAttempt, getClientIp, isValidEmailInput } from '@/lib/rateLimit'
 import { sendRegistrationEmail } from '@/lib/email'
+import { getPasswordError } from '@/lib/passwordPolicy'
 
 const REGISTER_IP_LIMIT = { limit: 5, windowMs: 60 * 60 * 1000 }
 
@@ -16,8 +17,13 @@ export async function POST(request) {
   try {
     const { token, email, password, fullname, phone, birthdate } = await request.json()
 
-    if (!token || !isValidEmailInput(email) || !password || password.length < 8 || !fullname?.trim() || !phone?.trim() || !birthdate) {
+    if (!token || !isValidEmailInput(email) || !fullname?.trim() || !phone?.trim() || !birthdate) {
       return NextResponse.json({ ok: false, error: 'All fields are required.' }, { status: 400 })
+    }
+
+    const passwordError = getPasswordError(password)
+    if (passwordError) {
+      return NextResponse.json({ ok: false, error: passwordError }, { status: 400 })
     }
 
     const ip = getClientIp(request)

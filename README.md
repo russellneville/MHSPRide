@@ -192,6 +192,14 @@ Registration is a two-secret flow on top of the table above: membership match (M
 
 ---
 
+## Password requirements
+
+One standard (`lib/passwordPolicy.js`), enforced everywhere a password gets set: at least 10 characters, including at least one number or symbol. No forced upper/lowercase mix — length plus one non-letter character is a better security/usability tradeoff (NIST 800-63B) than traditional complexity rules.
+
+Applied at registration (`app/api/register/complete`), profile password changes (`app/api/account/update-password`), and self-service/admin-initiated password reset. The reset link no longer opens Firebase's generic hosted reset page — `app/api/reset-password` generates it with `handleCodeInApp: true`, pointing at our own branded `/reset-password` page (`components/forms/ResetPasswordForm.jsx`), which validates against the same standard via the Firebase client SDK (`verifyPasswordResetCode` / `confirmPasswordReset`).
+
+---
+
 ## Test data
 
 A seed script generates a full set of synthetic test users, rides, and bookings for local development and QA. Seven pre-registered accounts cover admin access, network-scoped membership, pure riders, pure drivers, a cancellation history, and ride modification with booked passengers. Five unregistered member records support testing the registration flow.

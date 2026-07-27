@@ -15,6 +15,7 @@ import {
     AlertDialog, AlertDialogContent, AlertDialogDescription,
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { getPasswordError, PASSWORD_REQUIREMENT_TEXT } from "@/lib/passwordPolicy";
 
 export default function ProfilePage (){
     const { user , updateProfile , uploadPhoto, isLoading, changeEmail, changePassword, resetPassword } = useAuth()
@@ -66,8 +67,9 @@ export default function ProfilePage (){
     }
 
     function handlePasswordSaveClick() {
-        if (!newPassword || newPassword.length < 8) {
-            setPasswordError('Password must be at least 8 characters')
+        const validationError = getPasswordError(newPassword)
+        if (validationError) {
+            setPasswordError(validationError)
             return
         }
         if (newPassword !== confirmNewPassword) {
@@ -236,6 +238,7 @@ export default function ProfilePage (){
                                 value={newPassword}
                                 onChange={e => { setNewPassword(e.target.value); setPasswordError('') }}
                             />
+                            {!passwordError && <p className="text-muted-foreground text-sm">{PASSWORD_REQUIREMENT_TEXT}</p>}
                         </div>
                         <div>
                             <Label htmlFor="confirmNewPassword">Confirm new password</Label>

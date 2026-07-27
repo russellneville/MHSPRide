@@ -2,6 +2,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "../ui/input";
 import DatePicker from "../ui/date-picker";
 import { toLocalDateStr } from "@/lib/utils";
+import { PASSWORD_REQUIREMENT_TEXT } from "@/lib/passwordPolicy";
 
 export default function AccountSetupForm({ setRegisterForm, registerForm, errors }) {
   const handleChange = (e) => {
@@ -25,7 +26,9 @@ export default function AccountSetupForm({ setRegisterForm, registerForm, errors
     <div className="space-y-2">
       <Label htmlFor="password">Password</Label>
       <Input id="password" type="password" placeholder="*********" onChange={handleChange} value={registerForm.password} />
-      {errors.password && <p className="text-red-500 text-sm">{errors.password}</p>}
+      {errors.password
+        ? <p className="text-red-500 text-sm">{errors.password}</p>
+        : <p className="text-muted-foreground text-sm">{PASSWORD_REQUIREMENT_TEXT}</p>}
     </div>
 
     <div className="space-y-2">

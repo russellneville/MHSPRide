@@ -15,6 +15,7 @@ import { NETWORKS, defaultFavoritesFor } from "@/lib/networks"
 const STORAGE_OPTIONS = [
   { value: "ski_box",    label: "Ski/board roof box" },
   { value: "roof_rack",  label: "Roof rack" },
+  { value: "bike_rack",  label: "Bike rack" },
   { value: "trunk",      label: "Trunk" },
   { value: "back_seats", label: "Back seats" },
   { value: "truck_bed",  label: "Truck bed" },

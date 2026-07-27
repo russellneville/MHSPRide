@@ -22,6 +22,8 @@ import {
   Calendar1,
   UserRoundX,
   Pencil,
+  Download,
+  CalendarPlus,
 } from "lucide-react";
 import { Badge } from '@/components/ui/badge'
 import Link from "next/link";
@@ -34,7 +36,8 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { usePopup } from "@/context/PopupContext";
 import { formatDate as formatDateStr, formatTime } from "@/lib/utils";
 import { useLocations } from "@/context/LocationsContext";
-import { canCancelBooking, canBookRide, isCanceledStatus, hasActiveSameDayBooking, hasActiveSameDayRide } from "@/lib/rides";
+import { canCancelBooking, canBookRide, isCanceledStatus, hasActiveSameDayBooking, hasActiveSameDayRide, getBookingDeparture, getRideEndTime } from "@/lib/rides";
+import { buildIcsCalendar, downloadIcsFile, googleCalendarUrl } from "@/lib/ics";
 import { Skeleton } from "@/components/ui/skeleton";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
 import CancelReasonDialog from "@/components/CancelReasonDialog";
@@ -47,7 +50,7 @@ import {
 export default function RidePage() {
   const { rideId, networkId } = useParams();
   const { getRide, isLoading, bookRide, cancelRide, cancelBooking, getBookings, getRides } = useNetwork();
-  const { resolveLocation } = useLocations();
+  const { resolveLocation, byId: locationsById } = useLocations();
   const { user } = useAuth();
   const { openPopup } = usePopup();
 
@@ -120,13 +123,42 @@ export default function RidePage() {
 
   const inProgress = (() => {
     if (!rideData) return false
-    const now       = new Date()
-    const departure = new Date(`${rideData.departure_date}T${rideData.departure_time || '00:00'}`)
-    const arrival   = rideData.arrival_time
-      ? new Date(`${rideData.departure_date}T${rideData.arrival_time}`)
-      : new Date(departure.getTime() + 4 * 60 * 60 * 1000)
-    return now >= departure && now <= arrival
+    const now = new Date()
+    return now >= getBookingDeparture(rideData) && now <= getRideEndTime(rideData)
   })()
+
+  const canAddToCalendar = !!rideData
+    && rideData.ride_status !== 'canceled'
+    && (isRideDriver || (currentBooking && !isCanceledStatus(currentBooking.status)))
+
+  // Meeting point is the departure location — where you need to be when the event starts.
+  const calendarLocation = (() => {
+    if (!rideData) return ''
+    const loc = locationsById?.get(rideData.departure)
+    if (loc?.address) return loc.address
+    if (loc?.lat != null && loc?.lon != null) return `${loc.lat},${loc.lon}`
+    return resolveLocation(rideData.departure)
+  })()
+
+  const buildCalendarEvent = () => {
+    const start = getBookingDeparture(rideData)
+    const end = getRideEndTime(rideData)
+    const title = `MHSPRide: ${resolveLocation(rideData.departure)} → ${resolveLocation(rideData.arrival)}`
+    const description = [
+      isRideDriver ? "You're driving this ride." : `Driver: ${rideData.driver?.fullname || 'Unknown driver'}`,
+      !rideData.one_way && rideData.return_departure_time
+        ? `Return departs ${formatTime(rideData.return_departure_time)}`
+        : null,
+      rideData.ride_description || null,
+    ].filter(Boolean).join('\n')
+
+    return { uid: `ride-${rideId}@mhspride.com`, title, description, location: calendarLocation, start, end }
+  }
+
+  const handleDownloadIcs = () => {
+    if (!canAddToCalendar) return
+    downloadIcsFile(`mhspride-ride-${rideId}.ics`, buildIcsCalendar(buildCalendarEvent()))
+  }
 
   return (
     <DashboardLayout>
@@ -260,7 +292,31 @@ export default function RidePage() {
 
             {/* RIGHT SIDE */}
             <div className="space-y-4">
-            
+
+              {canAddToCalendar && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base font-semibold flex items-center gap-2">
+                      <Calendar className="size-4" />
+                      Add to Calendar
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex gap-2 flex-wrap">
+                    <Button variant="outline" onClick={handleDownloadIcs}>
+                      Download .ics <Download className="size-4 ml-1" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      href={googleCalendarUrl(buildCalendarEvent())}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Google Calendar <CalendarPlus className="size-4 ml-1" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+
               {(isRideDriver || user?.role === "admin") && (
                 <Card>
                   <CardHeader>

@@ -15,9 +15,9 @@ function mhspHex(mhspNumber) {
 
 export async function POST(request) {
   try {
-    const { token, email, password, fullname, phone, birthdate } = await request.json()
+    const { token, email, password, fullname, phone } = await request.json()
 
-    if (!token || !isValidEmailInput(email) || !fullname?.trim() || !phone?.trim() || !birthdate) {
+    if (!token || !isValidEmailInput(email) || !fullname?.trim() || !phone?.trim()) {
       return NextResponse.json({ ok: false, error: 'All fields are required.' }, { status: 400 })
     }
 
@@ -76,7 +76,6 @@ export async function POST(request) {
       email,
       fullname,
       phone,
-      birthdate,
       bio: '',
       role: 'member',
       mhspNumber: verification.mhspNumber,

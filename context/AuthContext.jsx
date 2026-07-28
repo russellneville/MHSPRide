@@ -152,13 +152,13 @@ export const AuthProvider = ({ children }) => {
 
   // Step 3/4: create the account server-side (Admin SDK), then sign in on the
   // client to establish the session and continue into vehicle/network onboarding.
-  const completeRegistration = async ({ token, email, password, fullname, phone, birthdate }) => {
+  const completeRegistration = async ({ token, email, password, fullname, phone }) => {
     try {
       setIsLoading(true)
       const res = await fetch('/api/register/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, email, password, fullname, phone, birthdate }),
+        body: JSON.stringify({ token, email, password, fullname, phone }),
       })
       const data = await res.json()
       if (!data.ok) {

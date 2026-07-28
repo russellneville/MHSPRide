@@ -278,35 +278,37 @@ function UsersContent() {
                             Reset Membership
                           </Button>
                         )}
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={async () => {
-                            try {
-                              const token = await auth.currentUser.getIdToken()
-                              const res = await fetch('/api/reset-password', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                                body: JSON.stringify({ email: u.email, adminInitiated: true }),
-                              })
-                              if (!res.ok) throw new Error('Could not send reset email')
-                              toast.success(`Password reset email sent to ${u.email}`)
-                              logEvent({
-                                type: 'admin.password_reset_requested',
-                                message: `Password reset requested for ${u.fullname}`,
-                                userId: auth.currentUser?.uid,
-                                userName: currentUser?.fullname,
-                                mhspNumber: currentUser?.mhspNumber,
-                                metadata: { targetUserId: u.uid, targetUserName: u.fullname },
-                              }).catch(() => {})
-                            } catch (e) {
-                              toast.error(e.message)
-                            }
-                          }}
-                        >
-                          Reset Password
-                        </Button>
-                        {u.uid !== currentUser?.uid && (
+                        {(isSuperAdmin || u.role !== 'super-admin') && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const token = await auth.currentUser.getIdToken()
+                                const res = await fetch('/api/reset-password', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                  body: JSON.stringify({ email: u.email, adminInitiated: true }),
+                                })
+                                if (!res.ok) throw new Error('Could not send reset email')
+                                toast.success(`Password reset email sent to ${u.email}`)
+                                logEvent({
+                                  type: 'admin.password_reset_requested',
+                                  message: `Password reset requested for ${u.fullname}`,
+                                  userId: auth.currentUser?.uid,
+                                  userName: currentUser?.fullname,
+                                  mhspNumber: currentUser?.mhspNumber,
+                                  metadata: { targetUserId: u.uid, targetUserName: u.fullname },
+                                }).catch(() => {})
+                              } catch (e) {
+                                toast.error(e.message)
+                              }
+                            }}
+                          >
+                            Reset Password
+                          </Button>
+                        )}
+                        {u.uid !== currentUser?.uid && (isSuperAdmin || u.role !== 'super-admin' || u.suspended) && (
                           <Button
                             variant="outline"
                             size="sm"

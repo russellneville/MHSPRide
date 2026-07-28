@@ -291,8 +291,8 @@ export default function Register() {
         </CardContent>
 
         <CardFooter className="text-sm text-center text-muted-foreground">
-          Already have an account?{" "}
-          <Link href="/login" className="text-blue-600 block text-center hover:underline dark:text-blue-400">
+          Already have an account?
+          <Link href="/login" className="ml-1 text-blue-600 hover:underline dark:text-blue-400">
             Log in
           </Link>
         </CardFooter>

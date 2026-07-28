@@ -42,6 +42,12 @@ export async function POST(request) {
     const userSnap = await userRef.get()
     if (!userSnap.exists) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
+    // A plain admin can't touch a super-admin's suspension state — only another
+    // super-admin can.
+    if (updates.suspended === true && userSnap.data().role === 'super-admin' && !(await isSuperAdminUser(auth.uid))) {
+      return NextResponse.json({ error: 'Only super-admins can suspend a super-admin' }, { status: 403 })
+    }
+
     await userRef.update(updates)
     return NextResponse.json({ ok: true })
   } catch (error) {

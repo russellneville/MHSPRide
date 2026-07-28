@@ -12,15 +12,12 @@ import DriverProfile from "@/components/forms/DriverProfile";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Camera, User } from "lucide-react";
-import {
-    AlertDialog, AlertDialogContent, AlertDialogDescription,
-    AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { getPasswordError, PASSWORD_REQUIREMENT_TEXT } from "@/lib/passwordPolicy";
 import { resolveLivePhotoUrl } from "@/lib/profilePhoto";
 
+const SECTION_CARD_CLASS = "bg-muted/65 dark:bg-[oklch(0.39_0_0)]"
+
 export default function ProfilePage (){
-    const { user , updateProfile , uploadPhoto, isLoading, changeEmail, changePassword, resetPassword } = useAuth()
+    const { user , updateProfile , uploadPhoto, isLoading } = useAuth()
     const { theme, setTheme } = useTheme()
     const [themeMounted, setThemeMounted] = useState(false)
     const [uploading, setUploading] = useState(false)
@@ -33,20 +30,9 @@ export default function ProfilePage (){
         phone : '' ,
       })
 
-    const [emailValue, setEmailValue] = useState('')
-    const [emailError, setEmailError] = useState('')
-    const [newPassword, setNewPassword] = useState('')
-    const [confirmNewPassword, setConfirmNewPassword] = useState('')
-    const [passwordError, setPasswordError] = useState('')
-
-    const [pendingAction, setPendingAction] = useState(null) // null | 'email' | 'password'
-    const [currentPassword, setCurrentPassword] = useState('')
-    const [confirming, setConfirming] = useState(false)
-
     useEffect(() => {
         if (user) {
           setProfile(user);
-          setEmailValue(user.email || '')
         }
     }, [user]);
 
@@ -73,62 +59,6 @@ export default function ProfilePage (){
         setProfile(prev => ({...prev , [e.target.id] : e.target.value}))
     }
 
-    function handleEmailSaveClick() {
-        const trimmed = emailValue.trim()
-        if (!trimmed || !/^\S+@\S+\.\S+$/.test(trimmed)) {
-            setEmailError('Enter a valid email address')
-            return
-        }
-        if (trimmed === user?.email) {
-            setEmailError('This is already your email address')
-            return
-        }
-        setEmailError('')
-        setCurrentPassword('')
-        setPendingAction('email')
-    }
-
-    function handlePasswordSaveClick() {
-        const validationError = getPasswordError(newPassword)
-        if (validationError) {
-            setPasswordError(validationError)
-            return
-        }
-        if (newPassword !== confirmNewPassword) {
-            setPasswordError('Passwords do not match')
-            return
-        }
-        setPasswordError('')
-        setCurrentPassword('')
-        setPendingAction('password')
-    }
-
-    async function handleConfirmPending() {
-        if (!currentPassword.trim()) return
-        setConfirming(true)
-        try {
-            const result = pendingAction === 'email'
-                ? await changeEmail(currentPassword, emailValue.trim())
-                : await changePassword(currentPassword, newPassword)
-            if (result.ok) {
-                setPendingAction(null)
-                setCurrentPassword('')
-                if (pendingAction === 'password') {
-                    setNewPassword('')
-                    setConfirmNewPassword('')
-                }
-            }
-        } finally {
-            setConfirming(false)
-        }
-    }
-
-    function handleForgotPassword() {
-        if (user?.email) resetPassword(user.email)
-        setPendingAction(null)
-        setCurrentPassword('')
-    }
-
     const handlePhotoChange = async (e) => {
         const file = e.target.files?.[0]
         if (!file) return
@@ -139,12 +69,11 @@ export default function ProfilePage (){
     }
     return <>
     <DashboardLayout>
-        <div className="flex items-center justify-betwee py-3">
+        <div className="flex items-center justify-between py-3">
             <h3 className="text-xl font-semibold py-2">My Profile</h3>
-            
         </div>
-       
-       <Card>
+
+       <Card className={SECTION_CARD_CLASS}>
         <CardHeader className='!pb-3 border-b border-border'>
             <CardTitle>
                 Personal information
@@ -205,67 +134,7 @@ export default function ProfilePage (){
 
        </Card>
 
-       <Card className="mt-4">
-        <CardHeader className='!pb-3 border-b border-border'>
-            <CardTitle>
-                Account &amp; Security
-            </CardTitle>
-        </CardHeader>
-        <CardContent className='space-y-6'>
-            <div className="space-y-2">
-                <Label htmlFor="emailValue">Email address</Label>
-                <div className="flex items-start gap-2">
-                    <div className="w-full">
-                        <Input
-                            id="emailValue"
-                            type="email"
-                            placeholder="you@example.com"
-                            value={emailValue}
-                            onChange={e => { setEmailValue(e.target.value); setEmailError('') }}
-                        />
-                        {emailError && <p className="text-red-500 text-sm mt-1">{emailError}</p>}
-                    </div>
-                    <Button variant="outline" onClick={handleEmailSaveClick} disabled={isLoading}>
-                        Update Email
-                    </Button>
-                </div>
-            </div>
-
-            <div className="space-y-2 border-t border-border pt-4">
-                <div className="flex items-start gap-2">
-                    <div className="w-full space-y-2">
-                        <div>
-                            <Label htmlFor="newPassword">New password</Label>
-                            <Input
-                                id="newPassword"
-                                type="password"
-                                placeholder="*********"
-                                value={newPassword}
-                                onChange={e => { setNewPassword(e.target.value); setPasswordError('') }}
-                            />
-                            {!passwordError && <p className="text-muted-foreground text-sm">{PASSWORD_REQUIREMENT_TEXT}</p>}
-                        </div>
-                        <div>
-                            <Label htmlFor="confirmNewPassword">Confirm new password</Label>
-                            <Input
-                                id="confirmNewPassword"
-                                type="password"
-                                placeholder="*********"
-                                value={confirmNewPassword}
-                                onChange={e => { setConfirmNewPassword(e.target.value); setPasswordError('') }}
-                            />
-                        </div>
-                        {passwordError && <p className="text-red-500 text-sm">{passwordError}</p>}
-                    </div>
-                    <Button variant="outline" onClick={handlePasswordSaveClick} disabled={isLoading} className="mt-6">
-                        Update Password
-                    </Button>
-                </div>
-            </div>
-        </CardContent>
-       </Card>
-
-       <Card className="mt-4">
+       <Card className={`mt-4 ${SECTION_CARD_CLASS}`}>
         <CardHeader className='!pb-3 border-b border-border'>
             <CardTitle>
                 Preferences
@@ -295,48 +164,12 @@ export default function ProfilePage (){
         </CardContent>
        </Card>
 
-       <DriverProfile profile={profile} setProfile={setProfile}/>
+       <DriverProfile profile={profile} setProfile={setProfile} className={`mt-4 ${SECTION_CARD_CLASS}`}/>
 
        <div className="flex items-center justify-end bg-background py-3">
             <Button onClick={()=> updateProfile(profile)} disabled={isLoading}>{isLoading ? 'Updating... ' : 'Update Profile'}</Button>
 
        </div>
-
-       <AlertDialog open={!!pendingAction} onOpenChange={open => { if (!open) { setPendingAction(null); setCurrentPassword('') } }}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Confirm your password</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Enter your current password to {pendingAction === 'email' ? 'update your email address' : 'update your password'}.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <div className="space-y-2">
-                <Label htmlFor="currentPassword">Current password</Label>
-                <Input
-                    id="currentPassword"
-                    type="password"
-                    placeholder="*********"
-                    value={currentPassword}
-                    onChange={e => setCurrentPassword(e.target.value)}
-                />
-                <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    className="text-sm text-blue-600 hover:underline dark:text-blue-400"
-                >
-                    Forgot password?
-                </button>
-            </div>
-            <AlertDialogFooter>
-                <Button variant="outline" onClick={() => { setPendingAction(null); setCurrentPassword('') }} disabled={confirming}>
-                    Cancel
-                </Button>
-                <Button onClick={handleConfirmPending} disabled={confirming || !currentPassword.trim()}>
-                    {confirming ? 'Confirming...' : 'Confirm'}
-                </Button>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-       </AlertDialog>
 
     </DashboardLayout>
   </>

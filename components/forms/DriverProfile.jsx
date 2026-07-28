@@ -15,7 +15,7 @@ const STORAGE_OPTIONS = [
   { value: "cargo_area",  label: "Cargo area (SUV/van)" },
 ]
 
-export default function DriverProfile({ profile, setProfile }) {
+export default function DriverProfile({ profile, setProfile, className }) {
   const handle = (e) => {
     const { id, value } = e.target
     setProfile(prev => ({ ...prev, [id]: id === "vehicle_seats" ? (value === "" ? "" : Number(value)) : value }))
@@ -34,7 +34,7 @@ export default function DriverProfile({ profile, setProfile }) {
   }
 
   return (
-    <Card>
+    <Card className={className}>
       <CardHeader className="!pb-3 border-b border-border">
         <CardTitle>Vehicle Information</CardTitle>
       </CardHeader>

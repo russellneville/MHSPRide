@@ -12,6 +12,7 @@ import {
   MapPin,
   MessageSquare,
   Settings,
+  Shield,
   Upload,
   User,
   Users,
@@ -57,6 +58,7 @@ export function AppSidebar({ user, ...props }) {
   const menu = [
     { name: "Home", icon: Home, href: "/dashboard" },
     { name: "Profile", icon: User, href: "/dashboard/profile" },
+    { name: "Security", icon: Shield, href: "/dashboard/security" },
     { name: "FAQ", icon: HelpCircle, href: "/dashboard/faq" },
   ]
 

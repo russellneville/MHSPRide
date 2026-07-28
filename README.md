@@ -135,7 +135,7 @@ Open [http://localhost:3000](http://localhost:3000)
 
 Users with `role: 'admin'` or `role: 'super-admin'` see an Admin section in the sidebar with access to:
 
-- **Users** — view all registered users, suspend/unsuspend accounts (suspended users are force-logged-out, blocked from logging back in, and notified by email), reset passwords. Changing a user's role and resetting a claimed membership are **super-admin only** (see below) — a plain admin sees the role as read-only text and no Reset Membership button. Suspending an admin/super-admin also demotes them to `member` in the same action, but only when the actor is a super-admin; a plain admin can still suspend a fellow admin, it just won't touch their role
+- **Users** — view all registered users, suspend/unsuspend accounts (suspended users are force-logged-out, blocked from logging back in, and notified by email), reset passwords. Changing a user's role and resetting a claimed membership are **super-admin only** (see below) — a plain admin sees the role as read-only text and no Reset Membership button. Suspending an admin/super-admin also demotes them to `member` in the same action, but only when the actor is a super-admin; a plain admin can still suspend a fellow admin, it just won't touch their role. A plain admin can't suspend or reset the password of a **super-admin** at all — those buttons are hidden for that row, and `/api/admin/update-user` and `/api/reset-password` independently 403 the request server-side even if called directly
 - **Rides** — view (sorted most recent first, paginated 25/page), search by driver/rider/route, filter by status/network/date range, click a row to see full details including the rider list (with a per-rider **Remove** action that cancels that booking, restores the seat, and emails the passenger), or edit/cancel/delete. Edit and Cancel are hidden once a ride is Completed or Canceled. The status shown (not started/in progress/Completed) is computed live from each ride's departure/arrival/return times, not from the stored `ride_status` field — that field only changes when a driver manually starts/finishes a ride, so a ride left untouched by its driver would otherwise show "not started" forever even after it's over. This page is also the only place admins manage bookings — there is no separate Bookings page; a booking's canonical status lives on its own `bookings` doc, not on the ride's embedded rider list, which is display-only
 - **Roster** — browse the imported MHSP roster: search by name/MHSP#/email, filter by status or registration, click a member's coordinates to open them in Google Maps. The **Add** button opens a dialog to manually add a roster record (only Last Name, MHSP #, and Troopiter email are required — useful for test accounts that aren't in the Troopiter export)
 - **Roster Import** *(super-admin only)* — upload a Troopiter CSV export, preview detected renames/new members/field updates/deactivations before anything is written, then commit (see [Roster import matching](#roster-import-matching) below). Each row in the Deactivated section has a checkbox — unchecking it keeps that member active instead of deactivating them, so a manually-added test account doesn't get wiped out just because it's not in the CSV. MHSP #s starting with `99` (the convention for manually-added test accounts) are unchecked by default
@@ -157,6 +157,7 @@ Users with `role: 'admin'` or `role: 'super-admin'` see an Admin section in the 
 - Reset User Membership (`/api/admin/reset-membership`)
 - Deleting feedback (`feedback/{id}` delete rule)
 - Changing any user's role, including the auto-demote that happens when suspending an admin/super-admin (`/api/admin/update-user`) — a plain admin can still toggle `suspended` on its own
+- Suspending or resetting the password of a super-admin (`/api/admin/update-user`, `/api/reset-password`) — a plain admin can still suspend/reset a fellow admin
 
 ### Setting up an admin user
 
@@ -276,7 +277,8 @@ MHSPRide/
 │   └── dashboard/              # Protected dashboard pages
 │       ├── admin/              # Admin-only pages (users, rides, bookings, logs, feedback, reports, locations)
 │       ├── network/[networkId]/ # Network ride list (with filters), ride detail
-│       ├── profile/            # User profile
+│       ├── profile/            # User profile (personal info, vehicle info, preferences)
+│       ├── security/           # Email/password changes — split out from profile to reduce clutter
 │       ├── onboarding/         # First-login wizard
 │       └── faq/                # Riders/Drivers FAQ — lands here right after onboarding
 ├── components/

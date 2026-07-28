@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto'
 import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin'
 import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { sendPasswordResetEmail } from '@/lib/email'
-import { verifyAdminRequest } from '@/lib/adminAuth'
+import { verifyAdminRequest, isSuperAdminUser } from '@/lib/adminAuth'
 import { recordAttempt, getClientIp, normalizeEmail, isValidEmailInput } from '@/lib/rateLimit'
 
 // Firebase's own generatePasswordResetLink always lands on Firebase's hosted reset
@@ -23,6 +23,16 @@ export async function POST(request) {
   if (adminInitiated) {
     const auth = await verifyAdminRequest(request)
     if (auth.error) return auth.error
+
+    // A plain admin can't send a reset link to a super-admin — only another
+    // super-admin can.
+    const targetRecord = await getAdminAuth().getUserByEmail(email).catch(() => null)
+    if (targetRecord) {
+      const targetSnap = await getAdminDb().collection('users').doc(targetRecord.uid).get()
+      if (targetSnap.exists && targetSnap.data().role === 'super-admin' && !(await isSuperAdminUser(auth.uid))) {
+        return NextResponse.json({ ok: false, error: 'Only super-admins can reset a super-admin\'s password' }, { status: 403 })
+      }
+    }
   } else {
     // Rate limit only applies to the self-service path — admin-initiated resets
     // are already authenticated and logged separately as admin.password_reset_requested.

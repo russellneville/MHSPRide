@@ -1,11 +1,7 @@
-import { Resend } from 'resend'
 import { NextResponse } from 'next/server'
 import { verifyAuthRequest, isAdminUser } from '@/lib/adminAuth'
 import { getAdminDb } from '@/lib/firebaseAdmin'
-
-function esc(s) {
-  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-}
+import { sendRideUpdateEmail } from '@/lib/email'
 
 // Recipients and content come from the (already-updated) ride doc, never
 // from the request body — the caller only supplies which ride to notify about.
@@ -13,7 +9,6 @@ export async function POST(request) {
   const auth = await verifyAuthRequest(request)
   if (auth.error) return auth.error
 
-  const resend = new Resend(process.env.RESEND_API_KEY)
   try {
     const { rideId } = await request.json()
     if (!rideId) return NextResponse.json({ error: 'rideId is required' }, { status: 400 })
@@ -46,28 +41,7 @@ export async function POST(request) {
     }
 
     const results = await Promise.allSettled(
-      passengers.map(p =>
-        resend.emails.send({
-          from: 'MHSPRide <noreply@mhspride.com>',
-          to: p.email,
-          subject: 'A ride you booked has been updated',
-          html: `
-            <p>Hi ${esc(p.fullname)},</p>
-            <p>The driver has updated a ride you booked. Here are the new details:</p>
-            <table style="border-collapse:collapse;margin:12px 0">
-              <tr><td style="padding:4px 12px 4px 0;font-weight:600">Departure</td><td>${esc(ride.departure)}</td></tr>
-              <tr><td style="padding:4px 12px 4px 0;font-weight:600">Arrival</td><td>${esc(ride.arrival)}</td></tr>
-              <tr><td style="padding:4px 12px 4px 0;font-weight:600">Date</td><td>${esc(ride.departure_date)}</td></tr>
-              <tr><td style="padding:4px 12px 4px 0;font-weight:600">Departure time</td><td>${esc(ride.departure_time)}</td></tr>
-              ${ride.arrival_time ? `<tr><td style="padding:4px 12px 4px 0;font-weight:600">Arrival time</td><td>${esc(ride.arrival_time)}</td></tr>` : ''}
-              ${ride.return_departure_time ? `<tr><td style="padding:4px 12px 4px 0;font-weight:600">Return departs</td><td>${esc(ride.return_departure_time)}</td></tr>` : ''}
-              ${ride.ride_description ? `<tr><td style="padding:4px 12px 4px 0;font-weight:600">Notes</td><td>${esc(ride.ride_description)}</td></tr>` : ''}
-            </table>
-            <p>Please confirm the updated details with your driver. If these changes don't work for you, contact the driver directly.</p>
-            <p>— MHSPRide</p>
-          `,
-        })
-      )
+      passengers.map(p => sendRideUpdateEmail({ passenger: p, ride }))
     )
 
     results.forEach((r, i) => {

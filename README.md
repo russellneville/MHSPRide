@@ -26,7 +26,7 @@ MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and ho
 - **Cancellation with reason** — canceling a booking or a ride (rider or driver, self-service) always prompts for a free-text reason first, which is included in the cancellation email(s) and the activity log. Cancellation is never blocked outright — but if a rider cancels within 12 hours of departure, they're shown a one-button warning to call or text the driver directly before it goes through
 - **Dashboard** — the single home screen: today's rides at a glance, scheduled rides (offered + booked), available rides per favorited network, and ride history — each list paginated 10/page with Previous/Next controls. Available Rides has date/origin/destination filters plus a driver/origin/destination search dialog, applied uniformly across every favorited network's list at once, with one-click clearing
 - **FAQ** — a Riders/Drivers reference covering the site's actual business rules (booking cutoff, cancellation policy, how ride status and arrival times are calculated, etc.); shown right after the onboarding wizard completes, and always reachable from the sidebar afterward
-- **Email notifications** — registration verification codes and welcome email, booking receipts, ride change notices, and cancellations via Resend
+- **Email notifications** — registration verification codes and welcome email, booking receipts, ride change notices, and cancellations via Resend. Booking receipts, booking notices, and ride update emails each include "Add to Calendar" links (Google, Outlook web, and a `.ics` download for Apple Calendar/others) — see `lib/calendarLinks.js`
 - **Admin panel** — user management, ride oversight, booking management, activity log, and leaderboard reports
 
 ---
@@ -299,6 +299,7 @@ MHSPRide/
 │   ├── activityLog.js          # logEvent() utility — writes to activity_log collection
 │   ├── rateLimit.js            # Fixed-window rate limiting — writes to rate_limits collection
 │   ├── email.js                # Resend email helpers (registration, booking, cancellation)
+│   ├── calendarLinks.js        # "Add to Calendar" event builder + Google/Outlook/.ics link generation
 │   └── utils.js                # cn(), toLocalDateStr(), formatTime()
 ├── scripts/                    # Node.js seed/sync/admin scripts (Firebase Admin SDK)
 ├── docs/                       # Developer documentation (test data, etc.)

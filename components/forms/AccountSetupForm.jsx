@@ -1,19 +1,10 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "../ui/input";
-import DatePicker from "../ui/date-picker";
-import { toLocalDateStr } from "@/lib/utils";
 import { PASSWORD_REQUIREMENT_TEXT } from "@/lib/passwordPolicy";
 
 export default function AccountSetupForm({ setRegisterForm, registerForm, errors }) {
   const handleChange = (e) => {
     setRegisterForm((prev) => ({ ...prev, [e.target.id]: e.target.value }))
-  }
-
-  const handleDateChange = (selectedDate) => {
-    setRegisterForm((prev) => ({
-      ...prev,
-      birthdate: toLocalDateStr(selectedDate),
-    }))
   }
 
   return <>
@@ -47,16 +38,6 @@ export default function AccountSetupForm({ setRegisterForm, registerForm, errors
       <Label htmlFor="phone">Phone Number</Label>
       <Input id="phone" type="tel" placeholder="503-555-0100" onChange={handleChange} value={registerForm.phone} />
       {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
-    </div>
-
-    <div className="space-y-2">
-      <Label htmlFor="birthdate">Date of Birth</Label>
-      <DatePicker
-        id="birthdate"
-        date={registerForm.birthdate ? new Date(registerForm.birthdate + 'T12:00:00') : undefined}
-        setDate={handleDateChange}
-      />
-      {errors.birthdate && <p className="text-red-500 text-sm">{errors.birthdate}</p>}
     </div>
   </>
 }

@@ -6,8 +6,7 @@ import { Label } from "@radix-ui/react-label";
 import { Input } from "@/components/ui/input";
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import DatePicker from "@/components/ui/date-picker";
-import { toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils";
+import { TEXTAREA_MAX_LENGTH } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import DriverProfile from "@/components/forms/DriverProfile";
 import { Button } from "@/components/ui/button";
@@ -24,14 +23,12 @@ export default function ProfilePage (){
     const { user , updateProfile , uploadPhoto, isLoading, changeEmail, changePassword, resetPassword } = useAuth()
     const { theme, setTheme } = useTheme()
     const [themeMounted, setThemeMounted] = useState(false)
-    const [date, setDate] = useState(undefined)
     const [uploading, setUploading] = useState(false)
     const [photoSrc, setPhotoSrc] = useState(null)
     const [photoTriedLive, setPhotoTriedLive] = useState(false)
     const fileInputRef = useRef(null)
     const [ profile , setProfile ] = useState({
         fullname : '',
-        birthdate : '' ,
         bio : '' ,
         phone : '' ,
       })
@@ -132,14 +129,6 @@ export default function ProfilePage (){
         setCurrentPassword('')
     }
 
-    const handleDateChange = (selectedDate) => {
-        setDate(selectedDate);
-        setProfile((prev) => ({
-          ...prev,
-          birthdate: toLocalDateStr(selectedDate),
-        }));
-    };
-
     const handlePhotoChange = async (e) => {
         const file = e.target.files?.[0]
         if (!file) return
@@ -204,19 +193,9 @@ export default function ProfilePage (){
                 <Input id="fullname" type="text" placeholder={user?.fullname} onChange={handleChange} value={profile.fullname}/>
             </div>
 
-            <div className="space-y-2 flex items-center gap-2 w-full">
-                <div className="w-full mb-0">
-                    <Label htmlFor="phone">phone number</Label>
-                    <Input id="phone" type="text" placeholder={user?.phone} onChange={handleChange} value={profile.phone}/>
-                </div>
-                <div className="space-y-2 w-full">
-                    <Label htmlFor='birthdate'>Date of birth</Label>
-                    <DatePicker
-                        id="birthdate"
-                        date={profile.birthdate ? new Date(profile.birthdate + 'T12:00:00') : undefined}
-                        setDate={handleDateChange}
-                        />
-                </div>
+            <div className="space-y-2">
+                <Label htmlFor="phone">phone number</Label>
+                <Input id="phone" type="text" placeholder={user?.phone} onChange={handleChange} value={profile.phone}/>
             </div>
             <div className="space-y-2">
                 <Label htmlFor='bio'>Bio</Label>

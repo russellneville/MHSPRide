@@ -7,6 +7,8 @@ import { useState } from "react";
 import RegisterMemberForm from "@/components/forms/RegisterMemberForm";
 import VerifyCodeForm from "@/components/forms/VerifyCodeForm";
 import AccountSetupForm from "@/components/forms/AccountSetupForm";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { getPasswordError } from "@/lib/passwordPolicy";
 
@@ -24,7 +26,6 @@ export default function Register() {
     lastName: '',
     mhspNumber: '',
     troopiterEmail: '',
-    birthdate: '',
     email: '',
     password: '',
     confirmpassword: '',
@@ -34,6 +35,8 @@ export default function Register() {
   const [verificationToken, setVerificationToken] = useState(null)
   const [code, setCode] = useState('')
   const [codeError, setCodeError] = useState('')
+  const [ageConfirmed, setAgeConfirmed] = useState(false)
+  const [termsError, setTermsError] = useState('')
   const { verifyMembership, verifyRegistrationCode, completeRegistration, isLoading, maintenanceMode } = useAuth()
 
   const validateStep1 = () => {
@@ -59,17 +62,6 @@ export default function Register() {
 
     if (!registerForm.fullname.trim()) newErrors.fullname = "Full name is required"
     if (!registerForm.phone.trim()) newErrors.phone = "Phone number is required"
-    if (!registerForm.birthdate.trim()) {
-      newErrors.birthdate = "Date of birth is required"
-    } else {
-      const today = new Date()
-      const birthDate = new Date(registerForm.birthdate + 'T12:00:00')
-      const age = today.getFullYear() - birthDate.getFullYear()
-      const monthDiff = today.getMonth() - birthDate.getMonth()
-      const dayDiff = today.getDate() - birthDate.getDate()
-      const actualAge = monthDiff < 0 || (monthDiff === 0 && dayDiff < 0) ? age - 1 : age
-      if (actualAge < 18) newErrors.birthdate = "You must be at least 18 years old"
-    }
 
     setValidationErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -127,13 +119,17 @@ export default function Register() {
   }
 
   const handleAcceptTerms = () => {
+    if (!ageConfirmed) {
+      setTermsError("You must confirm you are 18 or older to continue")
+      return
+    }
+    setTermsError('')
     completeRegistration({
       token: verificationToken,
       email: registerForm.email,
       password: registerForm.password,
       fullname: registerForm.fullname,
       phone: registerForm.phone,
-      birthdate: registerForm.birthdate,
     }).then(result => {
       if (result.expired) resetToStart()
     })
@@ -267,6 +263,16 @@ export default function Register() {
 
                 <p className="text-xs text-muted-foreground pt-2 border-t border-border">Last updated: July 2026</p>
               </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <Checkbox
+                  id="age-confirmed"
+                  checked={ageConfirmed}
+                  onCheckedChange={(checked) => { setAgeConfirmed(checked); setTermsError('') }}
+                />
+                <Label htmlFor="age-confirmed" className="font-normal">I am 18 or older</Label>
+              </div>
+              {termsError && <p className="text-red-500 text-sm">{termsError}</p>}
 
               <div className="flex items-center gap-4 pt-2">
                 <Button variant="outline" className="flex-1" onClick={() => setCurrStep(3)}>

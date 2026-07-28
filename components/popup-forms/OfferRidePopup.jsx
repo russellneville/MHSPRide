@@ -126,7 +126,7 @@ export default function OfferRidePopup({ networkId, onSaved }) {
   const [rideData, setRideData] = useState({
     departure_time: '',
     arrival_time: '',
-    return_departure_time: '',
+    return_departure_time: '16:00',
     ride_description: '',
     total_seats: user?.vehicle_seats ? String(user.vehicle_seats) : '',
   })

@@ -2,7 +2,6 @@
 
 import {
   BadgeCheck,
-  Bell,
   ChevronsUpDown,
   CreditCard,
   LogOut,
@@ -71,10 +70,6 @@ export function NavUser({user}) {
                   Manage Account
                 </DropdownMenuItem>
               </Link>
-              <DropdownMenuItem>
-                <Bell />
-                Notifications
-              </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={logOut}>

@@ -2,7 +2,8 @@ import { NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/firebaseAdmin'
 import { sendSupportEmail } from '@/lib/email'
 import { FieldValue } from 'firebase-admin/firestore'
-import { recordAttempt, getClientIp } from '@/lib/rateLimit'
+import { recordAttempt, getClientIp, isValidEmailInput } from '@/lib/rateLimit'
+import { NAME_MAX_LENGTH, TEXTAREA_MAX_LENGTH } from '@/lib/utils'
 
 const CONTACT_IP_LIMIT = { limit: 5, windowMs: 60 * 60 * 1000 }
 
@@ -10,8 +11,11 @@ export async function POST(request) {
   try {
     const { name, email, type, message } = await request.json()
 
-    if (!name?.trim() || !email?.trim() || !message?.trim() || !type) {
+    if (!name?.trim() || !isValidEmailInput(email) || !message?.trim() || !type) {
       return NextResponse.json({ ok: false, error: 'Missing required fields' }, { status: 400 })
+    }
+    if (name.trim().length > NAME_MAX_LENGTH || message.trim().length > TEXTAREA_MAX_LENGTH) {
+      return NextResponse.json({ ok: false, error: 'One or more fields exceed the maximum length.' }, { status: 400 })
     }
 
     const db = getAdminDb()

@@ -1,136 +1,93 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Label } from "@radix-ui/react-label";
-import { Input } from "../ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
-
-const COLORS = ["Black","White","Silver","Gray","Red","Blue","Green","Brown","Beige","Orange","Yellow","Gold","Purple","Other"]
-
-const STORAGE_OPTIONS = [
-  { value: "ski_box",     label: "Ski/board roof box" },
-  { value: "roof_rack",   label: "Roof rack" },
-  { value: "bike_rack",   label: "Bike rack" },
-  { value: "trunk",       label: "Trunk" },
-  { value: "back_seats",  label: "Back seats" },
-  { value: "truck_bed",   label: "Truck bed" },
-  { value: "cargo_area",  label: "Cargo area (SUV/van)" },
-]
+import { Button } from "../ui/button";
+import { Plus, Trash2 } from "lucide-react";
+import VehicleForm from "./VehicleForm";
+import { createVehicleId, EMPTY_VEHICLE } from "@/lib/vehicles";
 
 export default function DriverProfile({ profile, setProfile, className }) {
-  const handle = (e) => {
-    const { id, value } = e.target
-    setProfile(prev => ({ ...prev, [id]: id === "vehicle_seats" ? (value === "" ? "" : Number(value)) : value }))
+  const vehicles = profile.vehicles || []
+
+  const updateVehicle = (id, updated) => {
+    setProfile(prev => ({
+      ...prev,
+      vehicles: (prev.vehicles || []).map(v => v.id === id ? updated : v),
+    }))
   }
 
-  const handleSelect = (field, value) => {
-    setProfile(prev => ({ ...prev, [field]: value }))
+  const addVehicle = () => {
+    setProfile(prev => {
+      const existing = prev.vehicles || []
+      return {
+        ...prev,
+        vehicles: [...existing, { ...EMPTY_VEHICLE, id: createVehicleId(), isDefault: existing.length === 0 }],
+      }
+    })
   }
 
-  const handleStorageToggle = (value) => {
-    const current = profile.vehicle_storage || []
-    const updated = current.includes(value)
-      ? current.filter(v => v !== value)
-      : [...current, value]
-    setProfile(prev => ({ ...prev, vehicle_storage: updated }))
+  const removeVehicle = (id) => {
+    setProfile(prev => {
+      const existing = prev.vehicles || []
+      const removedWasDefault = existing.find(v => v.id === id)?.isDefault
+      const remaining = existing.filter(v => v.id !== id)
+      if (removedWasDefault && remaining.length > 0) {
+        remaining[0] = { ...remaining[0], isDefault: true }
+      }
+      return { ...prev, vehicles: remaining }
+    })
+  }
+
+  const setDefaultVehicle = (id) => {
+    setProfile(prev => ({
+      ...prev,
+      vehicles: (prev.vehicles || []).map(v => ({ ...v, isDefault: v.id === id })),
+    }))
   }
 
   return (
     <Card className={className}>
       <CardHeader className="!pb-3 border-b border-border">
-        <CardTitle>Vehicle Information</CardTitle>
+        <CardTitle>Vehicles</CardTitle>
       </CardHeader>
       <CardContent className="pt-4 space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <Label htmlFor="vehicle_make">Make</Label>
-            <Input
-              id="vehicle_make"
-              placeholder="e.g. Toyota"
-              value={profile.vehicle_make || ""}
-              onChange={handle}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="vehicle_model">Model</Label>
-            <Input
-              id="vehicle_model"
-              placeholder="e.g. 4Runner"
-              value={profile.vehicle_model || ""}
-              onChange={handle}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="vehicle_year">Year</Label>
-            <Input
-              id="vehicle_year"
-              placeholder="e.g. 2021"
-              value={profile.vehicle_year || ""}
-              onChange={handle}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label>Color</Label>
-            <Select
-              value={profile.vehicle_color || ""}
-              onValueChange={(v) => handleSelect("vehicle_color", v)}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select color" />
-              </SelectTrigger>
-              <SelectContent>
-                {COLORS.map(c => (
-                  <SelectItem key={c} value={c.toLowerCase()}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="vehicle_seats">Passenger Seats</Label>
-            <Input
-              id="vehicle_seats"
-              type="number"
-              min={1}
-              placeholder="e.g. 4"
-              value={profile.vehicle_seats || ""}
-              onChange={handle}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="vehicle_plate">License Plate</Label>
-            <Input
-              id="vehicle_plate"
-              placeholder="e.g. ABC-1234"
-              value={profile.vehicle_plate || ""}
-              onChange={handle}
-            />
-          </div>
-        </div>
+        {vehicles.length === 0 && (
+          <p className="text-sm text-muted-foreground">No vehicles added yet.</p>
+        )}
 
-        <div className="space-y-2">
-          <Label>Equipment Storage</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {STORAGE_OPTIONS.map(opt => {
-              const checked = (profile.vehicle_storage || []).includes(opt.value)
-              return (
-                <label
-                  key={opt.value}
-                  className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer transition-colors ${
-                    checked
-                      ? "border-primary bg-primary/10 text-primary font-medium"
-                      : "border-border text-muted-foreground hover:border-primary/50"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="hidden"
-                    checked={checked}
-                    onChange={() => handleStorageToggle(opt.value)}
-                  />
-                  {opt.label}
-                </label>
-              )
-            })}
+        {vehicles.map((vehicle, i) => (
+          <div key={vehicle.id} className="space-y-3 rounded-lg border border-border p-4">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Vehicle {i + 1}</span>
+              <div className="flex items-center gap-4">
+                {vehicles.length > 1 && (
+                  <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="default_vehicle"
+                      checked={!!vehicle.isDefault}
+                      onChange={() => setDefaultVehicle(vehicle.id)}
+                    />
+                    Default
+                  </label>
+                )}
+                {vehicles.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeVehicle(vehicle.id)}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                    title="Remove vehicle"
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+            <VehicleForm vehicle={vehicle} onChange={(updated) => updateVehicle(vehicle.id, updated)} />
           </div>
-        </div>
+        ))}
+
+        <Button type="button" variant="outline" size="sm" onClick={addVehicle}>
+          <Plus className="size-4" /> Add another vehicle
+        </Button>
       </CardContent>
     </Card>
   )

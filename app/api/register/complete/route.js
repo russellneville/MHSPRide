@@ -4,6 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { recordAttempt, getClientIp, isValidEmailInput } from '@/lib/rateLimit'
 import { sendRegistrationEmail } from '@/lib/email'
 import { getPasswordError } from '@/lib/passwordPolicy'
+import { NAME_MAX_LENGTH, PHONE_MAX_LENGTH } from '@/lib/utils'
 
 const REGISTER_IP_LIMIT = { limit: 5, windowMs: 60 * 60 * 1000 }
 
@@ -19,6 +20,9 @@ export async function POST(request) {
 
     if (!token || !isValidEmailInput(email) || !fullname?.trim() || !phone?.trim()) {
       return NextResponse.json({ ok: false, error: 'All fields are required.' }, { status: 400 })
+    }
+    if (fullname.trim().length > NAME_MAX_LENGTH || phone.trim().length > PHONE_MAX_LENGTH) {
+      return NextResponse.json({ ok: false, error: 'One or more fields exceed the maximum length.' }, { status: 400 })
     }
 
     const passwordError = getPasswordError(password)

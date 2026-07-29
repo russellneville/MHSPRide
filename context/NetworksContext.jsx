@@ -6,6 +6,7 @@ import { createContext, useContext, useState } from 'react'
 import { logEvent } from '@/lib/activityLog'
 import { canBookRide, isCanceledStatus } from '@/lib/rides'
 import { networkName } from '@/lib/networks'
+import { flattenVehicleForSnapshot } from '@/lib/vehicles'
 const NetworkContext = createContext()
 
 export const NetworkProvider = ({children})=>{
@@ -43,7 +44,7 @@ export const NetworkProvider = ({children})=>{
     }
   }
 
-  const offerRide = async (rideData , networkId)=>{
+  const offerRide = async ({ vehicle, ...rideData } , networkId)=>{
     try {
       setIsLoading(true)
       const inviteCode = generateInviteCode()
@@ -58,7 +59,7 @@ export const NetworkProvider = ({children})=>{
               started_at : '',
               finished_at : '' ,
               available_seats : rideData.total_seats,
-              driver : {...userData , id : auth.currentUser.uid},
+              driver : {...userData , ...flattenVehicleForSnapshot(vehicle) , id : auth.currentUser.uid},
               driverId : auth.currentUser.uid,
               network_id : networkId,
               passengers : [],

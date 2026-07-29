@@ -6,13 +6,14 @@ import { Label } from "@radix-ui/react-label";
 import { Input } from "@/components/ui/input";
 import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
-import { TEXTAREA_MAX_LENGTH } from "@/lib/utils";
+import { TEXTAREA_MAX_LENGTH, NAME_MAX_LENGTH, PHONE_MAX_LENGTH } from "@/lib/utils";
 import { Textarea } from "@/components/ui/textarea";
 import DriverProfile from "@/components/forms/DriverProfile";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Camera, User } from "lucide-react";
 import { resolveLivePhotoUrl } from "@/lib/profilePhoto";
+import { getVehicles } from "@/lib/vehicles";
 
 const SECTION_CARD_CLASS = "bg-muted/65 dark:bg-[oklch(0.39_0_0)]"
 
@@ -32,7 +33,7 @@ export default function ProfilePage (){
 
     useEffect(() => {
         if (user) {
-          setProfile(user);
+          setProfile({ ...user, vehicles: getVehicles(user) });
         }
     }, [user]);
 
@@ -119,12 +120,12 @@ export default function ProfilePage (){
 
             <div className="space-y-2">
                 <Label htmlFor="fullname">Full name</Label>
-                <Input id="fullname" type="text" placeholder={user?.fullname} onChange={handleChange} value={profile.fullname}/>
+                <Input id="fullname" type="text" placeholder={user?.fullname} maxLength={NAME_MAX_LENGTH} onChange={handleChange} value={profile.fullname}/>
             </div>
 
             <div className="space-y-2">
                 <Label htmlFor="phone">phone number</Label>
-                <Input id="phone" type="text" placeholder={user?.phone} onChange={handleChange} value={profile.phone}/>
+                <Input id="phone" type="text" placeholder={user?.phone} maxLength={PHONE_MAX_LENGTH} onChange={handleChange} value={profile.phone}/>
             </div>
             <div className="space-y-2">
                 <Label htmlFor='bio'>Bio</Label>

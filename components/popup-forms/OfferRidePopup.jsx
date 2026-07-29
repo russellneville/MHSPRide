@@ -17,10 +17,50 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "../ui/alert-dialog"
 import { estimateArrival } from "@/lib/drive-times"
-import { formatDate, toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils"
+import { formatDate, toLocalDateStr, TEXTAREA_MAX_LENGTH, LOCATION_NAME_MAX_LENGTH } from "@/lib/utils"
 import { hasActiveSameDayBooking, hasActiveSameDayRide } from "@/lib/rides"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { db, auth } from "@/lib/firebaseClient"
+import { getVehicles, getDefaultVehicle, vehicleShortLabel } from "@/lib/vehicles"
+
+// Rendered as the popup's title (see openPopup() call sites) instead of a
+// plain string, so the vehicle picker can live in the dialog header. Shares
+// selectedVehicleId with OfferRidePopup below via the popup's generic
+// popupState — they're sibling element trees, not parent/child, so a plain
+// prop can't pass between them.
+export function OfferRideTitle() {
+  const { user } = useAuth()
+  const { popupState, setPopupState } = usePopup()
+  const vehicles = getVehicles(user)
+
+  if (vehicles.length === 0) return "Offer ride"
+
+  if (vehicles.length === 1) {
+    const label = vehicleShortLabel(vehicles[0])
+    return label ? `Offer ride in ${label}` : "Offer ride"
+  }
+
+  const selectedVehicleId = popupState?.selectedVehicleId || getDefaultVehicle(vehicles)?.id || ''
+
+  return (
+    <span className="inline-flex items-center gap-1 flex-wrap">
+      Offer ride in:
+      <Select
+        value={selectedVehicleId}
+        onValueChange={(id) => setPopupState(prev => ({ ...prev, selectedVehicleId: id }))}
+      >
+        <SelectTrigger className="h-auto gap-1 border-none bg-transparent p-0 shadow-none font-semibold text-lg hover:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 data-[state=open]:bg-transparent [&_svg]:opacity-70">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {vehicles.map((v, i) => (
+            <SelectItem key={v.id} value={v.id}>{vehicleShortLabel(v) || `Vehicle ${i + 1}`}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </span>
+  )
+}
 
 function SuggestLocationPopover({ context }) {
   const [open, setOpen] = useState(false)
@@ -65,6 +105,7 @@ function SuggestLocationPopover({ context }) {
               value={text}
               onChange={e => setText(e.target.value)}
               className="h-8 text-sm"
+              maxLength={LOCATION_NAME_MAX_LENGTH}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             />
             <div className="flex justify-end gap-2">
@@ -100,6 +141,7 @@ function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, loca
       <Input
         placeholder="Other — type a location"
         value={otherValue}
+        maxLength={LOCATION_NAME_MAX_LENGTH}
         onChange={(e) => {
           onOtherChange(e.target.value)
           if (e.target.value) onSelectChange('')
@@ -110,7 +152,7 @@ function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, loca
 }
 
 export default function OfferRidePopup({ networkId, onSaved }) {
-  const { closePopup } = usePopup()
+  const { closePopup, popupState, setPopupState } = usePopup()
   const { isLoading, offerRide, getRides, getBookings } = useNetwork()
   const { user } = useAuth()
   const { origins, destinations } = useLocations()
@@ -123,14 +165,29 @@ export default function OfferRidePopup({ networkId, onSaved }) {
   const [date, setDate] = useState(undefined)
   const [oneWay, setOneWay] = useState(false)
   const [takenDates, setTakenDates] = useState([])
+  const vehicles = getVehicles(user)
+  // Selected in the title bar (see OfferRideTitle above) via shared popupState;
+  // falls back to the default vehicle until the driver picks a different one.
+  const selectedVehicleId = popupState?.selectedVehicleId || getDefaultVehicle(vehicles)?.id || ''
+  const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId) || null
   const [rideData, setRideData] = useState({
     departure_time: '',
     arrival_time: '',
     return_departure_time: '16:00',
     ride_description: '',
-    total_seats: user?.vehicle_seats ? String(user.vehicle_seats) : '',
+    total_seats: '',
   })
   const [validationError, setValidationErrors] = useState({})
+
+  // Seats follows the selected vehicle — fires once the default resolves after
+  // the user loads, and again any time the title-bar dropdown picks a
+  // different vehicle. Doesn't fire on unrelated re-renders, so a manual
+  // edit to "Seats available" isn't clobbered unless the vehicle itself changes.
+  useEffect(() => {
+    if (selectedVehicle?.seats) {
+      setRideData(prev => ({ ...prev, total_seats: String(selectedVehicle.seats) }))
+    }
+  }, [selectedVehicleId])
 
   // Pre-select the arrival location that's flagged as the default for this network
   // (e.g. Timberline for Mountain Biking, Tea Cup for Nordic Patrol) — only while the
@@ -207,6 +264,7 @@ export default function OfferRidePopup({ networkId, onSaved }) {
         return_departure_time: oneWay ? '' : rideData.return_departure_time,
         ride_description: rideData.ride_description,
         total_seats: Number(rideData.total_seats),
+        vehicle: selectedVehicle,
       }, networkId)
       onSaved?.()
       closePopup()

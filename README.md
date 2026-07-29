@@ -18,7 +18,8 @@ MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and ho
 
 ## What it does
 
-- **Offer rides** — post departure time, pickup location, seat count, return time, and notes
+- **Offer rides** — post departure time, pickup location, return time, and notes. Drivers with more than one vehicle on file pick which one they're driving right from the dialog title ("Offer ride in: [vehicle]"); seat count defaults to that vehicle's capacity and updates automatically if they switch
+- **Multiple vehicles** — add as many vehicles as needed from the profile page (make/model/year/color/plate/seats/equipment storage each), mark one as default. Profiles created before multi-vehicle support carry their single vehicle forward automatically the next time they're saved — no migration script needed
 - **Book rides** — available rides are listed right on the dashboard, grouped by favorited network; reserve seats instantly, bookings close 6 hours before departure
 - **Four communities** — Hill Patrol, Mountain Hosts, Nordic, and Mountain Biking each have their own ride pool. Users favorite networks (rather than "joining" them) to control which pools show on their dashboard; defaults come from their Troopiter roster classification, and favorites can be reordered or changed anytime from the dashboard
 - **Smart arrival time** — auto-filled from a drive-time matrix covering every pickup/destination pair, computed automatically (via the Google Directions API) whenever an admin adds a new location
@@ -217,11 +218,19 @@ Registration is a two-secret flow on top of the table above: membership match (M
 
 ## Password requirements
 
-One standard (`lib/passwordPolicy.js`), enforced everywhere a password gets set: at least 10 characters, including at least one number or symbol. No forced upper/lowercase mix — length plus one non-letter character is a better security/usability tradeoff (NIST 800-63B) than traditional complexity rules.
+One standard (`lib/passwordPolicy.js`), enforced everywhere a password gets set: 10–128 characters, including at least one number or symbol. No forced upper/lowercase mix — length plus one non-letter character is a better security/usability tradeoff (NIST 800-63B) than traditional complexity rules. The upper bound exists purely to bound input size, not as a security requirement.
 
 Applied at registration (`app/api/register/complete`), profile password changes (`app/api/account/update-password`), and self-service/admin-initiated password reset.
 
 Password reset doesn't use Firebase's own reset-link system (`generatePasswordResetLink`/`oobCode`) at all — that always lands on Firebase's hosted reset page, and getting a custom action URL requires Firebase Hosting's domain-verification flow, which isn't available on this Vercel-hosted domain. Instead it follows the same pattern as registration verification: `app/api/reset-password` mints a random token, stores it on `password_resets/{token}` (Admin SDK only, 1-hour expiry, single use), and emails a link to our own branded `/reset-password` page (`components/forms/ResetPasswordForm.jsx`). Submitting the form hits `app/api/reset-password/confirm`, which validates the token and standard server-side and updates the password via the Admin SDK directly.
+
+---
+
+## Input length limits
+
+Free-text inputs are capped both client-side (`maxLength`) and server-side, using shared constants rather than a magic number per field: `NAME_MAX_LENGTH`, `PHONE_MAX_LENGTH`, `MHSP_NUMBER_MAX_LENGTH`, `LOCATION_NAME_MAX_LENGTH`, `EMAIL_MAX_LENGTH` (`lib/utils.js`), `PASSWORD_MAX_LENGTH` (`lib/passwordPolicy.js`), and `VEHICLE_NAME_MAX_LENGTH`/`VEHICLE_PLATE_MAX_LENGTH` (`lib/vehicles.js`). Vehicle make/model additionally strip anything that isn't a letter, number, space, hyphen, or apostrophe via `sanitizeVehicleName()`, and vehicle year is a dropdown rather than free text, so there's nothing to cap.
+
+Server-side, the caps are enforced in the relevant API routes (`register/complete`, `register/verify-membership`, `contact`) and — for the handful of fields written directly from the client via the Firestore SDK (profile fullname/phone, a ride's departure/arrival when set to a typed-in "other" location, feedback messages) — in `firestore.rules` itself, since there's no API layer in front of those writes. The `users` and `rides` rules only enforce a field's cap when that field is actually part of the write, so documents written before a cap existed aren't retroactively locked out of unrelated updates.
 
 ---
 

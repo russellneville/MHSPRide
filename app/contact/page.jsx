@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuth } from '@/context/AuthContext'
-import { TEXTAREA_MAX_LENGTH } from '@/lib/utils'
+import { TEXTAREA_MAX_LENGTH, NAME_MAX_LENGTH, EMAIL_MAX_LENGTH } from '@/lib/utils'
 
 export default function ContactPage() {
   const { user } = useAuth()
@@ -100,6 +100,7 @@ export default function ContactPage() {
                     value={form.name}
                     onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                     placeholder="Your name"
+                    maxLength={NAME_MAX_LENGTH}
                     required
                   />
                 </div>
@@ -111,6 +112,7 @@ export default function ContactPage() {
                     value={form.email}
                     onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                     placeholder="you@example.com"
+                    maxLength={EMAIL_MAX_LENGTH}
                     required
                   />
                 </div>

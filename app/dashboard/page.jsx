@@ -17,7 +17,7 @@ import Link from "next/link"
 import UserAvatar from "@/components/ui/user-avatar"
 import DatePicker from "@/components/ui/date-picker"
 import { Skeleton } from "@/components/ui/skeleton"
-import OfferRidePopup from "@/components/popup-forms/OfferRidePopup"
+import OfferRidePopup, { OfferRideTitle } from "@/components/popup-forms/OfferRidePopup"
 import AddFavoritePopup from "@/components/popup-forms/AddFavoritePopup"
 import SearchRidesPopup from "@/components/popup-forms/SearchRidesPopup"
 import RideRowCard from "@/components/cards/ride-row-card"
@@ -260,7 +260,7 @@ export default function Dashboard() {
     if (favorites.length > 1) saveFavorites(favorites.filter(f => f !== id))
   }
 
-  const openOffer = (networkId) => openPopup('Offer ride', <OfferRidePopup networkId={networkId} />)
+  const openOffer = (networkId) => openPopup(<OfferRideTitle />, <OfferRidePopup networkId={networkId} />)
   const openAddFavorite = () => openPopup('Add favorite network', <AddFavoritePopup favorites={favorites} />)
 
   const banner = (

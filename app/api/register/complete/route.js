@@ -4,7 +4,7 @@ import { FieldValue } from 'firebase-admin/firestore'
 import { recordAttempt, getClientIp, isValidEmailInput } from '@/lib/rateLimit'
 import { sendRegistrationEmail } from '@/lib/email'
 import { getPasswordError } from '@/lib/passwordPolicy'
-import { NAME_MAX_LENGTH, PHONE_MAX_LENGTH } from '@/lib/utils'
+import { NAME_MAX_LENGTH, PHONE_MAX_LENGTH, TEXTAREA_MAX_LENGTH } from '@/lib/utils'
 
 const REGISTER_IP_LIMIT = { limit: 5, windowMs: 60 * 60 * 1000 }
 
@@ -16,13 +16,16 @@ function mhspHex(mhspNumber) {
 
 export async function POST(request) {
   try {
-    const { token, email, password, fullname, phone } = await request.json()
+    const { token, email, password, fullname, phone, address } = await request.json()
 
     if (!token || !isValidEmailInput(email) || !fullname?.trim() || !phone?.trim()) {
       return NextResponse.json({ ok: false, error: 'All fields are required.' }, { status: 400 })
     }
     if (fullname.trim().length > NAME_MAX_LENGTH || phone.trim().length > PHONE_MAX_LENGTH) {
       return NextResponse.json({ ok: false, error: 'One or more fields exceed the maximum length.' }, { status: 400 })
+    }
+    if (address && (typeof address !== 'string' || address.length > TEXTAREA_MAX_LENGTH)) {
+      return NextResponse.json({ ok: false, error: 'Address exceeds the maximum length.' }, { status: 400 })
     }
 
     const passwordError = getPasswordError(password)
@@ -80,6 +83,7 @@ export async function POST(request) {
       email,
       fullname,
       phone,
+      address: (address || '').trim(),
       bio: '',
       role: 'member',
       mhspNumber: verification.mhspNumber,

@@ -94,7 +94,7 @@ export async function POST(request) {
 
     await sendRegistrationCodeEmail({ email: memberData.email, code })
 
-    return NextResponse.json({ ok: true, token })
+    return NextResponse.json({ ok: true, token, address: memberData.address || '' })
   } catch (error) {
     console.error('[verify-membership]', error)
     return NextResponse.json({ ok: false, error: 'Something went wrong. Please try again.' }, { status: 500 })

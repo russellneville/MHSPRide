@@ -30,6 +30,7 @@ export default function Register() {
     password: '',
     confirmpassword: '',
     phone: '',
+    address: '',
   })
   const [validationError, setValidationErrors] = useState({})
   const [verificationToken, setVerificationToken] = useState(null)
@@ -83,7 +84,11 @@ export default function Register() {
     })
     if (result.ok) {
       setVerificationToken(result.token)
-      setRegisterForm(prev => ({ ...prev, email: prev.email || prev.troopiterEmail }))
+      setRegisterForm(prev => ({
+        ...prev,
+        email: prev.email || prev.troopiterEmail,
+        address: prev.address || result.address || '',
+      }))
       setCode('')
       setCodeError('')
       setCurrStep(2)
@@ -130,6 +135,7 @@ export default function Register() {
       password: registerForm.password,
       fullname: registerForm.fullname,
       phone: registerForm.phone,
+      address: registerForm.address,
     }).then(result => {
       if (result.expired) resetToStart()
     })

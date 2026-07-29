@@ -44,6 +44,43 @@ export const NetworkProvider = ({children})=>{
     }
   }
 
+  // Toggle a driver in/out of the current user's favorites (users/{uid}.favorite_drivers).
+  // Snapshots name/photo/vehicle/mhspNumber at favorite time — riders can't read another
+  // user's live doc directly (see firestore.rules), so this mirrors how driver info is
+  // already snapshotted onto rides/bookings rather than doing a live lookup.
+  const toggleFavoriteDriver = async (driver) => {
+    try {
+      const uid = auth.currentUser.uid
+      const userDoc = await getDoc(doc(db, 'users', uid))
+      const userData = userDoc.data() || {}
+      const existing = userData.favorite_drivers || []
+      const isFavorited = existing.some(d => d.id === driver.id)
+      const updated = isFavorited
+        ? existing.filter(d => d.id !== driver.id)
+        : [...existing, {
+            id: driver.id,
+            fullname: driver.fullname || '',
+            photoURL: driver.photoURL || '',
+            mhspNumber: driver.mhspNumber || '',
+            vehicle_make: driver.vehicle_make || '',
+            vehicle_model: driver.vehicle_model || '',
+          }]
+      await updateDoc(doc(db, 'users', uid), { favorite_drivers: updated })
+      logEvent({
+        type: isFavorited ? 'driver.unfavorited' : 'driver.favorited',
+        message: `${userData.fullname || uid} ${isFavorited ? 'unfavorited' : 'favorited'} driver ${driver.fullname || driver.id}`,
+        userId: uid,
+        userName: userData.fullname,
+        mhspNumber: userData.mhspNumber,
+        metadata: { driverId: driver.id },
+      }).catch(() => {})
+      return !isFavorited
+    } catch (error) {
+      toast.error(error.message)
+      return null
+    }
+  }
+
   const offerRide = async ({ vehicle, ...rideData } , networkId)=>{
     try {
       setIsLoading(true)
@@ -637,7 +674,7 @@ const cancelBooking = async (bookingId, reason = '') => {
   }
 }
 
-    return <NetworkContext.Provider value={{getRidesByNetworkId , changeBookingStatus , offerRide , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , cancelBooking , finalizeRide , startRide , isLoading , saveFavorites , updateRide , dismissRideUpdate}}>
+    return <NetworkContext.Provider value={{getRidesByNetworkId , changeBookingStatus , offerRide , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , cancelBooking , finalizeRide , startRide , isLoading , saveFavorites , toggleFavoriteDriver , updateRide , dismissRideUpdate}}>
         {children}
     </NetworkContext.Provider>
 }

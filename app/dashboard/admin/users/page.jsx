@@ -185,14 +185,16 @@ function UsersContent() {
     }
   }
 
-  const filtered = users.filter(u => {
-    if (!search) return true
-    const s = search.toLowerCase()
-    return (
-      (u.fullname || '').toLowerCase().includes(s) ||
-      (u.email || '').toLowerCase().includes(s)
-    )
-  })
+  const filtered = users
+    .filter(u => {
+      if (!search) return true
+      const s = search.toLowerCase()
+      return (
+        (u.fullname || '').toLowerCase().includes(s) ||
+        (u.email || '').toLowerCase().includes(s)
+      )
+    })
+    .sort((a, b) => (a.fullname || '').localeCompare(b.fullname || ''))
 
   const isSuperAdmin = currentUser?.role === 'super-admin'
   const suspendTargetIsPrivileged = suspendTarget?.role === 'admin' || suspendTarget?.role === 'super-admin'

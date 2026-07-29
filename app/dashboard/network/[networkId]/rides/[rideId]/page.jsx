@@ -24,6 +24,7 @@ import {
   Pencil,
   Download,
   CalendarPlus,
+  Star,
 } from "lucide-react";
 import { Badge } from '@/components/ui/badge'
 import Link from "next/link";
@@ -49,7 +50,7 @@ import {
 
 export default function RidePage() {
   const { rideId, networkId } = useParams();
-  const { getRide, isLoading, bookRide, cancelRide, cancelBooking, getBookings, getRides } = useNetwork();
+  const { getRide, isLoading, bookRide, cancelRide, cancelBooking, getBookings, getRides, toggleFavoriteDriver } = useNetwork();
   const { resolveLocation, byId: locationsById } = useLocations();
   const { user } = useAuth();
   const { openPopup } = usePopup();
@@ -120,6 +121,13 @@ export default function RidePage() {
   );
 
   const isRideDriver = rideData?.driverId === user?.uid;
+
+  const isDriverFavorited = (user?.favorite_drivers || []).some(d => d.id === rideData?.driver?.id);
+
+  const handleToggleFavoriteDriver = () => {
+    if (!rideData?.driver?.id) return
+    toggleFavoriteDriver(rideData.driver)
+  }
 
   const inProgress = (() => {
     if (!rideData) return false
@@ -263,9 +271,20 @@ export default function RidePage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="text-sm text-muted-foreground space-y-2">
-                  <p>
+                  <p className="flex items-center gap-1.5 flex-wrap">
                     <span className="font-medium text-foreground">Name:</span>{" "}
                     {rideData.driver?.fullname || "Unknown"}
+                    {!isRideDriver && rideData.driver?.id && (
+                      <>
+                        {isDriverFavorited && <Star className="size-5 fill-yellow-400 text-yellow-400 shrink-0" />}
+                        <button
+                          className="text-xs text-primary underline underline-offset-2 hover:text-primary/70 transition-colors"
+                          onClick={handleToggleFavoriteDriver}
+                        >
+                          {isDriverFavorited ? "Unfavorite Driver" : "Favorite Driver"}
+                        </button>
+                      </>
+                    )}
                   </p>
                   <p>
                     <Mail className="inline size-4 mr-1" />{" "}

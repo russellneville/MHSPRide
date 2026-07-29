@@ -33,6 +33,7 @@ function ReportsContent() {
   const [topDrivers, setTopDrivers] = useState([])
   const [topRiders, setTopRiders] = useState([])
   const [topRoutes, setTopRoutes] = useState([])
+  const [topFavoritedDrivers, setTopFavoritedDrivers] = useState([])
 
   useEffect(() => {
     loadData()
@@ -123,6 +124,27 @@ function ReportsContent() {
         .sort((a, b) => b.count - a.count)
         .slice(0, 10)
       setTopRoutes(sortedRoutes)
+
+      // Top Favorited Drivers
+      const favoriteMap = {}
+      users.forEach(u => {
+        (u.favorite_drivers || []).forEach(d => {
+          if (!d.id) return
+          if (!favoriteMap[d.id]) {
+            favoriteMap[d.id] = {
+              driverId: d.id,
+              name: d.fullname || '—',
+              mhspNumber: d.mhspNumber || '—',
+              favorites: 0,
+            }
+          }
+          favoriteMap[d.id].favorites += 1
+        })
+      })
+      const sortedFavoritedDrivers = Object.values(favoriteMap)
+        .sort((a, b) => b.favorites - a.favorites)
+        .slice(0, 10)
+      setTopFavoritedDrivers(sortedFavoritedDrivers)
 
     } finally {
       setLoading(false)
@@ -222,6 +244,43 @@ function ReportsContent() {
                       <TableCell className="text-muted-foreground">{r.mhspNumber}</TableCell>
                       <TableCell className="text-right">{r.ridesBooked}</TableCell>
                       <TableCell className="text-right">{r.seatsUsed}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Top Favorited Drivers */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Top 10 Most Favorited Drivers</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">Rank</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>MHSP #</TableHead>
+                  <TableHead className="text-right">Favorites</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {topFavoritedDrivers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-6">No data.</TableCell>
+                  </TableRow>
+                ) : (
+                  topFavoritedDrivers.map((d, i) => (
+                    <TableRow key={d.driverId}>
+                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell className="font-medium">{d.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{d.mhspNumber}</TableCell>
+                      <TableCell className="text-right">{d.favorites}</TableCell>
                     </TableRow>
                   ))
                 )}

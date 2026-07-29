@@ -1,10 +1,11 @@
 'use client'
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
-import { Clock, MapPin, MoveRight, Users } from "lucide-react";
+import { Clock, MapPin, MoveRight, Star, Users } from "lucide-react";
 import { usePopup } from "@/context/PopupContext";
 import DriverDetailsPopup from "@/components/popup-forms/DriverDetailsPopup";
 import { useLocations } from "@/context/LocationsContext";
+import { useAuth } from "@/context/AuthContext";
 import { formatDate, formatTime } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
 
@@ -29,6 +30,8 @@ export const STATUS_CLASS = {
 export default function NetworkRideCard({ ride, networkId, muted }) {
   const { openPopup } = usePopup()
   const { resolveLocation } = useLocations()
+  const { user } = useAuth()
+  const isFavoritedDriver = (user?.favorite_drivers || []).some(d => d.id === ride.driver?.id)
 
   return (
     <Link href={`/dashboard/network/${networkId}/rides/${ride.id}`}>
@@ -50,6 +53,7 @@ export default function NetworkRideCard({ ride, networkId, muted }) {
             {ride.driver?.fullname && (
               <div className="text-sm text-muted-foreground flex items-center gap-1.5">
                 <UserAvatar user={ride.driver} size="sm" />
+                {isFavoritedDriver && <Star className="size-[17.5px] fill-yellow-400 text-yellow-400 shrink-0" />}
                 Driver: <span className="text-foreground font-medium">{ride.driver.fullname}</span>
                 <button
                   className="text-xs text-primary underline underline-offset-2 hover:text-primary/70 transition-colors"

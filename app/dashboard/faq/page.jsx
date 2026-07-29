@@ -70,6 +70,11 @@ export default function FaqPage() {
               Arrival times are estimated from typical drive times and do not account for traffic, weather,
               or road conditions. Treat them as a rough guide, not a guarantee.
             </QA>
+            <QA q="Can I favorite a driver?">
+              Yes. On a ride's Driver Information card, use the "Favorite Driver" link to mark a driver you'd
+              like to recognize quickly — favorited drivers show a star next to their name in ride listings.
+              Manage your full list, including unfavoriting, from your profile page under Preferences.
+            </QA>
           </CardContent>
         </Card>
 

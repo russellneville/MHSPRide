@@ -1,5 +1,6 @@
 'use client'
 import { useAuth } from "@/context/AuthContext";
+import { useNetwork } from "@/context/NetworksContext";
 import DashboardLayout from "../dashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -9,11 +10,13 @@ import DriverProfile from "@/components/forms/DriverProfile";
 import ProfileForm, { PROFILE_SECTION_CARD_CLASS } from "@/components/forms/ProfileForm";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { resolveLivePhotoUrl } from "@/lib/profilePhoto";
 import { getVehicles } from "@/lib/vehicles";
 
 export default function ProfilePage (){
     const { user , updateProfile , uploadPhoto, isLoading } = useAuth()
+    const { toggleFavoriteDriver } = useNetwork()
     const { theme, setTheme } = useTheme()
     const [themeMounted, setThemeMounted] = useState(false)
     const [uploading, setUploading] = useState(false)
@@ -100,6 +103,33 @@ export default function ProfilePage (){
                     </SelectContent>
                 </Select>
             </div>
+
+            {user?.favorite_drivers?.length > 0 && (
+                <div className="border-t border-border mt-4 pt-4 space-y-3">
+                    <Label>⭐️ Favorite Drivers</Label>
+                    <div className="space-y-2">
+                        {user.favorite_drivers.map(driver => (
+                            <div key={driver.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                                <div className="flex items-center gap-3">
+                                    <UserAvatar user={driver} size="sm" />
+                                    <div>
+                                        <p className="text-sm font-medium text-foreground">{driver.fullname || "Unknown"}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {[driver.vehicle_make, driver.vehicle_model].filter(Boolean).join(" ") || "No vehicle listed"}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors shrink-0"
+                                    onClick={() => toggleFavoriteDriver(driver)}
+                                >
+                                    unfavorite
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </CardContent>
        </Card>
 

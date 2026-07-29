@@ -2,20 +2,15 @@
 import { useAuth } from "@/context/AuthContext";
 import DashboardLayout from "../dashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Label } from "@radix-ui/react-label";
-import { Input } from "@/components/ui/input";
-import { useEffect, useRef, useState } from "react";
+import { Label } from "@/components/ui/label";
+import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
-import { TEXTAREA_MAX_LENGTH, NAME_MAX_LENGTH, PHONE_MAX_LENGTH } from "@/lib/utils";
-import { Textarea } from "@/components/ui/textarea";
 import DriverProfile from "@/components/forms/DriverProfile";
+import ProfileForm, { PROFILE_SECTION_CARD_CLASS } from "@/components/forms/ProfileForm";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Camera, User } from "lucide-react";
 import { resolveLivePhotoUrl } from "@/lib/profilePhoto";
 import { getVehicles } from "@/lib/vehicles";
-
-const SECTION_CARD_CLASS = "bg-muted/65 dark:bg-[oklch(0.39_0_0)]"
 
 export default function ProfilePage (){
     const { user , updateProfile , uploadPhoto, isLoading } = useAuth()
@@ -24,7 +19,6 @@ export default function ProfilePage (){
     const [uploading, setUploading] = useState(false)
     const [photoSrc, setPhotoSrc] = useState(null)
     const [photoTriedLive, setPhotoTriedLive] = useState(false)
-    const fileInputRef = useRef(null)
     const [ profile , setProfile ] = useState({
         fullname : '',
         bio : '' ,
@@ -55,11 +49,6 @@ export default function ProfilePage (){
         setThemeMounted(true)
     }, []);
 
-
-    const handleChange = e =>{
-        setProfile(prev => ({...prev , [e.target.id] : e.target.value}))
-    }
-
     const handlePhotoChange = async (e) => {
         const file = e.target.files?.[0]
         if (!file) return
@@ -74,68 +63,17 @@ export default function ProfilePage (){
             <h3 className="text-xl font-semibold py-2">My Profile</h3>
         </div>
 
-       <Card className={SECTION_CARD_CLASS}>
-        <CardHeader className='!pb-3 border-b border-border'>
-            <CardTitle>
-                Personal information
-            </CardTitle>
-        </CardHeader>
-        <CardContent className='space-y-4'>
-            <div className="flex items-center gap-4 pb-2">
-                <div className="relative shrink-0">
-                    {photoSrc ? (
-                        <img
-                            src={photoSrc}
-                            alt="Profile photo"
-                            className="w-16 h-16 rounded-full object-cover border border-border"
-                            onError={handlePhotoError}
-                        />
-                    ) : (
-                        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center border border-border">
-                            <User className="w-7 h-7 text-muted-foreground" />
-                        </div>
-                    )}
-                    <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                        className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow hover:bg-primary/90 transition-colors disabled:opacity-50"
-                        title="Change photo"
-                    >
-                        <Camera className="w-3 h-3" />
-                    </button>
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handlePhotoChange}
-                    />
-                </div>
-                <div>
-                    <p className="text-sm font-medium">{user?.fullname}</p>
-                    <p className="text-xs text-muted-foreground">{uploading ? 'Uploading…' : 'Click the camera icon to change your photo'}</p>
-                </div>
-            </div>
+        <ProfileForm
+            profile={profile}
+            setProfile={setProfile}
+            displayName={user?.fullname}
+            photoSrc={photoSrc}
+            onPhotoError={handlePhotoError}
+            onPhotoChange={handlePhotoChange}
+            uploading={uploading}
+        />
 
-            <div className="space-y-2">
-                <Label htmlFor="fullname">Full name</Label>
-                <Input id="fullname" type="text" placeholder={user?.fullname} maxLength={NAME_MAX_LENGTH} onChange={handleChange} value={profile.fullname}/>
-            </div>
-
-            <div className="space-y-2">
-                <Label htmlFor="phone">phone number</Label>
-                <Input id="phone" type="text" placeholder={user?.phone} maxLength={PHONE_MAX_LENGTH} onChange={handleChange} value={profile.phone}/>
-            </div>
-            <div className="space-y-2">
-                <Label htmlFor='bio'>Bio</Label>
-                <Textarea value={profile.bio} id='bio' onChange={handleChange} placeholder='Describe you there' className='resize-none h-45' maxLength={TEXTAREA_MAX_LENGTH}></Textarea>
-            </div>
-        </CardContent>
-
-       </Card>
-
-       <Card className={`mt-4 ${SECTION_CARD_CLASS}`}>
+       <Card className={`mt-4 ${PROFILE_SECTION_CARD_CLASS}`}>
         <CardHeader className='!pb-3 border-b border-border'>
             <CardTitle>
                 Preferences
@@ -165,7 +103,7 @@ export default function ProfilePage (){
         </CardContent>
        </Card>
 
-       <DriverProfile profile={profile} setProfile={setProfile} className={`mt-4 ${SECTION_CARD_CLASS}`}/>
+       <DriverProfile profile={profile} setProfile={setProfile} className={`mt-4 ${PROFILE_SECTION_CARD_CLASS}`}/>
 
        <div className="flex items-center justify-end bg-background py-3">
             <Button onClick={()=> updateProfile(profile)} disabled={isLoading}>{isLoading ? 'Updating... ' : 'Update Profile'}</Button>

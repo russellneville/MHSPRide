@@ -2,6 +2,7 @@
 // suspended-user restrictions described there).
 'use client'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/app/dashboard/dashboardLayout'
 import AdminGuard from '@/components/AdminGuard'
 import { db } from '@/lib/firebaseClient'
@@ -57,6 +58,7 @@ export default function AdminUsersPage() {
 }
 
 function UsersContent() {
+  const router = useRouter()
   const { user: currentUser } = useAuth()
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -236,7 +238,11 @@ function UsersContent() {
                 </TableRow>
               ) : (
                 filtered.map(u => (
-                  <TableRow key={u.uid}>
+                  <TableRow
+                    key={u.uid}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => router.push(`/dashboard/admin/users/${u.uid}`)}
+                  >
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {u.fullname || '—'}
@@ -245,7 +251,7 @@ function UsersContent() {
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.email || '—'}</TableCell>
                     <TableCell>{u.mhspNumber || '—'}</TableCell>
-                    <TableCell>
+                    <TableCell onClick={e => e.stopPropagation()}>
                       {isSuperAdmin ? (
                         <Select
                           value={u.role || 'member'}
@@ -267,7 +273,7 @@ function UsersContent() {
                     <TableCell className="text-sm text-muted-foreground">
                       {formatDate(u.created_at)}
                     </TableCell>
-                    <TableCell>
+                    <TableCell onClick={e => e.stopPropagation()}>
                       <div className="flex gap-2">
                         {isSuperAdmin && (
                           <Button

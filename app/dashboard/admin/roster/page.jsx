@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/app/dashboard/dashboardLayout'
 import AdminGuard from '@/components/AdminGuard'
 import { db } from '@/lib/firebaseClient'
@@ -50,6 +51,7 @@ function statusVariant(status) {
 }
 
 export default function RosterPage() {
+  const router = useRouter()
   const { openPopup } = usePopup()
   const [members, setMembers]   = useState([])
   const [loading, setLoading]   = useState(true)
@@ -190,7 +192,11 @@ export default function RosterPage() {
                         const primary = primaryClassification(m.classifications)
                         const extra   = (m.classifications?.length ?? 0) - 1
                         return (
-                          <TableRow key={m.id}>
+                          <TableRow
+                            key={m.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => router.push(`/dashboard/admin/roster/${m.id}`)}
+                          >
                             <TableCell className="font-medium whitespace-nowrap">
                               {m.lastName}, {m.firstName}
                             </TableCell>
@@ -213,7 +219,7 @@ export default function RosterPage() {
                                 ? <Badge variant="default" className="text-xs">Registered</Badge>
                                 : <span className="text-muted-foreground text-sm">—</span>}
                             </TableCell>
-                            <TableCell className="font-mono text-xs whitespace-nowrap">
+                            <TableCell className="font-mono text-xs whitespace-nowrap" onClick={e => e.stopPropagation()}>
                               {m.latitude != null && m.longitude != null
                                 ? (
                                   <a

@@ -5,6 +5,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { recordAttempt, getClientIp, normalizeEmail, isValidEmailInput } from '@/lib/rateLimit'
 import { generateCode, hashCode } from '@/lib/registrationCode'
 import { sendRegistrationCodeEmail } from '@/lib/email'
+import { NAME_MAX_LENGTH, MHSP_NUMBER_MAX_LENGTH } from '@/lib/utils'
 
 const REGISTER_IP_LIMIT = { limit: 5, windowMs: 60 * 60 * 1000 }
 const REGISTER_EMAIL_LIMIT = { limit: 3, windowMs: 60 * 60 * 1000 }
@@ -25,6 +26,9 @@ export async function POST(request) {
 
     if (!mhspNumber || !String(mhspNumber).trim() || !lastName || !String(lastName).trim() || !isValidEmailInput(troopiterEmail)) {
       return NextResponse.json({ ok: false, error: 'All fields are required.' }, { status: 400 })
+    }
+    if (String(mhspNumber).trim().length > MHSP_NUMBER_MAX_LENGTH || String(lastName).trim().length > NAME_MAX_LENGTH) {
+      return NextResponse.json({ ok: false, error: 'One or more fields exceed the maximum length.' }, { status: 400 })
     }
 
     const maintenanceSnap = await getAdminDb().collection('config').doc('maintenance').get()

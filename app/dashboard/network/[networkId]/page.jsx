@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChevronDown, ChevronRight, Plus, X } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { usePopup } from "@/context/PopupContext";
-import OfferRidePopup from "@/components/popup-forms/OfferRidePopup";
+import OfferRidePopup, { OfferRideTitle } from "@/components/popup-forms/OfferRidePopup";
 import { useLocations } from "@/context/LocationsContext";
 import { Skeleton } from "@/components/ui/skeleton";
 import DatePicker from "@/components/ui/date-picker";
@@ -94,7 +94,7 @@ export default function NetworkPage() {
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <h3 className="text-xl font-semibold">{networkName(networkId)}</h3>
-          <Button onClick={() => openPopup('Offer ride', <OfferRidePopup networkId={networkId} onSaved={refreshRides} />)}>
+          <Button onClick={() => openPopup(<OfferRideTitle />, <OfferRidePopup networkId={networkId} onSaved={refreshRides} />)}>
             Offer Ride <Plus className="size-4 ml-1" />
           </Button>
         </div>
@@ -160,7 +160,7 @@ export default function NetworkPage() {
                 {hasFilters
                   ? 'No rides match your filters.'
                   : <>No upcoming rides. Be the first to{' '}
-                    <button className="text-primary underline" onClick={() => openPopup('Offer ride', <OfferRidePopup networkId={networkId} onSaved={refreshRides} />)}>
+                    <button className="text-primary underline" onClick={() => openPopup(<OfferRideTitle />, <OfferRidePopup networkId={networkId} onSaved={refreshRides} />)}>
                       offer one
                     </button>.</>
                 }

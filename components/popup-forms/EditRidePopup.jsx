@@ -11,7 +11,7 @@ import { Textarea } from "../ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Checkbox } from "../ui/checkbox"
 import { estimateArrival } from "@/lib/drive-times"
-import { toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils"
+import { toLocalDateStr, TEXTAREA_MAX_LENGTH, LOCATION_NAME_MAX_LENGTH } from "@/lib/utils"
 
 function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, locations, selectPlaceholder }) {
   return (
@@ -33,6 +33,7 @@ function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, loca
       <Input
         placeholder="Other — type a location"
         value={otherValue}
+        maxLength={LOCATION_NAME_MAX_LENGTH}
         onChange={(e) => {
           onOtherChange(e.target.value)
           if (e.target.value) onSelectChange('')

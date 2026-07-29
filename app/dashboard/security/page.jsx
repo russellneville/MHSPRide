@@ -10,7 +10,8 @@ import {
     AlertDialog, AlertDialogContent, AlertDialogDescription,
     AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { getPasswordError, PASSWORD_REQUIREMENT_TEXT } from "@/lib/passwordPolicy";
+import { getPasswordError, PASSWORD_REQUIREMENT_TEXT, PASSWORD_MAX_LENGTH } from "@/lib/passwordPolicy";
+import { EMAIL_MAX_LENGTH } from "@/lib/utils";
 
 const SECTION_CARD_CLASS = "bg-muted/45 dark:bg-[oklch(0.39_0_0)]"
 
@@ -108,6 +109,7 @@ export default function SecurityPage() {
                                 id="emailValue"
                                 type="email"
                                 placeholder="you@example.com"
+                                maxLength={EMAIL_MAX_LENGTH}
                                 value={emailValue}
                                 onChange={e => { setEmailValue(e.target.value); setEmailError('') }}
                             />
@@ -136,6 +138,7 @@ export default function SecurityPage() {
                                 id="newPassword"
                                 type="password"
                                 placeholder="*********"
+                                maxLength={PASSWORD_MAX_LENGTH}
                                 value={newPassword}
                                 onChange={e => { setNewPassword(e.target.value); setPasswordError('') }}
                             />
@@ -147,6 +150,7 @@ export default function SecurityPage() {
                                 id="confirmNewPassword"
                                 type="password"
                                 placeholder="*********"
+                                maxLength={PASSWORD_MAX_LENGTH}
                                 value={confirmNewPassword}
                                 onChange={e => { setConfirmNewPassword(e.target.value); setPasswordError('') }}
                             />
@@ -174,6 +178,7 @@ export default function SecurityPage() {
                         id="currentPassword"
                         type="password"
                         placeholder="*********"
+                        maxLength={PASSWORD_MAX_LENGTH}
                         value={currentPassword}
                         onChange={e => setCurrentPassword(e.target.value)}
                     />

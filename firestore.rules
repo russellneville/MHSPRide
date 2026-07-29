@@ -41,7 +41,14 @@ service cloud.firestore {
         && request.auth.uid == userId
         && !isSuspended()
         && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['role', 'mhspNumber', 'created_at', 'suspended', 'email']);
+            .hasAny(['role', 'mhspNumber', 'created_at', 'suspended', 'email'])
+        // Length caps only apply when the field is actually being changed, so
+        // documents written before these caps existed aren't retroactively
+        // locked out of unrelated writes (e.g. toggling a favorite network).
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['fullname'])
+            || request.resource.data.fullname.size() <= 50)
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['phone'])
+            || request.resource.data.phone.size() <= 20);
     }
 
     // Networks: legacy membership docs. The app now treats networks as fixed
@@ -62,12 +69,20 @@ service cloud.firestore {
       allow read: if request.auth != null && !isSuspended();
       allow create: if request.auth != null
         && !isSuspended()
-        && request.resource.data.driverId == request.auth.uid;
+        && request.resource.data.driverId == request.auth.uid
+        && request.resource.data.departure.size() <= 60
+        && request.resource.data.arrival.size() <= 60;
       allow update: if request.auth != null
         && !isSuspended()
-        && (resource.data.driverId == request.auth.uid
-            || isAdmin()
-            || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['available_seats', 'passengers']));
+        && (
+          (resource.data.driverId == request.auth.uid
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['departure'])
+                || request.resource.data.departure.size() <= 60)
+            && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['arrival'])
+                || request.resource.data.arrival.size() <= 60))
+          || isAdmin()
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['available_seats', 'passengers'])
+        );
       allow delete: if request.auth != null
         && !isSuspended()
         && (resource.data.driverId == request.auth.uid || isAdmin());
@@ -89,9 +104,17 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Feedback: anyone can submit; admins can read/update; only super-admins can delete
+    // Feedback: anyone can submit; admins can read/update; only super-admins can delete.
+    // Two client-write shapes share this collection: the feedback widget
+    // (type: 'feedback'/'bug', message capped like other free-text fields) and
+    // the "suggest a location" popover (type: 'location-suggestion', message
+    // is a location name so it gets the shorter location-name cap). The contact
+    // form writes here too but goes through the Admin SDK (app/api/contact),
+    // which bypasses these rules entirely.
     match /feedback/{id} {
-      allow create: if true;
+      allow create: if request.resource.data.type == 'location-suggestion'
+          ? request.resource.data.message.size() <= 60
+          : request.resource.data.message.size() <= 250;
       allow read, update: if isAdmin();
       allow delete: if isSuperAdmin();
     }

@@ -5,22 +5,11 @@ import { useAuth } from "@/context/AuthContext"
 import { useNetwork } from "@/context/NetworksContext"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { UserAvatar } from "@/components/ui/user-avatar"
 import { Check, Star, Users } from "lucide-react"
 import { NETWORKS, defaultFavoritesFor } from "@/lib/networks"
-
-const STORAGE_OPTIONS = [
-  { value: "ski_box",    label: "Ski/board roof box" },
-  { value: "roof_rack",  label: "Roof rack" },
-  { value: "bike_rack",  label: "Bike rack" },
-  { value: "trunk",      label: "Trunk" },
-  { value: "back_seats", label: "Back seats" },
-  { value: "truck_bed",  label: "Truck bed" },
-  { value: "cargo_area", label: "Cargo area (SUV/van)" },
-]
+import VehicleForm from "@/components/forms/VehicleForm"
+import { createVehicleId, EMPTY_VEHICLE } from "@/lib/vehicles"
 
 const TOTAL_STEPS = 5
 
@@ -32,15 +21,7 @@ export default function OnboardingPage() {
   const [step, setStep] = useState(1)
   const [favorites, setFavorites] = useState([])
   const [favoritesSaving, setFavoritesSaving] = useState(false)
-  const [vehicle, setVehicle] = useState({
-    vehicle_make: "",
-    vehicle_model: "",
-    vehicle_year: "",
-    vehicle_color: "",
-    vehicle_seats: "",
-    vehicle_plate: "",
-    vehicle_storage: [],
-  })
+  const [vehicle, setVehicle] = useState({ ...EMPTY_VEHICLE })
   const [saving, setSaving] = useState(false)
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoUploaded, setPhotoUploaded] = useState(false)
@@ -75,22 +56,25 @@ export default function OnboardingPage() {
     if (result) setPhotoUploaded(true)
   }
 
-  const handleVehicleChange = (e) => {
-    setVehicle(prev => ({ ...prev, [e.target.name]: e.target.value }))
-  }
+  const hasVehicleInput = vehicle.make.trim() || vehicle.model.trim() || vehicle.year.trim() ||
+    vehicle.color || vehicle.seats || vehicle.plate.trim() || vehicle.storage.length > 0
 
   const handleSaveVehicle = async () => {
     setSaving(true)
-    const payload = {}
-    if (vehicle.vehicle_make.trim()) payload.vehicle_make = vehicle.vehicle_make.trim()
-    if (vehicle.vehicle_model.trim()) payload.vehicle_model = vehicle.vehicle_model.trim()
-    if (vehicle.vehicle_year.trim()) payload.vehicle_year = vehicle.vehicle_year.trim()
-    if (vehicle.vehicle_color) payload.vehicle_color = vehicle.vehicle_color
-    if (vehicle.vehicle_seats) payload.vehicle_seats = Number(vehicle.vehicle_seats)
-    if (vehicle.vehicle_plate.trim()) payload.vehicle_plate = vehicle.vehicle_plate.trim()
-    if (vehicle.vehicle_storage.length > 0) payload.vehicle_storage = vehicle.vehicle_storage
-    if (Object.keys(payload).length > 0) {
-      await updateProfile(payload)
+    if (hasVehicleInput) {
+      await updateProfile({
+        vehicles: [{
+          id: createVehicleId(),
+          make: vehicle.make.trim(),
+          model: vehicle.model.trim(),
+          year: vehicle.year.trim(),
+          color: vehicle.color,
+          seats: vehicle.seats ? Number(vehicle.seats) : "",
+          plate: vehicle.plate.trim(),
+          storage: vehicle.storage,
+          isDefault: true,
+        }],
+      })
     }
     setSaving(false)
     setStep(5)
@@ -249,108 +233,9 @@ export default function OnboardingPage() {
             <CardContent className="space-y-4">
               <p className="text-sm text-muted-foreground">
                 Adding your vehicle helps passengers know what to look for when you offer rides.
+                You can add more vehicles later from your profile.
               </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="vehicle_make">Make</Label>
-                  <Input
-                    id="vehicle_make"
-                    name="vehicle_make"
-                    placeholder="e.g. Toyota"
-                    value={vehicle.vehicle_make}
-                    onChange={handleVehicleChange}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="vehicle_model">Model</Label>
-                  <Input
-                    id="vehicle_model"
-                    name="vehicle_model"
-                    placeholder="e.g. 4Runner"
-                    value={vehicle.vehicle_model}
-                    onChange={handleVehicleChange}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="vehicle_year">Year</Label>
-                  <Input
-                    id="vehicle_year"
-                    name="vehicle_year"
-                    placeholder="e.g. 2021"
-                    value={vehicle.vehicle_year}
-                    onChange={handleVehicleChange}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="vehicle_color">Color</Label>
-                  <Select
-                    value={vehicle.vehicle_color}
-                    onValueChange={(value) => setVehicle(prev => ({ ...prev, vehicle_color: value }))}
-                  >
-                    <SelectTrigger id="vehicle_color">
-                      <SelectValue placeholder="Select color" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {["Black","White","Silver","Gray","Red","Blue","Green","Brown","Beige","Orange","Yellow","Gold","Purple","Other"].map(c => (
-                        <SelectItem key={c} value={c.toLowerCase()}>{c}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="vehicle_seats">Passenger Seats</Label>
-                  <Input
-                    id="vehicle_seats"
-                    name="vehicle_seats"
-                    type="number"
-                    min={1}
-                    placeholder="e.g. 4"
-                    value={vehicle.vehicle_seats}
-                    onChange={handleVehicleChange}
-                  />
-                </div>
-                <div className="col-span-2 space-y-1">
-                  <Label htmlFor="vehicle_plate">License Plate (optional)</Label>
-                  <Input
-                    id="vehicle_plate"
-                    name="vehicle_plate"
-                    placeholder="e.g. ABC-1234"
-                    value={vehicle.vehicle_plate}
-                    onChange={handleVehicleChange}
-                  />
-                </div>
-                <div className="col-span-2 space-y-2">
-                  <Label>Equipment Storage</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {STORAGE_OPTIONS.map(opt => {
-                      const checked = vehicle.vehicle_storage.includes(opt.value)
-                      return (
-                        <label
-                          key={opt.value}
-                          className={`flex items-center gap-2 rounded-md border px-3 py-2 text-sm cursor-pointer transition-colors ${
-                            checked
-                              ? "border-primary bg-primary/10 text-primary font-medium"
-                              : "border-border text-muted-foreground hover:border-primary/50"
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            className="hidden"
-                            checked={checked}
-                            onChange={() => setVehicle(prev => ({
-                              ...prev,
-                              vehicle_storage: checked
-                                ? prev.vehicle_storage.filter(v => v !== opt.value)
-                                : [...prev.vehicle_storage, opt.value]
-                            }))}
-                          />
-                          {opt.label}
-                        </label>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
+              <VehicleForm vehicle={vehicle} onChange={setVehicle} />
               <div className="flex gap-2 pt-2">
                 <Button
                   variant="ghost"

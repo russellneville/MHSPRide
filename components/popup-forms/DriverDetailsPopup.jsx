@@ -1,5 +1,6 @@
 import { UserAvatar } from "@/components/ui/user-avatar"
 import { Car, Package, Users } from "lucide-react"
+import { STORAGE_OPTIONS } from "@/lib/vehicles"
 
 export default function DriverDetailsPopup({ driver }) {
   if (!driver) return null
@@ -8,7 +9,8 @@ export default function DriverDetailsPopup({ driver }) {
     .filter(Boolean)
     .join(' ')
 
-  const storage = Array.isArray(driver.equipment_storage) ? driver.equipment_storage : []
+  const storage = (Array.isArray(driver.vehicle_storage) ? driver.vehicle_storage : [])
+    .map(value => STORAGE_OPTIONS.find(opt => opt.value === value)?.label || value)
 
   return (
     <div className="space-y-5">

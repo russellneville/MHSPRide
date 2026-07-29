@@ -7,7 +7,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { getPasswordError, PASSWORD_REQUIREMENT_TEXT } from "@/lib/passwordPolicy";
+import { getPasswordError, PASSWORD_REQUIREMENT_TEXT, PASSWORD_MAX_LENGTH } from "@/lib/passwordPolicy";
 
 export default function ResetPasswordForm() {
   const searchParams = useSearchParams()
@@ -109,6 +109,7 @@ export default function ResetPasswordForm() {
                   id="password"
                   type="password"
                   placeholder="*********"
+                  maxLength={PASSWORD_MAX_LENGTH}
                   value={password}
                   onChange={e => { setPassword(e.target.value); setError('') }}
                 />
@@ -121,6 +122,7 @@ export default function ResetPasswordForm() {
                   id="confirmPassword"
                   type="password"
                   placeholder="*********"
+                  maxLength={PASSWORD_MAX_LENGTH}
                   value={confirmPassword}
                   onChange={e => { setConfirmPassword(e.target.value); setError('') }}
                 />

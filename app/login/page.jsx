@@ -9,6 +9,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import SystemMessageBanner from "@/components/SystemMessageBanner";
+import { EMAIL_MAX_LENGTH } from "@/lib/utils";
+import { PASSWORD_MAX_LENGTH } from "@/lib/passwordPolicy";
 
 export default function Login() {
   const [loginForm , setLoginForm] = useState({
@@ -116,6 +118,7 @@ export default function Login() {
                 id="resetEmail"
                 type="email"
                 placeholder="you@example.com"
+                maxLength={EMAIL_MAX_LENGTH}
                 value={resetEmail}
                 onChange={e => setResetEmail(e.target.value)}
               />
@@ -132,13 +135,13 @@ export default function Login() {
             <>
               <div className="space-y-2">
                 <Label htmlFor="email">Email address</Label>
-                <Input id="email" type="email" placeholder="you@example.com" onChange={handleChange} value={loginForm.email}/>
+                <Input id="email" type="email" placeholder="you@example.com" maxLength={EMAIL_MAX_LENGTH} onChange={handleChange} value={loginForm.email}/>
                 {validationError.email && <p className="text-red-500 text-sm">{validationError.email}</p>}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" placeholder="*********" onChange={handleChange} value={loginForm.password}/>
+                <Input id="password" type="password" placeholder="*********" maxLength={PASSWORD_MAX_LENGTH} onChange={handleChange} value={loginForm.password}/>
                 {validationError.password && <p className="text-red-500 text-sm">{validationError.password}</p>}
               </div>
 

@@ -46,7 +46,7 @@ export default function BadgesCard({ badges = [], hideBadges = false, onToggleHi
           </p>
         ) : earned.length === 0 ? (
           <p className="text-muted-foreground text-sm">
-            No badges yet — they show up here as you use MHSPRide.
+            No badges yet — they show up here as you use MHSP Ride.
           </p>
         ) : (
           <div className="grid grid-cols-3 gap-4 sm:grid-cols-4 md:grid-cols-5">

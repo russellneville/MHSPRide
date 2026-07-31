@@ -147,7 +147,7 @@ export default function Register() {
         <Card className="w-full max-w-md shadow-lg border border-border">
           <CardHeader className="flex flex-col items-center gap-3 text-center">
             <div className="flex justify-center">
-              <Image src="/assets/mhspride_logo.png" alt="MHSPRide" height={130} width={164} className="rounded-xl border-2 border-slate-900" />
+              <Image src="/assets/mhspride_logo.png" alt="MHSP Ride" height={130} width={164} className="rounded-xl border-2 border-slate-900" />
             </div>
             <CardTitle className="text-2xl font-semibold">Registration Disabled</CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
@@ -170,7 +170,7 @@ export default function Register() {
       <Card className="w-full max-w-md shadow-lg border border-border">
         <CardHeader className="flex flex-col items-center gap-3 text-center">
           <div className="flex justify-center">
-            <Image src="/assets/mhspride_logo.png" alt="MHSPRide" height={130} width={164} className="rounded-xl border-2 border-slate-900" />
+            <Image src="/assets/mhspride_logo.png" alt="MHSP Ride" height={130} width={164} className="rounded-xl border-2 border-slate-900" />
           </div>
           <CardTitle className="text-2xl font-semibold">Create Account</CardTitle>
           <CardDescription className="text-sm text-muted-foreground">
@@ -220,11 +220,11 @@ export default function Register() {
           {currStep === 4 && (
             <>
               <div className="rounded-lg border border-border bg-muted/40 p-4 space-y-4 max-h-72 overflow-y-auto text-sm text-muted-foreground leading-relaxed">
-                <p className="font-semibold text-foreground text-base">MHSPRide Terms of Use</p>
+                <p className="font-semibold text-foreground text-base">MHSP Ride Terms of Use</p>
 
                 <div className="space-y-1">
                   <p className="font-medium text-foreground">1. Use at Your Own Risk</p>
-                  <p>MHSPRide is a voluntary carpooling coordination tool. Your use of this site and any rides arranged through it are entirely at your own risk.</p>
+                  <p>MHSP Ride is a voluntary carpooling coordination tool. Your use of this site and any rides arranged through it are entirely at your own risk.</p>
                 </div>
 
                 <div className="space-y-1">
@@ -244,7 +244,7 @@ export default function Register() {
 
                 <div className="space-y-1">
                   <p className="font-medium text-foreground">5. No Liability</p>
-                  <p>The developers, administrators, and operators of MHSPRide expressly disclaim any and all liability arising from the use of this website or any ridesharing arrangements made through it. This includes, but is not limited to, personal injury, property damage, loss, or any other harm — whether direct, indirect, or incidental — resulting from rides coordinated here.</p>
+                  <p>The developers, administrators, and operators of MHSP Ride expressly disclaim any and all liability arising from the use of this website or any ridesharing arrangements made through it. This includes, but is not limited to, personal injury, property damage, loss, or any other harm — whether direct, indirect, or incidental — resulting from rides coordinated here.</p>
                 </div>
 
                 <div className="space-y-1">
@@ -254,12 +254,12 @@ export default function Register() {
 
                 <div className="space-y-1">
                   <p className="font-medium text-foreground">7. No Guarantees</p>
-                  <p>MHSPRide makes no guarantee of the accuracy, availability, or reliability of information posted on this site. Ride details, driver information, and availability can change at any time. Always confirm directly with your driver or passenger before heading out.</p>
+                  <p>MHSP Ride makes no guarantee of the accuracy, availability, or reliability of information posted on this site. Ride details, driver information, and availability can change at any time. Always confirm directly with your driver or passenger before heading out.</p>
                 </div>
 
                 <div className="space-y-1">
                   <p className="font-medium text-foreground">8. Acceptable Use</p>
-                  <p>This site is provided for coordinating carpools within the MHSP community, and is to be accessed only through the interfaces MHSPRide provides. Attempting to script or automate interactions with the site outside those interfaces, circumvent or thwart its security measures, inject malicious code or content, phish or impersonate other users or MHSP staff, reverse engineer the application, or otherwise use the site in any manner not undertaken in good faith is strictly prohibited. Any such activity is grounds for immediate suspension and termination of your account, at MHSPRide's sole discretion.</p>
+                  <p>This site is provided for coordinating carpools within the MHSP community, and is to be accessed only through the interfaces MHSP Ride provides. Attempting to script or automate interactions with the site outside those interfaces, circumvent or thwart its security measures, inject malicious code or content, phish or impersonate other users or MHSP staff, reverse engineer the application, or otherwise use the site in any manner not undertaken in good faith is strictly prohibited. Any such activity is grounds for immediate suspension and termination of your account, at MHSP Ride's sole discretion.</p>
                 </div>
 
                 <div className="space-y-1">

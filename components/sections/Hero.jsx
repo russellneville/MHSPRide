@@ -17,7 +17,7 @@ export default function Hero() {
             Connect with Drivers and Riders in Your Network
           </h1>
           <p className="text-para">
-            MHSPRide makes it easy to coordinate rides to the mountain, connect with fellow patrollers, and cut down on solo commutes.
+            MHSP Ride makes it easy to coordinate rides to the mountain, connect with fellow patrollers, and cut down on solo commutes.
           </p>
           <Button href='/dashboard' className="bg-mainColor dark:text-white dark:hover:!text-black transition duration-300 ease-in">
             Book your ride

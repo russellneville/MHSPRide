@@ -83,7 +83,7 @@ export function AppSidebar({ user, ...props }) {
           <div className="rounded-xl overflow-hidden bg-white">
           <Image
             src="/assets/mhspride_alt_logo.png"
-            alt="MHSPRide"
+            alt="MHSP Ride"
             width={423}
             height={286}
             className="w-full h-auto"
@@ -94,7 +94,7 @@ export function AppSidebar({ user, ...props }) {
         <div className="group-data-[collapsible=icon]:flex hidden justify-center py-3">
           <Image
             src="/assets/mhsp_main_logo.png"
-            alt="MHSPRide"
+            alt="MHSP Ride"
             height={28}
             width={28}
           />

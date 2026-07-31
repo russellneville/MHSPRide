@@ -29,7 +29,7 @@ const poppins = Poppins({
 });
 
 export const metadata = {
-  title: "MHSPRide",
+  title: "MHSP Ride",
   description: "Carpooling and rideshare for the Mount Hood Ski Patrol community.",
 };
 

@@ -52,7 +52,7 @@ function MaintenancePage({ message }) {
       <div className="min-h-[80vh] flex flex-col items-center justify-center gap-6 px-6 py-16 text-center">
         <Image
           src="/assets/mhspride_logo.png"
-          alt="MHSPRide logo"
+          alt="MHSP Ride logo"
           width={96}
           height={76}
         />
@@ -106,7 +106,7 @@ export default function Home() {
             <span className="landing-brand-card">
               <Image
                 src="/assets/mhspride_logo.png"
-                alt="MHSPRide logo"
+                alt="MHSP Ride logo"
                 width={96}
                 height={76}
               />
@@ -230,7 +230,7 @@ export default function Home() {
           <div className="landing-download-brand">
             <Image
               src="/assets/mhsp_title_logo_sm.png"
-              alt="MHSPRide logo"
+              alt="MHSP Ride logo"
               width={110}
               height={34}
               className="landing-brand-mark"

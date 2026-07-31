@@ -60,7 +60,7 @@ export default function ContactPage() {
         <Link href="/" className="landing-brand">
           <Image
             src="/assets/mhsp_title_logo_sm.png"
-            alt="MHSPRide logo"
+            alt="MHSP Ride logo"
             width={120}
             height={35}
             className="landing-brand-mark"
@@ -83,7 +83,7 @@ export default function ContactPage() {
           <h1>Contact Us</h1>
           <p className="contact-sub">Questions, feedback, or something not working? We want to hear from you.</p>
           <p className="contact-sub">
-            For casual chat, tips, and feedback with other MHSPRide users, join our{' '}
+            For casual chat, tips, and feedback with other MHSP Ride users, join our{' '}
             <a href="https://discord.gg/hEAfvAYk2j" target="_blank" rel="noopener noreferrer">
               Discord
             </a>

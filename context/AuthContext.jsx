@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 
 const AuthContext = createContext();
 
-const SUSPENDED_MESSAGE = 'Your account has been suspended. Please contact an MHSPRide admin.'
+const SUSPENDED_MESSAGE = 'Your account has been suspended. Please contact an MHSP Ride admin.'
 
 // super-admin is a strict superset of admin — maintenance mode never signs
 // either of them out or blocks their login (issue #108).
@@ -31,7 +31,7 @@ const getLoginErrorMessage = (code) => {
     case 'auth/invalid-email':
       return 'Incorrect email or password. Please try again.'
     case 'auth/user-disabled':
-      return 'This account has been disabled. Please contact an MHSPRide admin.'
+      return 'This account has been disabled. Please contact an MHSP Ride admin.'
     case 'auth/too-many-requests':
       return 'Too many failed attempts. Please wait a moment and try again.'
     case 'auth/network-request-failed':

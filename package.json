@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "release-notes": "node scripts/generateReleaseNotes.mjs"
   },
   "dependencies": {
     "@next/third-parties": "15.5.9",

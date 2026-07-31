@@ -151,7 +151,7 @@ export default function RidePage() {
   const buildCalendarEvent = () => {
     const start = getBookingDeparture(rideData)
     const end = getRideEndTime(rideData)
-    const title = `MHSPRide: ${resolveLocation(rideData.departure)} → ${resolveLocation(rideData.arrival)}`
+    const title = `MHSP Ride: ${resolveLocation(rideData.departure)} → ${resolveLocation(rideData.arrival)}`
     const description = [
       isRideDriver ? "You're driving this ride." : `Driver: ${rideData.driver?.fullname || 'Unknown driver'}`,
       !rideData.one_way && rideData.return_departure_time

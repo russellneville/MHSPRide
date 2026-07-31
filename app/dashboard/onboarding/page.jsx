@@ -106,11 +106,11 @@ export default function OnboardingPage() {
         {step === 1 && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-2xl">Welcome to MHSPRide, {user?.fullname}!</CardTitle>
+              <CardTitle className="text-2xl">Welcome to MHSP Ride, {user?.fullname}!</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <p className="text-muted-foreground">
-                MHSPRide connects Mount Hood Ski Patrol volunteers for carpooling to and from the mountain.
+                MHSP Ride connects Mount Hood Ski Patrol volunteers for carpooling to and from the mountain.
                 This quick setup takes about a minute.
               </p>
               <ul className="space-y-2 text-sm text-muted-foreground">

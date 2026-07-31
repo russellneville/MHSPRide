@@ -10,7 +10,7 @@ import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Checkbox } from "../ui/checkbox"
-import { estimateArrival } from "@/lib/drive-times"
+import { useEstimatedArrival } from "@/hooks/use-estimated-arrival"
 import { toLocalDateStr, TEXTAREA_MAX_LENGTH, LOCATION_NAME_MAX_LENGTH } from "@/lib/utils"
 
 function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, locations, selectPlaceholder }) {
@@ -102,15 +102,11 @@ function EditRidePopupForm({ ride, onSaved, origins, destinations }) {
   // Recompute arrival time whenever departure time, origin, or destination changes —
   // mirrors OfferRidePopup's effect so switching pickup/dropoff after a time is
   // already set keeps the estimate in sync.
+  const estimatedArrival = useEstimatedArrival(rideData.departure_time, effectiveDeparture, effectiveArrival)
   useEffect(() => {
-    if (!rideData.departure_time || !effectiveDeparture || !effectiveArrival) return
-    let cancelled = false
-    estimateArrival(rideData.departure_time, effectiveDeparture, effectiveArrival).then(est => {
-      if (cancelled || !est) return
-      setRideData(prev => (prev.arrival_time === est ? prev : { ...prev, arrival_time: est }))
-    })
-    return () => { cancelled = true }
-  }, [rideData.departure_time, effectiveDeparture, effectiveArrival])
+    if (!estimatedArrival) return
+    setRideData(prev => (prev.arrival_time === estimatedArrival ? prev : { ...prev, arrival_time: estimatedArrival }))
+  }, [estimatedArrival])
 
   const handleChange = (e) => {
     setRideData(prev => ({ ...prev, [e.target.id]: e.target.value }))

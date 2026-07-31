@@ -16,7 +16,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "../ui/alert-dialog"
-import { estimateArrival } from "@/lib/drive-times"
+import { useEstimatedArrival } from "@/hooks/use-estimated-arrival"
 import { formatDate, toLocalDateStr, TEXTAREA_MAX_LENGTH, LOCATION_NAME_MAX_LENGTH } from "@/lib/utils"
 import { hasActiveSameDayBooking, hasActiveSameDayRide } from "@/lib/rides"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
@@ -218,15 +218,11 @@ export default function OfferRidePopup({ networkId, onSaved }) {
   // Recompute arrival time whenever departure time, origin, or destination changes —
   // not just on the departure_time field's own onChange — so switching pickup/dropoff
   // after a time is already set keeps the estimate in sync.
+  const estimatedArrival = useEstimatedArrival(rideData.departure_time, effectiveDeparture, effectiveArrival)
   useEffect(() => {
-    if (!rideData.departure_time || !effectiveDeparture || !effectiveArrival) return
-    let cancelled = false
-    estimateArrival(rideData.departure_time, effectiveDeparture, effectiveArrival).then(est => {
-      if (cancelled || !est) return
-      setRideData(prev => (prev.arrival_time === est ? prev : { ...prev, arrival_time: est }))
-    })
-    return () => { cancelled = true }
-  }, [rideData.departure_time, effectiveDeparture, effectiveArrival])
+    if (!estimatedArrival) return
+    setRideData(prev => (prev.arrival_time === estimatedArrival ? prev : { ...prev, arrival_time: estimatedArrival }))
+  }, [estimatedArrival])
 
   const handleChange = (e) => {
     setRideData(prev => ({ ...prev, [e.target.id]: e.target.value }))

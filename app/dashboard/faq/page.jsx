@@ -3,6 +3,7 @@ import DashboardLayout from '@/app/dashboard/dashboardLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { NETWORKS } from '@/lib/networks'
+import Link from 'next/link'
 
 function QA({ q, children }) {
   return (
@@ -17,19 +18,29 @@ export default function FaqPage() {
   return (
     <DashboardLayout>
       <div className="space-y-5 max-w-3xl">
-        <div>
-          <h2 className="text-2xl font-semibold">Frequently Asked Questions</h2>
-          <p className="text-sm text-muted-foreground mt-1">
-            How MHSPRide works, for riders and drivers.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold">Frequently Asked Questions</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              How MHSP Ride works, for riders and drivers.
+            </p>
+          </div>
+          <Button href="/dashboard" className="shrink-0">Continue to Dashboard</Button>
         </div>
 
         <Card>
-          <CardContent className="space-y-4 pt-6">
-            <QA q="What is MHSPRide?">
-              MHSPRide connects Mount Hood Ski Patrol volunteers for carpooling to and from the mountain.
+          <CardContent className="space-y-4">
+            <QA q="What is MHSP Ride?">
+              MHSP Ride connects Mount Hood Ski Patrol volunteers for carpooling to and from the mountain.
               It's organized around {NETWORKS.length} networks — {NETWORKS.map(n => n.name).join(', ')} — each with its
               own pool of offered rides. Favorite the networks you want to see on your dashboard; you can change your favorites anytime.
+            </QA>
+            <QA q="What's new in MHSP Ride?">
+              See the{' '}
+              <Link href="/dashboard/release-notes" className="text-foreground underline">
+                Release Notes
+              </Link>{' '}
+              page for a running log of features added in each tagged version.
             </QA>
           </CardContent>
         </Card>
@@ -109,9 +120,9 @@ export default function FaqPage() {
         </Card>
 
         <Card>
-          <CardContent className="pt-6">
+          <CardContent>
             <QA q="Still have questions?">
-              Join our Discord for casual chat, tips, and feedback with other MHSPRide users:{' '}
+              Join our Discord for casual chat, tips, and feedback with other MHSP Ride users:{' '}
               <a
                 href="https://discord.gg/hEAfvAYk2j"
                 target="_blank"
@@ -126,7 +137,7 @@ export default function FaqPage() {
         </Card>
 
         <p className="text-xs text-muted-foreground">
-          Using MHSPRide means agreeing to its Terms of Use, including that the site may only be used through
+          Using MHSP Ride means agreeing to its Terms of Use, including that the site may only be used through
           the interfaces it provides — attempts to script, automate, or otherwise interfere with the site are
           grounds for account suspension.
         </p>

@@ -24,3 +24,19 @@
 
 ![ss-13](./screenshots/ss-13.png)
 
+Favorite drivers and badges, on the profile page:
+
+![ss-14](./screenshots/ss-14.png)
+
+Admin Reports leaderboards for favorited drivers and badge earners:
+
+![ss-15](./screenshots/ss-15.png)
+
+Release notes, linked from the FAQ:
+
+![ss-16](./screenshots/ss-16.png)
+
+Admin view of a member's earned badges:
+
+![ss-17](./screenshots/ss-17.png)
+

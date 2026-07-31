@@ -7,6 +7,7 @@ import { logEvent } from '@/lib/activityLog'
 import { canBookRide, isCanceledStatus } from '@/lib/rides'
 import { networkName } from '@/lib/networks'
 import { flattenVehicleForSnapshot } from '@/lib/vehicles'
+import { fireBadgeEvent } from '@/lib/badges/client'
 const NetworkContext = createContext()
 
 export const NetworkProvider = ({children})=>{
@@ -37,6 +38,7 @@ export const NetworkProvider = ({children})=>{
         mhspNumber: userData.mhspNumber,
         metadata: { favorite_networks: networkIds },
       }).catch(() => {})
+      networkIds.forEach(id => fireBadgeEvent('network-favorited', { networkId: id }))
       return true
     } catch (error) {
       toast.error(error.message)
@@ -74,6 +76,7 @@ export const NetworkProvider = ({children})=>{
         mhspNumber: userData.mhspNumber,
         metadata: { driverId: driver.id },
       }).catch(() => {})
+      if (!isFavorited) fireBadgeEvent('driver-favorited', { driverId: driver.id })
       return !isFavorited
     } catch (error) {
       toast.error(error.message)
@@ -209,6 +212,11 @@ export const NetworkProvider = ({children})=>{
                 driverId : driver.id ,
                 ride_id : rideId,
                 departure ,
+                // Carried over from the ride being booked, not recomputed here —
+                // a booking has no location-picker of its own, so these can only
+                // ever reflect what the driver chose (resources/badging.md).
+                custom_departure : rideData.custom_departure || false,
+                custom_arrival : rideData.custom_arrival || false,
                 departure_date ,
                 departure_time ,
                 arrival ,

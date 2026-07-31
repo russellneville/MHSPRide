@@ -13,6 +13,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { resolveLivePhotoUrl } from "@/lib/profilePhoto";
 import { getVehicles } from "@/lib/vehicles";
+import BadgesCard from "@/components/BadgesCard";
+import AchievementBadge from "@/components/AchievementBadge";
+import { badgeById } from "@/lib/badges/catalog";
+import { acknowledgeBadge, fetchUnseenBadges } from "@/lib/badges/client";
+import { collection, doc, getDocs, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebaseClient";
 
 export default function ProfilePage (){
     const { user , updateProfile , uploadPhoto, isLoading } = useAuth()
@@ -27,12 +33,31 @@ export default function ProfilePage (){
         bio : '' ,
         phone : '' ,
       })
+    const [badges, setBadges] = useState([])
+    const [missedBadges, setMissedBadges] = useState([])
+    const [missedDialogOpen, setMissedDialogOpen] = useState(false)
 
     useEffect(() => {
         if (user) {
           setProfile({ ...user, vehicles: getVehicles(user) });
         }
     }, [user]);
+
+    // users/{uid}/badges (resources/badging.md) — owner-readable per firestore.rules
+    useEffect(() => {
+        if (!user?.uid) return
+        let cancelled = false
+        fetchBadgeDocs(user.uid).then((docs) => {
+            if (!cancelled) setBadges(docs)
+        }).catch((error) => console.error('[profile] badge fetch failed:', error))
+        return () => { cancelled = true }
+    }, [user?.uid]);
+
+    function fetchBadgeDocs(uid) {
+        return getDocs(collection(db, 'users', uid, 'badges')).then(
+            (snapshot) => snapshot.docs.map((d) => ({ id: d.id, ...d.data() }))
+        )
+    }
 
     useEffect(() => {
         setPhotoSrc(user?.photoURL || null)
@@ -51,6 +76,44 @@ export default function ProfilePage (){
     useEffect(() => {
         setThemeMounted(true)
     }, []);
+
+    // Badging is opt-out (users/{uid}.hide_badges, off by default), saved
+    // immediately on toggle rather than batched into the "Update Profile"
+    // button below — same pattern as the theme select and unfavorite buttons
+    // on this page. Unchecking replays anything earned while hidden (or any
+    // other never-shown badge — see fetchUnseenBadges) as the normal
+    // celebration dialog, right here rather than waiting for a dashboard visit.
+    const handleToggleHideBadges = async (checked) => {
+        if (!user?.uid) return
+        try {
+            await updateDoc(doc(db, 'users', user.uid), { hide_badges: checked })
+        } catch (error) {
+            console.error('[profile] hide_badges update failed:', error)
+            return
+        }
+        if (checked) return
+        try {
+            const unseenIds = await fetchUnseenBadges(user.uid)
+            const resolved = unseenIds.map(badgeById).filter(Boolean)
+            if (resolved.length) {
+                setMissedBadges(resolved)
+                setMissedDialogOpen(true)
+                // The grid's badges state was fetched on mount and won't
+                // otherwise pick up anything earned since — without this,
+                // the celebration dialog could show a badge that then isn't
+                // in the grid right below it until the page is reloaded.
+                fetchBadgeDocs(user.uid).then(setBadges).catch((error) =>
+                    console.error('[profile] badge refetch failed:', error)
+                )
+            }
+        } catch (error) {
+            console.error('[profile] fetching missed badges failed:', error)
+        }
+    }
+
+    function handleMissedBadgeAcknowledge(badgeId) {
+        acknowledgeBadge(badgeId).catch((error) => console.error('[profile] badge acknowledge failed:', error))
+    }
 
     const handlePhotoChange = async (e) => {
         const file = e.target.files?.[0]
@@ -133,12 +196,26 @@ export default function ProfilePage (){
         </CardContent>
        </Card>
 
+       <BadgesCard
+            badges={badges}
+            hideBadges={!!user?.hide_badges}
+            onToggleHide={handleToggleHideBadges}
+            className={`mt-4 ${PROFILE_SECTION_CARD_CLASS}`}
+       />
+
        <DriverProfile profile={profile} setProfile={setProfile} className={`mt-4 ${PROFILE_SECTION_CARD_CLASS}`}/>
 
        <div className="flex items-center justify-end bg-background py-3">
             <Button onClick={()=> updateProfile(profile)} disabled={isLoading}>{isLoading ? 'Updating... ' : 'Update Profile'}</Button>
 
        </div>
+
+       <AchievementBadge
+            open={missedDialogOpen}
+            onOpenChange={setMissedDialogOpen}
+            badges={missedBadges}
+            onAcknowledge={handleMissedBadgeAcknowledge}
+       />
 
     </DashboardLayout>
   </>

@@ -4,6 +4,7 @@ import { onAuthStateChanged, signInWithEmailAndPassword, signOut, EmailAuthProvi
 import { doc, getDoc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { logEvent } from '@/lib/activityLog';
+import { fireBadgeEvent } from '@/lib/badges/client';
 
 import { useRouter } from 'next/navigation';
 import { createContext, useContext, useEffect, useState } from 'react'
@@ -373,6 +374,7 @@ export const AuthProvider = ({ children }) => {
       const downloadURL = await getDownloadURL(storageRef)
       await updateDoc(doc(db, 'users', uid), { photoURL: downloadURL })
       setUser(prev => ({ ...prev, photoURL: downloadURL }))
+      fireBadgeEvent('photo-uploaded', {})
       toast.success('Photo updated.')
       return downloadURL
     } catch (error) {

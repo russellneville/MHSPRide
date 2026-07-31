@@ -8,8 +8,9 @@ import DashboardLayout from '@/app/dashboard/dashboardLayout'
 import AdminGuard from '@/components/AdminGuard'
 import DriverProfile from '@/components/forms/DriverProfile'
 import ProfileForm, { PROFILE_SECTION_CARD_CLASS } from '@/components/forms/ProfileForm'
+import BadgesCard from '@/components/BadgesCard'
 import { db, auth } from '@/lib/firebaseClient'
-import { doc, onSnapshot } from 'firebase/firestore'
+import { collection, doc, onSnapshot } from 'firebase/firestore'
 import { getVehicles } from '@/lib/vehicles'
 import { logEvent } from '@/lib/activityLog'
 import { useAuth } from '@/context/AuthContext'
@@ -40,6 +41,19 @@ function UserDetailContent() {
   const [saving, setSaving] = useState(false)
   const [photoSrc, setPhotoSrc] = useState(null)
   const [photoTriedLive, setPhotoTriedLive] = useState(false)
+  const [badges, setBadges] = useState([])
+
+  // Owner-or-admin read per firestore.rules — always the real earned set,
+  // independent of this member's own hide_badges display preference.
+  useEffect(() => {
+    if (!uid) return
+    const unsub = onSnapshot(
+      collection(db, 'users', uid, 'badges'),
+      snap => setBadges(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      err => console.error('[admin user detail] badge fetch failed:', err)
+    )
+    return unsub
+  }, [uid])
 
   useEffect(() => {
     const unsub = onSnapshot(
@@ -149,6 +163,8 @@ function UserDetailContent() {
 
             <DriverProfile profile={profile} setProfile={setProfile} className={`mt-4 ${PROFILE_SECTION_CARD_CLASS}`} />
           </fieldset>
+
+          <BadgesCard badges={badges} className={`mt-4 ${PROFILE_SECTION_CARD_CLASS}`} />
 
           {!readOnly && (
             <div className="flex items-center justify-end bg-background py-3">

@@ -256,6 +256,12 @@ export default function OfferRidePopup({ networkId, onSaved }) {
       await offerRide({
         departure: effectiveDeparture,
         arrival: effectiveArrival,
+        // Explicit flags for the "Off the Beaten Path" badge (resources/badging.md) —
+        // effectiveDeparture/Arrival merge the predefined-location select and the
+        // free-text "Other" input into one string, so downstream code can't tell
+        // which source it came from without these.
+        custom_departure: !!departureOther.trim(),
+        custom_arrival: !!arrivalOther.trim(),
         departure_date: dateStr,
         arrival_date: dateStr,
         departure_time: rideData.departure_time,

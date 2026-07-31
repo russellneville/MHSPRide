@@ -5,11 +5,10 @@ import AdminGuard from '@/components/AdminGuard'
 import { db } from '@/lib/firebaseClient'
 import {
   collection,
-  getDocs,
+  onSnapshot,
   query,
   orderBy,
   limit,
-  startAfter,
 } from 'firebase/firestore'
 import {
   Table,
@@ -32,6 +31,11 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 
 const PAGE_SIZE = 25
+// Bounds every read of this collection, most-recent-first. This page used to
+// do an unbounded getDocs() of the whole collection on load AND again every
+// 30s via setInterval — an admin tab left open overnight was enough to blow
+// through Firestore's 50K/day free-tier read quota on its own.
+const FETCH_LIMIT = 1000
 
 // Badge color by type prefix — one distinct hue per event family so they're
 // easy to tell apart at a glance (member./membership. share one, both being
@@ -105,21 +109,37 @@ function ActivityLogContent() {
   const [messageSearch, setMessageSearch] = useState('')
 
   useEffect(() => {
-    fetchLogs()
-    const interval = setInterval(() => fetchLogs({ silent: true }), 30_000)
-    return () => clearInterval(interval)
-  }, [])
+    // A live listener left attached in a backgrounded/minimized tab still
+    // bills a read for every matching write elsewhere in the app, all day.
+    // Detach while hidden, reattach (one fresh bounded read) when the tab
+    // is actually looked at again.
+    let unsubscribe = null
 
-  async function fetchLogs({ silent = false } = {}) {
-    if (!silent) setLoading(true)
-    try {
-      const q = query(collection(db, 'activity_log'), orderBy('timestamp', 'desc'))
-      const snap = await getDocs(q)
-      setAllLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })))
-    } finally {
-      if (!silent) setLoading(false)
+    function subscribe() {
+      const q = query(collection(db, 'activity_log'), orderBy('timestamp', 'desc'), limit(FETCH_LIMIT))
+      unsubscribe = onSnapshot(q, (snap) => {
+        setAllLogs(snap.docs.map(d => ({ id: d.id, ...d.data() })))
+        setLoading(false)
+      })
     }
-  }
+
+    function handleVisibilityChange() {
+      if (document.hidden) {
+        unsubscribe?.()
+        unsubscribe = null
+      } else if (!unsubscribe) {
+        subscribe()
+      }
+    }
+
+    if (!document.hidden) subscribe()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      unsubscribe?.()
+    }
+  }, [])
 
   function formatTs(ts) {
     if (!ts) return '—'

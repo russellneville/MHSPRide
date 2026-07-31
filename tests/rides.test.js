@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canBookRide,
   canCancelBooking,
+  computeBookingStatus,
   computeRideStatus,
   getAvailableSeatsAfterBooking,
   getBookedSeatCount,
@@ -68,6 +69,38 @@ describe("ride status rules", () => {
   it("uses arrival time (not return departure) for one-way rides", () => {
     const ride = { ...baseRide, one_way: true, return_departure_time: "16:00" };
     expect(computeRideStatus(ride, new Date("2026-02-10T07:16:00"))).toBe("completed");
+  });
+});
+
+describe("booking status rules", () => {
+  const baseBooking = {
+    departure_date: "2026-02-10",
+    departure_time: "06:00",
+    arrival_time: "07:15",
+    booking_status: "booked",
+  };
+
+  it("marks future bookings upcoming", () => {
+    expect(computeBookingStatus(baseBooking, new Date("2026-02-10T05:59:00"))).toBe("upcoming");
+  });
+
+  it("marks bookings in progress between departure and arrival", () => {
+    expect(computeBookingStatus(baseBooking, new Date("2026-02-10T06:30:00"))).toBe("in_progress");
+  });
+
+  it("marks bookings completed after arrival", () => {
+    expect(computeBookingStatus(baseBooking, new Date("2026-02-10T07:16:00"))).toBe("completed");
+  });
+
+  it("keeps canceled bookings canceled regardless of time", () => {
+    const booking = { ...baseBooking, booking_status: "canceled" };
+    expect(computeBookingStatus(booking, new Date("2026-02-10T09:00:00"))).toBe("canceled");
+  });
+
+  it("stays in progress past outbound arrival for round trips, until the return departure", () => {
+    const booking = { ...baseBooking, one_way: false, return_departure_time: "16:00" };
+    expect(computeBookingStatus(booking, new Date("2026-02-10T07:16:00"))).toBe("in_progress");
+    expect(computeBookingStatus(booking, new Date("2026-02-10T16:01:00"))).toBe("completed");
   });
 });
 

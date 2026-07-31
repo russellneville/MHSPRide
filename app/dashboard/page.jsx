@@ -25,6 +25,10 @@ import NetworkRideCard from "@/components/cards/network-ride-card"
 import { useLocations } from "@/context/LocationsContext"
 import { computeRideStatus } from "@/lib/rides"
 import { NETWORKS, NETWORK_IDS, networkName, defaultFavoritesFor } from "@/lib/networks"
+import { useTheme } from "next-themes"
+import AchievementBadge from "@/components/AchievementBadge"
+import { badgeById } from "@/lib/badges/catalog"
+import { acknowledgeBadge, evaluateBadges, fetchUnseenBadges } from "@/lib/badges/client"
 
 const PAGE_SIZE = 10
 
@@ -84,6 +88,12 @@ export default function Dashboard() {
   const router = useRouter()
   const { user } = useAuth()
   const { openPopup, isOpen } = usePopup()
+  // Deliberately `theme`, not `resolvedTheme` — "Gone to the Dark Side" should
+  // reward an explicit choice to switch to dark mode, not a member whose OS
+  // happens to prefer dark while their MHSPRide setting is still "System".
+  const { theme } = useTheme()
+  const [earnedBadges, setEarnedBadges] = useState([])
+  const [badgeDialogOpen, setBadgeDialogOpen] = useState(false)
   const [rides, setRides] = useState([])
   const [bookings, setBookings] = useState([])
   const [networkRides, setNetworkRides] = useState(null)
@@ -115,6 +125,40 @@ export default function Dashboard() {
     const defaults = defaultFavoritesFor(user.classifications)
     saveFavorites(defaults.length > 0 ? defaults : NETWORK_IDS)
   }, [user, favorites.length])
+
+  // Badge evaluation (resources/badging.md): runs once per dashboard mount for
+  // the signed-in user. The server throttles repeat calls to every 10 minutes
+  // (app/api/badges/evaluate), so this is safe even though it fires on every
+  // navigation back to the dashboard, not just first login. Evaluation always
+  // runs, even when the member has hidden badges (Profile → Badges) — hiding
+  // only suppresses the reveal, not the tracking, so nothing is lost when
+  // they turn it back on. After evaluating, check for ANY unseen badge, not
+  // just ones this call awarded — event-based badges (favorited/photo-
+  // uploaded, via award-event/route.js) have no other surface that shows
+  // the celebration dialog, so this is also what makes those ever appear.
+  useEffect(() => {
+    if (!user?.uid) return
+    let cancelled = false
+    evaluateBadges({ theme })
+      .then(() => {
+        if (cancelled || user.hide_badges) return null
+        return fetchUnseenBadges(user.uid)
+      })
+      .then((unseenIds) => {
+        if (cancelled || !unseenIds?.length) return
+        const resolved = unseenIds.map(badgeById).filter(Boolean)
+        if (resolved.length) {
+          setEarnedBadges(resolved)
+          setBadgeDialogOpen(true)
+        }
+      })
+      .catch((error) => console.error("[dashboard] badge evaluation failed:", error))
+    return () => { cancelled = true }
+  }, [user?.uid])
+
+  function handleBadgeAcknowledge(badgeId) {
+    acknowledgeBadge(badgeId).catch((error) => console.error("[dashboard] badge acknowledge failed:", error))
+  }
 
   useEffect(() => {
     if (!user) return
@@ -612,6 +656,13 @@ export default function Dashboard() {
         )}
 
       </div>
+
+      <AchievementBadge
+        open={badgeDialogOpen}
+        onOpenChange={setBadgeDialogOpen}
+        badges={earnedBadges}
+        onAcknowledge={handleBadgeAcknowledge}
+      />
     </DashboardLayout>
   )
 }

@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import DashboardLayout from '@/app/dashboard/dashboardLayout'
 import AdminGuard from '@/components/AdminGuard'
 import { db } from '@/lib/firebaseClient'
-import { collection, getDocs, query, where } from 'firebase/firestore'
+import { collection, collectionGroup, getDocs, query, where } from 'firebase/firestore'
 import { useLocations } from '@/context/LocationsContext'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -34,6 +34,7 @@ function ReportsContent() {
   const [topRiders, setTopRiders] = useState([])
   const [topRoutes, setTopRoutes] = useState([])
   const [topFavoritedDrivers, setTopFavoritedDrivers] = useState([])
+  const [topBadgeEarners, setTopBadgeEarners] = useState([])
 
   useEffect(() => {
     loadData()
@@ -47,6 +48,13 @@ function ReportsContent() {
         getDocs(collection(db, 'rides')),
         getDocs(collection(db, 'bookings')),
       ])
+      // Isolated from the Promise.all above on purpose — this is the newest,
+      // least-critical query here, and a failure in it (rules propagation lag,
+      // a transient error) shouldn't blank out every other stat on the page.
+      const badgesSnap = await getDocs(collectionGroup(db, 'badges')).catch((error) => {
+        console.error('[reports] badge leaderboard fetch failed:', error)
+        return { docs: [] }
+      })
 
       const users = usersSnap.docs.map(d => ({ id: d.id, ...d.data() }))
       const rides = ridesSnap.docs.map(d => ({ id: d.id, ...d.data() }))
@@ -145,6 +153,29 @@ function ReportsContent() {
         .sort((a, b) => b.favorites - a.favorites)
         .slice(0, 10)
       setTopFavoritedDrivers(sortedFavoritedDrivers)
+
+      // Top Badge Earners — one collectionGroup query across every
+      // users/{uid}/badges subcollection rather than one fetch per user
+      // (resources/badging.md); doc.ref.parent.parent is the owning user doc.
+      const badgeCountMap = {}
+      badgesSnap.docs.forEach(d => {
+        const badgeUid = d.ref.parent.parent?.id
+        if (!badgeUid) return
+        badgeCountMap[badgeUid] = (badgeCountMap[badgeUid] || 0) + 1
+      })
+      const sortedBadgeEarners = Object.entries(badgeCountMap)
+        .map(([badgeUid, count]) => {
+          const u = users.find(u => u.id === badgeUid)
+          return {
+            uid: badgeUid,
+            name: u?.fullname || '—',
+            mhspNumber: u?.mhspNumber || '—',
+            badgeCount: count,
+          }
+        })
+        .sort((a, b) => b.badgeCount - a.badgeCount)
+        .slice(0, 10)
+      setTopBadgeEarners(sortedBadgeEarners)
 
     } finally {
       setLoading(false)
@@ -281,6 +312,43 @@ function ReportsContent() {
                       <TableCell className="font-medium">{d.name}</TableCell>
                       <TableCell className="text-muted-foreground">{d.mhspNumber}</TableCell>
                       <TableCell className="text-right">{d.favorites}</TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Top Badge Earners */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Top 10 Badge Earners</CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">Rank</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>MHSP #</TableHead>
+                  <TableHead className="text-right">Badges Earned</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {topBadgeEarners.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center text-muted-foreground py-6">No data.</TableCell>
+                  </TableRow>
+                ) : (
+                  topBadgeEarners.map((b, i) => (
+                    <TableRow key={b.uid}>
+                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell className="font-medium">{b.name}</TableCell>
+                      <TableCell className="text-muted-foreground">{b.mhspNumber}</TableCell>
+                      <TableCell className="text-right">{b.badgeCount}</TableCell>
                     </TableRow>
                   ))
                 )}

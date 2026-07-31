@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin'
 import { FieldValue } from 'firebase-admin/firestore'
 import { getPasswordError } from '@/lib/passwordPolicy'
+import { awardBadge } from '@/lib/badges/award'
 
 function mhspHex(mhspNumber) {
   return mhspNumber
@@ -54,6 +55,8 @@ export async function POST(request) {
     metadata: { email: tokenData.email },
     timestamp: FieldValue.serverTimestamp(),
   }).catch(err => console.error('[reset-password/confirm] activity log failed', err))
+
+  awardBadge(db, tokenData.uid, 'lost-it').catch(err => console.error('[reset-password/confirm] badge award failed', err))
 
   return NextResponse.json({ ok: true })
 }

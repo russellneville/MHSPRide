@@ -51,6 +51,26 @@ service cloud.firestore {
             || request.resource.data.phone.size() <= 20);
     }
 
+    // Badges: earned-badge records, one document per badge. Award writes only
+    // happen through app/api/badges/evaluate and .../acknowledge via the Admin
+    // SDK (resources/badging.md) — members can read their own awards, never write.
+    match /users/{userId}/badges/{badgeId} {
+      allow read: if request.auth != null
+        && !isSuspended()
+        && (request.auth.uid == userId || isAdmin());
+      allow write: if false;
+    }
+
+    // The rule above only covers direct subcollection access
+    // (users/{uid}/badges/*) — collectionGroup('badges') queries (Reports'
+    // "Top Badge Earners" leaderboard) need their own rule using the
+    // recursive wildcard form per Firestore's collection-group semantics.
+    // Admin-only: no other caller in the app runs a collection-group query.
+    match /{path=**}/badges/{badgeId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
     // Networks: legacy membership docs. The app now treats networks as fixed
     // categories (lib/networks.js) with per-user favorites on users/{uid}, so
     // nothing client-side writes these anymore — admin-only, read allowed for

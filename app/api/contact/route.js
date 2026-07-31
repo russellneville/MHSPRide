@@ -1,9 +1,23 @@
 import { NextResponse } from 'next/server'
-import { getAdminDb } from '@/lib/firebaseAdmin'
+import { getAdminAuth, getAdminDb } from '@/lib/firebaseAdmin'
 import { sendSupportEmail } from '@/lib/email'
 import { FieldValue } from 'firebase-admin/firestore'
 import { recordAttempt, getClientIp, isValidEmailInput } from '@/lib/rateLimit'
 import { NAME_MAX_LENGTH, TEXTAREA_MAX_LENGTH } from '@/lib/utils'
+import { awardBadge } from '@/lib/badges/award'
+
+// Anonymous submissions are fully supported (this form is public), so a
+// missing/invalid token is not an error here — it just means the submission
+// stays unattributed, same as before this existed.
+async function optionalUid(request) {
+  const token = request.headers.get('authorization')?.replace('Bearer ', '').trim()
+  if (!token) return null
+  try {
+    return (await getAdminAuth().verifyIdToken(token)).uid
+  } catch {
+    return null
+  }
+}
 
 const CONTACT_IP_LIMIT = { limit: 5, windowMs: 60 * 60 * 1000 }
 
@@ -19,6 +33,7 @@ export async function POST(request) {
     }
 
     const db = getAdminDb()
+    const uid = await optionalUid(request)
 
     const ip = getClientIp(request)
     const rateResult = await recordAttempt({ key: `contact:ip:${ip}`, ...CONTACT_IP_LIMIT })
@@ -43,9 +58,13 @@ export async function POST(request) {
       type,
       message: message.trim(),
       source: 'contact_form',
-      userId: null,
+      userId: uid,
       submittedAt: FieldValue.serverTimestamp(),
     })
+
+    if (uid) {
+      awardBadge(db, uid, 'communicator').catch(err => console.error('[contact] badge award failed', err))
+    }
 
     await db.collection('activity_log').add({
       type: 'feedback.submitted',

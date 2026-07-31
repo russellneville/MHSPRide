@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useAuth } from '@/context/AuthContext'
+import { auth } from '@/lib/firebaseClient'
 import { TEXTAREA_MAX_LENGTH, NAME_MAX_LENGTH, EMAIL_MAX_LENGTH } from '@/lib/utils'
 
 export default function ContactPage() {
@@ -31,9 +32,13 @@ export default function ContactPage() {
     setSubmitting(true)
     setError(null)
     try {
+      // Optional — anonymous submissions are still fully supported server-side.
+      // Only sent so a signed-in submitter can be credited (resources/badging.md,
+      // Communicator badge); the contact form itself works the same either way.
+      const token = await auth.currentUser?.getIdToken().catch(() => null)
       const res = await fetch('/api/contact', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...(token && { Authorization: `Bearer ${token}` }) },
         body: JSON.stringify(form),
       })
       if (res.status === 429) {

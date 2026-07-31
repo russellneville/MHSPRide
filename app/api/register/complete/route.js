@@ -6,6 +6,7 @@ import { sendRegistrationEmail } from '@/lib/email'
 import { getPasswordError } from '@/lib/passwordPolicy'
 import { geocodeAddress } from '@/lib/geocodeAddress'
 import { NAME_MAX_LENGTH, PHONE_MAX_LENGTH, TEXTAREA_MAX_LENGTH } from '@/lib/utils'
+import { awardBadge } from '@/lib/badges/award'
 
 const REGISTER_IP_LIMIT = { limit: 5, windowMs: 60 * 60 * 1000 }
 
@@ -129,6 +130,7 @@ export async function POST(request) {
     })
 
     sendRegistrationEmail({ email, fullname }).catch(err => console.error('[register/complete] welcome email failed', err))
+    awardBadge(db, uid, 'registered').catch(err => console.error('[register/complete] badge award failed', err))
 
     return NextResponse.json({ ok: true })
   } catch (error) {

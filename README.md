@@ -1,8 +1,8 @@
 ![Mount Hood from Timberline](/public/assets/hood_2.jpg)
 
-# MHSPRide
+# MHSP Ride
 
-A private carpooling app for Mount Hood Ski Patrol members and Mountain Hosts. Timberline Lodge has limited parking, and getting there is half the battle — MHSPRide makes it easier to share the drive with people you already trust.
+A private carpooling app for Mount Hood Ski Patrol members and Mountain Hosts. Timberline Lodge has limited parking, and getting there is half the battle — MHSP Ride makes it easier to share the drive with people you already trust.
 
 Built for the patrol, by the patrol.
 

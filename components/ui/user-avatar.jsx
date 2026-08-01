@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { resolveLivePhotoUrl } from '@/lib/profilePhoto'
 
 const SIZES = {
@@ -53,6 +53,19 @@ export function UserAvatar({ user, size = 'md', className = '' }) {
       setSrc(null)
     }
   }
+
+  // Some snapshots (e.g. older ride_requests docs from before this field was
+  // captured) never had a photoURL at all, so there's no <img> to fail and
+  // trigger handleError above — fall through to the same live lookup here
+  // instead of going straight to initials.
+  useEffect(() => {
+    const uid = user?.id || user?.uid
+    if (!user?.photoURL && !triedLive && uid) {
+      setTriedLive(true)
+      resolveLivePhotoUrl(uid).then(setSrc)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.uid, user?.photoURL])
 
   if (src) {
     return (

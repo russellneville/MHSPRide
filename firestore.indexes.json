@@ -6,6 +6,14 @@
       "fields": [
         { "fieldPath": "mhspNumber", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "ride_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "expires_at", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

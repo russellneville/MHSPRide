@@ -1,0 +1,20 @@
+name: Expire ride requests
+
+# Marks any ride request whose 6h-before-departure cutoff has passed as
+# 'expired' and emails the requester (app/api/cron/expire-ride-requests).
+# Runs on GitHub Actions rather than Vercel Cron since this project has no
+# confirmed Pro-tier plan and Hobby-tier Vercel Cron is daily-granularity
+# only — GitHub Actions' schedule trigger works regardless of hosting plan.
+on:
+  schedule:
+    - cron: '0 * * * *'
+  workflow_dispatch: {}
+
+jobs:
+  expire-ride-requests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call expiry endpoint
+        run: |
+          curl -sf -X POST "https://mhspride.com/api/cron/expire-ride-requests" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

@@ -1,11 +1,15 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "../ui/input";
 import { PASSWORD_REQUIREMENT_TEXT, PASSWORD_MAX_LENGTH } from "@/lib/passwordPolicy";
-import { NAME_MAX_LENGTH, PHONE_MAX_LENGTH, EMAIL_MAX_LENGTH, TEXTAREA_MAX_LENGTH } from "@/lib/utils";
+import { NAME_MAX_LENGTH, PHONE_MAX_LENGTH, EMAIL_MAX_LENGTH, TEXTAREA_MAX_LENGTH, formatPhoneNumber } from "@/lib/utils";
 
 export default function AccountSetupForm({ setRegisterForm, registerForm, errors }) {
   const handleChange = (e) => {
     setRegisterForm((prev) => ({ ...prev, [e.target.id]: e.target.value }))
+  }
+
+  const handlePhoneChange = (e) => {
+    setRegisterForm((prev) => ({ ...prev, phone: formatPhoneNumber(e.target.value) }))
   }
 
   return <>
@@ -37,7 +41,7 @@ export default function AccountSetupForm({ setRegisterForm, registerForm, errors
 
     <div className="space-y-2">
       <Label htmlFor="phone">Phone Number</Label>
-      <Input id="phone" type="tel" placeholder="503-555-0100" maxLength={PHONE_MAX_LENGTH} onChange={handleChange} value={registerForm.phone} />
+      <Input id="phone" type="tel" placeholder="(503) 555-0100" maxLength={PHONE_MAX_LENGTH} onChange={handlePhoneChange} value={registerForm.phone} />
       {errors.phone && <p className="text-red-500 text-sm">{errors.phone}</p>}
     </div>
 

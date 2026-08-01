@@ -13,8 +13,10 @@ import {
 import { toast } from 'sonner'
 import { logEvent } from '@/lib/activityLog'
 import { computeRideStatus } from '@/lib/rides'
+import { REQUEST_STATUS_LABEL, REQUEST_STATUS_CLASS, equipmentLabel } from '@/lib/rideRequests'
 import { adminCancelRideBookings } from '@/lib/bookings'
 import { useLocations } from '@/context/LocationsContext'
+import { useNetwork } from '@/context/NetworksContext'
 import { formatTime, toLocalDateStr } from '@/lib/utils'
 import {
   Table,
@@ -48,6 +50,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/context/AuthContext'
 import { usePopup } from '@/context/PopupContext'
 import EditRidePopup from '@/components/popup-forms/EditRidePopup'
+import EditRideRequestPopup from '@/components/popup-forms/EditRideRequestPopup'
 import AdminRideDetailsPopup from '@/components/popup-forms/AdminRideDetailsPopup'
 import { NETWORKS } from '@/lib/networks'
 
@@ -102,8 +105,10 @@ function RidesContent() {
   const { user: currentUser } = useAuth()
   const { openPopup } = usePopup()
   const { resolveLocation } = useLocations()
+  const { cancelRideRequest } = useNetwork()
   const [rides, setRides] = useState([])
   const [bookings, setBookings] = useState([])
+  const [requests, setRequests] = useState([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(0)
   const [filterStatus, setFilterStatus] = useState('all')
@@ -124,12 +129,14 @@ function RidesContent() {
   async function fetchRides() {
     setLoading(true)
     try {
-      const [ridesSnap, bookingsSnap] = await Promise.all([
+      const [ridesSnap, bookingsSnap, requestsSnap] = await Promise.all([
         getDocs(collection(db, 'rides')),
         getDocs(collection(db, 'bookings')),
+        getDocs(collection(db, 'ride_requests')),
       ])
       setRides(ridesSnap.docs.map(d => ({ id: d.id, ...d.data() })))
       setBookings(bookingsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
+      setRequests(requestsSnap.docs.map(d => ({ id: d.id, ...d.data() })))
     } finally {
       setLoading(false)
     }
@@ -145,6 +152,22 @@ function RidesContent() {
     if (!cancelTarget) return
     setActing(true)
     try {
+      if (cancelTarget._type === 'request') {
+        const req = cancelTarget
+        const ok = await cancelRideRequest(req.id, '')
+        if (!ok) return
+        logEvent({
+          type: 'rideRequest.canceled',
+          message: `Admin canceled ride request: ${req.departure} → ${req.arrival} on ${req.departure_date}`,
+          userId: auth.currentUser?.uid,
+          userName: currentUser?.fullname,
+          mhspNumber: currentUser?.mhspNumber,
+          metadata: { requestId: req.id, adminAction: true },
+        }).catch(() => {})
+        await fetchRides()
+        return
+      }
+
       const ride = cancelTarget
       // Cancels every booking tied to this ride first (each fires its own
       // notify-cancellation email with the passenger's real name), then the
@@ -174,6 +197,21 @@ function RidesContent() {
     if (!deleteTarget) return
     setActing(true)
     try {
+      if (deleteTarget._type === 'request') {
+        const req = deleteTarget
+        await deleteDoc(doc(db, 'ride_requests', req.id))
+        logEvent({
+          type: 'rideRequest.deleted',
+          message: `Admin deleted ride request: ${req.departure} → ${req.arrival} on ${req.departure_date}`,
+          userId: auth.currentUser?.uid,
+          userName: currentUser?.fullname,
+          mhspNumber: currentUser?.mhspNumber,
+          metadata: { requestId: req.id, adminAction: true },
+        }).catch(() => {})
+        setRequests(prev => prev.filter(r => r.id !== req.id))
+        return
+      }
+
       const ride = deleteTarget
       await deleteDoc(doc(db, 'rides', ride.id))
       logEvent({
@@ -195,7 +233,12 @@ function RidesContent() {
 
   const searchTerm = search.trim().toLowerCase()
 
-  const filtered = rides
+  // Requests have no network and their own status enum (open/fulfilled/
+  // expired/canceled), neither of which maps onto the ride filters below —
+  // rather than inventing shared semantics, requests only show while both
+  // filters are at their default "all". Date range and search still apply
+  // to both row types uniformly.
+  const filteredRides = rides
     .filter(r => {
       if (filterStatus !== 'all' && displayStatus(r) !== filterStatus) return false
       if (filterNetwork !== 'all' && r.network_id !== filterNetwork) return false
@@ -213,6 +256,25 @@ function RidesContent() {
       }
       return true
     })
+    .map(r => ({ ...r, _type: 'ride' }))
+
+  const filteredRequests = (filterStatus !== 'all' || filterNetwork !== 'all') ? [] : requests
+    .filter(r => {
+      if (filterFrom && r.departure_date < filterFrom) return false
+      if (filterTo && r.departure_date > filterTo) return false
+      if (searchTerm) {
+        const haystack = [
+          r.requester?.fullname,
+          resolveLocation(r.departure),
+          resolveLocation(r.arrival),
+        ].filter(Boolean).join(' ').toLowerCase()
+        if (!haystack.includes(searchTerm)) return false
+      }
+      return true
+    })
+    .map(r => ({ ...r, _type: 'request' }))
+
+  const filtered = [...filteredRides, ...filteredRequests]
     .sort((a, b) => {
       const aKey = `${a.departure_date}T${a.departure_time || '00:00'}`
       const bKey = `${b.departure_date}T${b.departure_time || '00:00'}`
@@ -296,7 +358,7 @@ function RidesContent() {
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead>Driver</TableHead>
+                <TableHead>Driver/Requestor</TableHead>
                 <TableHead>Network</TableHead>
                 <TableHead>Departure</TableHead>
                 <TableHead>Arrival</TableHead>
@@ -313,7 +375,65 @@ function RidesContent() {
                   </TableCell>
                 </TableRow>
               ) : (
-                paginated.map(ride => {
+                paginated.map(row => {
+                  if (row._type === 'request') {
+                    return (
+                      <TableRow key={row.id}>
+                        <TableCell className="text-sm whitespace-nowrap">
+                          {row.departure_date}<br />
+                          <span className="text-muted-foreground">{formatTime(row.departure_time)}</span>
+                        </TableCell>
+                        <TableCell className="text-sm">{row.requester?.fullname || '—'}</TableCell>
+                        <TableCell className="text-sm">
+                          <Badge variant="outline">Requested</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">{resolveLocation(row.departure)}</TableCell>
+                        <TableCell className="text-sm">{resolveLocation(row.arrival)}</TableCell>
+                        <TableCell className="text-sm text-center">
+                          {row.seats_requested}{row.equipment && row.equipment !== 'no_equipment' ? ` · ${equipmentLabel(row.equipment)}` : ''}
+                        </TableCell>
+                        <TableCell>
+                          <span className={`text-xs font-medium px-2.5 py-1 rounded-full border ${REQUEST_STATUS_CLASS[row.status] || ''}`}>
+                            {REQUEST_STATUS_LABEL[row.status] || row.status}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1 flex-wrap">
+                            {row.status === 'open' && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openPopup('Edit ride request', <EditRideRequestPopup request={row} onSaved={fetchRides} />)}
+                              >
+                                Edit
+                              </Button>
+                            )}
+                            {row.status === 'open' && (
+                              <Button
+                                variant="cancel"
+                                size="sm"
+                                onClick={() => setCancelTarget(row)}
+                              >
+                                Cancel
+                              </Button>
+                            )}
+                            {row.status !== 'fulfilled' && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setDeleteTarget(row)}
+                              >
+                                Delete
+                              </Button>
+                            )}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  }
+
+                  const ride = row
                   const isEmpty = ride.available_seats === ride.total_seats
                   const status = displayStatus(ride)
                   return (
@@ -420,15 +540,17 @@ function RidesContent() {
       <AlertDialog open={!!cancelTarget} onOpenChange={open => { if (!open) setCancelTarget(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel this ride?</AlertDialogTitle>
+            <AlertDialogTitle>{cancelTarget?._type === 'request' ? 'Cancel this ride request?' : 'Cancel this ride?'}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will mark the ride as canceled and notify any booked passengers by email. This cannot be undone.
+              {cancelTarget?._type === 'request'
+                ? 'This will mark the request as canceled and notify the requester by email. This cannot be undone.'
+                : 'This will mark the ride as canceled and notify any booked passengers by email. This cannot be undone.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Back</AlertDialogCancel>
             <AlertDialogAction onClick={handleCancel} disabled={acting}>
-              {acting ? 'Canceling…' : 'Cancel Ride'}
+              {acting ? 'Canceling…' : (cancelTarget?._type === 'request' ? 'Cancel Request' : 'Cancel Ride')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -438,15 +560,17 @@ function RidesContent() {
       <AlertDialog open={!!deleteTarget} onOpenChange={open => { if (!open) setDeleteTarget(null) }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this ride?</AlertDialogTitle>
+            <AlertDialogTitle>{deleteTarget?._type === 'request' ? 'Delete this ride request?' : 'Delete this ride?'}</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete the ride record. Only rides with no bookings can be deleted.
+              {deleteTarget?._type === 'request'
+                ? 'This will permanently delete the ride request record.'
+                : 'This will permanently delete the ride record. Only rides with no bookings can be deleted.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Back</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} disabled={acting}>
-              {acting ? 'Deleting…' : 'Delete Ride'}
+              {acting ? 'Deleting…' : (deleteTarget?._type === 'request' ? 'Delete Request' : 'Delete Ride')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

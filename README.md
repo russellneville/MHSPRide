@@ -31,6 +31,7 @@ MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and ho
 - **Email notifications** — registration verification codes and welcome email, booking receipts, ride change notices, and cancellations via Resend. Booking receipts, booking notices, and ride update emails each include "Add to Calendar" links (Google, Outlook web, and a `.ics` download for Apple Calendar/others) — see `lib/calendarLinks.js`
 - **Favorite drivers** — mark a driver as a favorite from the "Favorite Driver"/"Unfavorite Driver" link on a ride's Driver Information card; favorited drivers show a star next to their name everywhere they appear in ride listings. Manage the full list — including unfavoriting — from the Profile page's "⭐️ Favorite Drivers" section under Preferences (hidden when the list is empty). Driver info (name, photo, vehicle) is snapshotted onto the favorite entry at the time you favorite them, the same way driver info is snapshotted onto rides/bookings, since Firestore rules don't allow reading another member's live profile
 - **Achievement badges** (issue #143) — a catalog of milestone, activity, and whimsical badges (`lib/badges/catalog.js`) awarded automatically as members offer/book rides, favorite drivers/networks, upload a photo, switch to dark mode, and more. Simple actions award server-side the moment they happen; aggregate/time-based badges are evaluated lazily on dashboard load (throttled to once per 10 minutes). Newly-earned badges surface as a celebration dialog (confetti, one badge at a time with a Next arrow) the moment they're earned, and the full set is always visible on the Profile page's Badges card. Members who'd rather not participate can check "Hide badges and badge notifications" on Profile — badges keep being tracked silently in the background either way, so unchecking it later replays anything earned in the meantime as the same celebration dialog
+- **Request a ride** (issue #158) — riders who can't find a matching ride can post a request instead (pickup, drop-off, time, seats, and equipment — skis/snowboard, bike, or none) with no network attached yet; it shows up in its own "Requested Rides" section on the dashboard, filterable the same way Available Rides is. Any driver can open a request, pick a network, and get a prefilled Offer Ride dialog; changing any of the request's details makes ride notes required (so the rider knows what changed), and the fulfillment email bolds exactly which fields differ from what was requested. Fulfilling a request auto-books the requesting rider for their seat count as one atomic transaction — never a partial state where the ride exists but the rider isn't on it. If the driver's vehicle has no matching storage option (ski box/bike rack) for the requested equipment, they get a one-time confirmation rather than being blocked outright. Unclaimed requests expire 6 hours before their requested time via an hourly GitHub Actions job rather than Vercel Cron, since this project's Vercel plan only supports daily-granularity cron. Admins see requests folded into the existing Rides table (a "Driver/Requestor" column, a "Requested" pill in place of network) with the same Edit/Cancel/Delete actions as any other ride
 - **Admin panel** — user management, ride oversight, booking management, activity log, and leaderboard reports
 
 ---
@@ -106,6 +107,14 @@ GOOGLE_MAPS_API_KEY=
 # Firebase Admin SDK — full service account JSON, as a single-line string
 # (Firebase Console → Project Settings → Service Accounts → Generate new private key)
 FIREBASE_SERVICE_ACCOUNT_KEY=
+
+# Shared secret for the hourly ride-request-expiry cron (GitHub Actions
+# workflow at .github/workflows/expire-ride-requests.yml calls
+# /api/cron/expire-ride-requests with this as a Bearer token). Generate with
+# `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+# and set the same value here, in the Vercel project's env vars, and as the
+# CRON_SECRET repo secret in GitHub Actions.
+CRON_SECRET=
 
 # Test data seed script (optional — see docs/test-data.md)
 TEST_EMAIL_BASE=you@gmail.com

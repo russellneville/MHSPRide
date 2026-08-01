@@ -124,6 +124,28 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Ride requests (issue #158): a rider posts a request with no network/driver
+    // yet attached. Readable by any authenticated, non-suspended user (drivers
+    // need to see open requests; the requester needs to see their own). The
+    // requester can create their own request client-side, but every status
+    // transition after that — self-cancel, admin-cancel, fulfillment, expiry —
+    // goes through an Admin-SDK-backed API route, never a direct client write,
+    // so this is deliberately "if false" the same way rate_limits/password_resets
+    // are: those routes bypass rules entirely via the Admin SDK.
+    match /ride_requests/{requestId} {
+      allow read: if request.auth != null && !isSuspended();
+      allow create: if request.auth != null
+        && !isSuspended()
+        && request.resource.data.requesterId == request.auth.uid
+        && request.resource.data.departure.size() <= 60
+        && request.resource.data.arrival.size() <= 60;
+      allow update: if false;
+      // Delete is a hard removal (admin housekeeping), not a status
+      // transition, so it's gated directly here rather than via an API
+      // route — same pattern as the `rides` collection's admin delete.
+      allow delete: if request.auth != null && !isSuspended() && isAdmin();
+    }
+
     // Feedback: anyone can submit; admins can read/update; only super-admins can delete.
     // Two client-write shapes share this collection: the feedback widget
     // (type: 'feedback'/'bug', message capped like other free-text fields) and

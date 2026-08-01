@@ -8,6 +8,7 @@ import { canBookRide, isCanceledStatus } from '@/lib/rides'
 import { networkName } from '@/lib/networks'
 import { flattenVehicleForSnapshot } from '@/lib/vehicles'
 import { fireBadgeEvent } from '@/lib/badges/client'
+import { computeRequestExpiresAt } from '@/lib/rideRequests'
 const NetworkContext = createContext()
 
 export const NetworkProvider = ({children})=>{
@@ -121,6 +122,155 @@ export const NetworkProvider = ({children})=>{
     catch (error){
         console.log(error)
         toast.error(error.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Ride requests (issue #158): a rider posts pickup/dropoff/time/seats/equipment
+  // with no network attached yet. Mirrors offerRide()'s setDoc shape — client
+  // creates its own request directly (firestore.rules allows self-owned create),
+  // but every status transition after that goes through an API route (see
+  // app/api/ride-requests/cancel and .../fulfill), not a client updateDoc.
+  const requestRide = async (requestData) => {
+    try {
+      setIsLoading(true)
+      const inviteCode = generateInviteCode()
+
+      const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+      const userData = userDoc.data();
+
+      await setDoc(doc(db, 'ride_requests', `req-${inviteCode}`), {
+        ...requestData,
+        requesterId: auth.currentUser.uid,
+        requester: {
+          id: auth.currentUser.uid,
+          fullname: userData.fullname || '',
+          email: userData.email || '',
+          phone: userData.phone || '',
+          photoURL: userData.photoURL || '',
+        },
+        status: 'open',
+        fulfilled_ride_id: null,
+        created_at: new Date(),
+        expires_at: computeRequestExpiresAt(requestData.departure_date, requestData.departure_time),
+      })
+      toast.success('Ride request submitted')
+
+      logEvent({
+        type: 'rideRequest.created',
+        message: `Ride request created: ${requestData.departure} → ${requestData.arrival} on ${requestData.departure_date}`,
+        userId: auth.currentUser.uid,
+        userName: userData.fullname,
+        mhspNumber: userData.mhspNumber,
+        metadata: { departure: requestData.departure, arrival: requestData.arrival, departure_date: requestData.departure_date },
+      }).catch(() => {})
+    } catch (error) {
+      toast.error(error.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // All open requests, across every network — for the dashboard's REQUESTED
+  // RIDES section, which shows a flat list (no network exists yet to group by).
+  const getRideRequests = async () => {
+    setIsLoading(true)
+    try {
+      const q = query(collection(db, 'ride_requests'), where('status', '==', 'open'))
+      const snapshot = await getDocs(q)
+      return snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+    } catch (error) {
+      toast.error(error.message)
+      return []
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // The current user's own requests (any status) — used for the
+  // one-open-request cap and the "cancel my request" affordance.
+  const getMyRideRequests = async () => {
+    setIsLoading(true)
+    try {
+      const q = query(collection(db, 'ride_requests'), where('requesterId', '==', auth.currentUser.uid))
+      const snapshot = await getDocs(q)
+      return snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+    } catch (error) {
+      toast.error(error.message)
+      return []
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // All transitions after creation go through this route (see firestore.rules)
+  // rather than a direct updateDoc — mirrors cancelBooking's signature/toast
+  // pattern, but the actual write happens server-side.
+  const cancelRideRequest = async (requestId, reason = '') => {
+    try {
+      setIsLoading(true)
+      const token = await auth.currentUser?.getIdToken()
+      const res = await fetch('/api/ride-requests/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ requestId, reason }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to cancel request')
+      toast.success('Ride request canceled')
+      return true
+    } catch (error) {
+      toast.error(error.message)
+      return false
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Admin-only edit of an open request's fields — client writes to
+  // ride_requests are create-only (see firestore.rules), so this goes
+  // through an API route rather than a direct updateDoc.
+  const updateRideRequest = async (requestId, updates) => {
+    try {
+      setIsLoading(true)
+      const token = await auth.currentUser?.getIdToken()
+      const res = await fetch('/api/ride-requests/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ requestId, updates }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to update request')
+      toast.success('Ride request updated')
+      return true
+    } catch (error) {
+      toast.error(error.message)
+      return false
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Turns an open request into a real ride (Admin-SDK transaction server-side
+  // — see app/api/ride-requests/fulfill). Returns the new ride's id on
+  // success so the caller can navigate there.
+  const fulfillRideRequest = async (requestId, networkId, vehicle, rideData) => {
+    try {
+      setIsLoading(true)
+      const token = await auth.currentUser?.getIdToken()
+      const res = await fetch('/api/ride-requests/fulfill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ requestId, networkId, vehicle, rideData }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to fulfill request')
+      toast.success('Ride request fulfilled')
+      return { ok: true, rideId: data.rideId }
+    } catch (error) {
+      toast.error(error.message)
+      return { ok: false }
     } finally {
       setIsLoading(false)
     }
@@ -682,7 +832,7 @@ const cancelBooking = async (bookingId, reason = '') => {
   }
 }
 
-    return <NetworkContext.Provider value={{getRidesByNetworkId , changeBookingStatus , offerRide , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , cancelBooking , finalizeRide , startRide , isLoading , saveFavorites , toggleFavoriteDriver , updateRide , dismissRideUpdate}}>
+    return <NetworkContext.Provider value={{getRidesByNetworkId , changeBookingStatus , offerRide , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , cancelBooking , finalizeRide , startRide , isLoading , saveFavorites , toggleFavoriteDriver , updateRide , dismissRideUpdate , requestRide , getRideRequests , getMyRideRequests , cancelRideRequest , updateRideRequest , fulfillRideRequest}}>
         {children}
     </NetworkContext.Provider>
 }

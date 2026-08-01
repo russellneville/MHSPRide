@@ -12,16 +12,21 @@ import { Textarea } from "../ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { Checkbox } from "../ui/checkbox"
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover"
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip"
 import {
-  AlertDialog, AlertDialogAction, AlertDialogContent,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "../ui/alert-dialog"
 import { useEstimatedArrival } from "@/hooks/use-estimated-arrival"
 import { formatDate, toLocalDateStr, TEXTAREA_MAX_LENGTH, LOCATION_NAME_MAX_LENGTH } from "@/lib/utils"
 import { hasActiveSameDayBooking, hasActiveSameDayRide } from "@/lib/rides"
+import { diffPrefilledFields, requiredStorageFor, equipmentLabel } from "@/lib/rideRequests"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { db, auth } from "@/lib/firebaseClient"
-import { getVehicles, getDefaultVehicle, vehicleShortLabel } from "@/lib/vehicles"
+import { getVehicles, getDefaultVehicle, vehicleShortLabel, STORAGE_OPTIONS } from "@/lib/vehicles"
+import { Info } from "lucide-react"
+
+const NOTES_REQUIRED_MESSAGE = "Please tell the requesting rider about the ride change details."
 
 // Rendered as the popup's title (see openPopup() call sites) instead of a
 // plain string, so the vehicle picker can live in the dialog header. Shares
@@ -121,7 +126,9 @@ function SuggestLocationPopover({ context }) {
   )
 }
 
-function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, locations, selectPlaceholder }) {
+// Exported for reuse by RequestRidePopup.jsx, which needs the same
+// known-location-or-free-text picker without the rest of this form.
+export function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, locations, selectPlaceholder }) {
   return (
     <div className="space-y-2">
       <Select
@@ -151,18 +158,45 @@ function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, loca
   )
 }
 
-export default function OfferRidePopup({ networkId, onSaved }) {
-  const { closePopup, popupState, setPopupState } = usePopup()
-  const { isLoading, offerRide, getRides, getBookings } = useNetwork()
-  const { user } = useAuth()
-  const { origins, destinations } = useLocations()
-  const [showDayConflict, setShowDayConflict] = useState(false)
+// Wrapper mounts the actual form only once locations have loaded — when
+// prefill is present, the form seeds its departure/arrival select-vs-other
+// state from the known location ids on first render only (useState
+// initializers run once), so it must not mount until that lookup is real.
+// Mirrors EditRidePopup's loading gate.
+export default function OfferRidePopup({ networkId, onSaved, prefill }) {
+  const { origins, destinations, isLoading: locationsLoading } = useLocations()
+  if (locationsLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
+  return (
+    <OfferRidePopupForm
+      networkId={networkId}
+      onSaved={onSaved}
+      prefill={prefill}
+      origins={origins}
+      destinations={destinations}
+    />
+  )
+}
 
-  const [departureSelect, setDepartureSelect] = useState('')
-  const [departureOther, setDepartureOther] = useState('')
-  const [arrivalSelect, setArrivalSelect] = useState('')
-  const [arrivalOther, setArrivalOther] = useState('')
-  const [date, setDate] = useState(undefined)
+function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations }) {
+  const { closePopup, popupState, setPopupState } = usePopup()
+  const { isLoading, offerRide, fulfillRideRequest, getRides, getBookings } = useNetwork()
+  const { user } = useAuth()
+  const [showDayConflict, setShowDayConflict] = useState(false)
+  const [showEquipmentWarning, setShowEquipmentWarning] = useState(false)
+  const [pendingSubmit, setPendingSubmit] = useState(null)
+
+  const knownDepIds = new Set(origins.map(o => o.id))
+  const knownArrIds = new Set(destinations.map(d => d.id))
+  const initDepSelect = prefill && knownDepIds.has(prefill.departure) ? prefill.departure : ''
+  const initDepOther  = prefill && !knownDepIds.has(prefill.departure) ? (prefill.departure || '') : ''
+  const initArrSelect = prefill && knownArrIds.has(prefill.arrival) ? prefill.arrival : ''
+  const initArrOther  = prefill && !knownArrIds.has(prefill.arrival) ? (prefill.arrival || '') : ''
+
+  const [departureSelect, setDepartureSelect] = useState(initDepSelect)
+  const [departureOther, setDepartureOther] = useState(initDepOther)
+  const [arrivalSelect, setArrivalSelect] = useState(initArrSelect)
+  const [arrivalOther, setArrivalOther] = useState(initArrOther)
+  const [date, setDate] = useState(prefill?.departure_date ? new Date(prefill.departure_date + 'T12:00:00') : undefined)
   const [oneWay, setOneWay] = useState(false)
   const [takenDates, setTakenDates] = useState([])
   const vehicles = getVehicles(user)
@@ -171,7 +205,7 @@ export default function OfferRidePopup({ networkId, onSaved }) {
   const selectedVehicleId = popupState?.selectedVehicleId || getDefaultVehicle(vehicles)?.id || ''
   const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId) || null
   const [rideData, setRideData] = useState({
-    departure_time: '',
+    departure_time: prefill?.departure_time || '',
     arrival_time: '',
     return_departure_time: '16:00',
     ride_description: '',
@@ -192,7 +226,9 @@ export default function OfferRidePopup({ networkId, onSaved }) {
   // Pre-select the arrival location that's flagged as the default for this network
   // (e.g. Timberline for Mountain Biking, Tea Cup for Nordic Patrol) — only while the
   // field is still untouched, so it never overrides a choice the user already made.
+  // Skipped when fulfilling a request — the request's own arrival already won.
   useEffect(() => {
+    if (prefill) return
     if (arrivalSelect || arrivalOther) return
     const defaultDest = destinations.find(d => d.defaultForNetworkId === networkId)
     if (defaultDest) setArrivalSelect(defaultDest.id)
@@ -228,6 +264,20 @@ export default function OfferRidePopup({ networkId, onSaved }) {
     setRideData(prev => ({ ...prev, [e.target.id]: e.target.value }))
   }
 
+  // Recomputed on every render from the current form values — cheap pure
+  // function, no need to memoize. Drives both the Notes-required tooltip
+  // and the submit-time validation; the server (app/api/ride-requests/fulfill)
+  // recomputes the same diff independently rather than trusting this.
+  const currentDiffs = prefill ? diffPrefilledFields(prefill, {
+    departure: effectiveDeparture,
+    arrival: effectiveArrival,
+    departure_date: date ? toLocalDateStr(date) : '',
+    departure_time: rideData.departure_time,
+  }) : []
+  const notesRequired = currentDiffs.length > 0
+
+  const seatsShortfall = prefill && rideData.total_seats && Number(rideData.total_seats) < prefill.seats_requested
+
   const validateForm = () => {
     const newErrors = {}
     if (!effectiveDeparture) newErrors.departure = "Departure is required"
@@ -236,42 +286,70 @@ export default function OfferRidePopup({ networkId, onSaved }) {
     if (!rideData.departure_time) newErrors.departure_time = "Departure time is required"
     if (!oneWay && !rideData.return_departure_time) newErrors.return_departure_time = "Return time is required — or mark the trip one way"
     if (!rideData.total_seats || Number(rideData.total_seats) < 1) newErrors.total_seats = "Number of seats is required"
+    if (notesRequired && !rideData.ride_description.trim()) newErrors.ride_description = NOTES_REQUIRED_MESSAGE
     setValidationErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
 
-  const handleOfferRide = async () => {
-    if (validateForm()) {
-      const dateStr = toLocalDateStr(date)
-      const [existingRides, existingBookings] = await Promise.all([getRides(), getBookings()])
-      const conflict = hasActiveSameDayRide(existingRides, dateStr) || hasActiveSameDayBooking(existingBookings, dateStr)
-      if (conflict) {
-        setShowDayConflict(true)
-        return
-      }
-      await offerRide({
-        departure: effectiveDeparture,
-        arrival: effectiveArrival,
-        // Explicit flags for the "Off the Beaten Path" badge (resources/badging.md) —
-        // effectiveDeparture/Arrival merge the predefined-location select and the
-        // free-text "Other" input into one string, so downstream code can't tell
-        // which source it came from without these.
-        custom_departure: !!departureOther.trim(),
-        custom_arrival: !!arrivalOther.trim(),
-        departure_date: dateStr,
-        arrival_date: dateStr,
-        departure_time: rideData.departure_time,
-        arrival_time: rideData.arrival_time,
-        one_way: oneWay,
-        return_departure_time: oneWay ? '' : rideData.return_departure_time,
-        ride_description: rideData.ride_description,
-        total_seats: Number(rideData.total_seats),
-        vehicle: selectedVehicle,
-      }, networkId)
+  const buildSubmittedRideData = (dateStr) => ({
+    departure: effectiveDeparture,
+    arrival: effectiveArrival,
+    // Explicit flags for the "Off the Beaten Path" badge (resources/badging.md) —
+    // effectiveDeparture/Arrival merge the predefined-location select and the
+    // free-text "Other" input into one string, so downstream code can't tell
+    // which source it came from without these.
+    custom_departure: !!departureOther.trim(),
+    custom_arrival: !!arrivalOther.trim(),
+    departure_date: dateStr,
+    arrival_date: dateStr,
+    departure_time: rideData.departure_time,
+    arrival_time: rideData.arrival_time,
+    one_way: oneWay,
+    return_departure_time: oneWay ? '' : rideData.return_departure_time,
+    ride_description: rideData.ride_description,
+    total_seats: Number(rideData.total_seats),
+  })
+
+  const doFulfill = async (submittedRideData) => {
+    const result = await fulfillRideRequest(prefill.id, networkId, selectedVehicle, submittedRideData)
+    if (result.ok) {
       onSaved?.()
       closePopup()
     }
   }
+
+  const handleOfferRide = async () => {
+    if (!validateForm()) return
+    const dateStr = toLocalDateStr(date)
+    const [existingRides, existingBookings] = await Promise.all([getRides(), getBookings()])
+    const conflict = hasActiveSameDayRide(existingRides, dateStr) || hasActiveSameDayBooking(existingBookings, dateStr)
+    if (conflict) {
+      setShowDayConflict(true)
+      return
+    }
+
+    const submittedRideData = buildSubmittedRideData(dateStr)
+
+    if (!prefill) {
+      await offerRide({ ...submittedRideData, vehicle: selectedVehicle }, networkId)
+      onSaved?.()
+      closePopup()
+      return
+    }
+
+    const requiredStorage = requiredStorageFor(prefill.equipment)
+    const hasMatch = !requiredStorage || (selectedVehicle?.storage || []).includes(requiredStorage)
+    if (!hasMatch) {
+      setPendingSubmit(submittedRideData)
+      setShowEquipmentWarning(true)
+      return
+    }
+
+    await doFulfill(submittedRideData)
+  }
+
+  const requiredStorageValue = prefill ? requiredStorageFor(prefill.equipment) : null
+  const requiredStorageLabel = STORAGE_OPTIONS.find(o => o.value === requiredStorageValue)?.label
 
   return (
     <div className="space-y-5">
@@ -377,11 +455,26 @@ export default function OfferRidePopup({ networkId, onSaved }) {
           </SelectContent>
         </Select>
         {validationError.total_seats && <p className="text-red-500 text-sm">{validationError.total_seats}</p>}
+        {seatsShortfall && (
+          <p className="text-amber-600 dark:text-amber-400 text-sm">
+            The requesting rider asked for {prefill.seats_requested} seat{prefill.seats_requested !== 1 ? 's' : ''} — you're offering fewer.
+          </p>
+        )}
       </div>
 
       {/* ── Notes ──────────────────────────────────────── */}
       <div className="space-y-1">
-        <Label htmlFor="ride_description">Ride notes</Label>
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor="ride_description">Ride notes{notesRequired && ' *'}</Label>
+          {notesRequired && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="size-3.5 text-muted-foreground cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent>{NOTES_REQUIRED_MESSAGE}</TooltipContent>
+            </Tooltip>
+          )}
+        </div>
         <Textarea
           placeholder="Add any notes for riders"
           id="ride_description"
@@ -390,12 +483,13 @@ export default function OfferRidePopup({ networkId, onSaved }) {
           value={rideData.ride_description}
           maxLength={TEXTAREA_MAX_LENGTH}
         />
+        {validationError.ride_description && <p className="text-red-500 text-sm">{validationError.ride_description}</p>}
       </div>
 
       <div className="flex justify-end gap-4">
         <Button onClick={closePopup} variant="outline">Cancel</Button>
         <Button onClick={handleOfferRide} disabled={isLoading}>
-          {isLoading ? 'Submitting...' : 'Submit ride'}
+          {isLoading ? 'Submitting...' : (prefill ? 'Fulfill request' : 'Submit ride')}
         </Button>
       </div>
 
@@ -412,6 +506,25 @@ export default function OfferRidePopup({ networkId, onSaved }) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {prefill && (
+        <AlertDialog open={showEquipmentWarning} onOpenChange={setShowEquipmentWarning}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Can you carry this rider's {equipmentLabel(prefill.equipment).toLowerCase()}?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Your selected vehicle doesn't have a {requiredStorageLabel || 'matching rack'} on file. Confirm you can still carry this equipment before continuing.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowEquipmentWarning(false)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { setShowEquipmentWarning(false); doFulfill(pendingSubmit) }}>
+                Yes, I can carry it
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
 
     </div>
   )

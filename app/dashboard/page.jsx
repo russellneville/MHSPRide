@@ -18,12 +18,16 @@ import UserAvatar from "@/components/ui/user-avatar"
 import DatePicker from "@/components/ui/date-picker"
 import { Skeleton } from "@/components/ui/skeleton"
 import OfferRidePopup, { OfferRideTitle } from "@/components/popup-forms/OfferRidePopup"
+import RequestRidePopup from "@/components/popup-forms/RequestRidePopup"
+import RideRequestDetailsPopup from "@/components/popup-forms/RideRequestDetailsPopup"
 import AddFavoritePopup from "@/components/popup-forms/AddFavoritePopup"
 import SearchRidesPopup from "@/components/popup-forms/SearchRidesPopup"
+import CancelReasonDialog from "@/components/CancelReasonDialog"
 import RideRowCard from "@/components/cards/ride-row-card"
 import NetworkRideCard from "@/components/cards/network-ride-card"
 import { useLocations } from "@/context/LocationsContext"
 import { computeRideStatus } from "@/lib/rides"
+import { equipmentLabel } from "@/lib/rideRequests"
 import { NETWORKS, NETWORK_IDS, networkName, defaultFavoritesFor } from "@/lib/networks"
 import { useTheme } from "next-themes"
 import AchievementBadge from "@/components/AchievementBadge"
@@ -83,11 +87,13 @@ function Pager({ page, pageCount, onPrev, onNext }) {
 }
 
 export default function Dashboard() {
-  const { getRides, getBookings, getRidesByNetworkId, saveFavorites, dismissRideUpdate } = useNetwork()
+  const { getRides, getBookings, getRidesByNetworkId, saveFavorites, dismissRideUpdate, getRideRequests, cancelRideRequest } = useNetwork()
   const { resolveLocation } = useLocations()
   const router = useRouter()
   const { user } = useAuth()
   const { openPopup, isOpen } = usePopup()
+  const [rideRequests, setRideRequests] = useState([])
+  const [cancelingRequestId, setCancelingRequestId] = useState(null)
   // Deliberately `theme`, not `resolvedTheme` — "Gone to the Dark Side" should
   // reward an explicit choice to switch to dark mode, not a member whose OS
   // happens to prefer dark while their MHSPRide setting is still "System".
@@ -112,6 +118,14 @@ export default function Dashboard() {
   const [filterDestination, setFilterDestination] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const hasAvailableFilters = filterDate || filterOrigin || filterDestination || searchTerm
+
+  // Requested Rides filters — same shape as Available Rides' above, but its
+  // own independent state since it's a separate, flat (no per-network) list.
+  const [requestFilterDate, setRequestFilterDate] = useState('')
+  const [requestFilterOrigin, setRequestFilterOrigin] = useState('')
+  const [requestFilterDestination, setRequestFilterDestination] = useState('')
+  const [requestSearchTerm, setRequestSearchTerm] = useState('')
+  const hasRequestFilters = requestFilterDate || requestFilterOrigin || requestFilterDestination || requestSearchTerm
 
   // Ordered favorites from the live user doc, restricted to known networks
   const favorites = (Array.isArray(user?.favorite_networks) ? user.favorite_networks : [])
@@ -164,14 +178,16 @@ export default function Dashboard() {
     if (!user) return
     let cancelled = false
     const fetchData = async () => {
-      const [rideData, bookingData, ...networkLists] = await Promise.all([
+      const [rideData, bookingData, requestData, ...networkLists] = await Promise.all([
         getRides(),
         getBookings(),
+        getRideRequests(),
         ...favorites.map(id => getRidesByNetworkId(id)),
       ])
       if (cancelled) return
       setRides(rideData || [])
       setBookings(bookingData || [])
+      setRideRequests(requestData || [])
       setNetworkRides(Object.fromEntries(favorites.map((id, i) => [id, networkLists[i] || []])))
       setLoaded(true)
     }
@@ -289,6 +305,24 @@ export default function Dashboard() {
     }),
   ]))
 
+  const requestOriginOptions = [...new Set(rideRequests.map(r => r.departure).filter(Boolean))]
+    .sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)))
+  const requestDestinationOptions = [...new Set(rideRequests.map(r => r.arrival).filter(Boolean))]
+    .sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)))
+
+  const requestSearchLower = requestSearchTerm.trim().toLowerCase()
+  const filteredRideRequests = rideRequests.filter(r => {
+    if (requestFilterDate && r.departure_date !== requestFilterDate) return false
+    if (requestFilterOrigin && r.departure !== requestFilterOrigin) return false
+    if (requestFilterDestination && r.arrival !== requestFilterDestination) return false
+    if (requestSearchLower) {
+      const haystack = [r.requester?.fullname, resolveLocation(r.departure), resolveLocation(r.arrival)]
+        .filter(Boolean).join(' ').toLowerCase()
+      if (!haystack.includes(requestSearchLower)) return false
+    }
+    return true
+  })
+
   const toggleSection = (key) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }))
 
   const moveFavorite = (id, dir) => {
@@ -306,6 +340,14 @@ export default function Dashboard() {
 
   const openOffer = (networkId) => openPopup(<OfferRideTitle />, <OfferRidePopup networkId={networkId} />)
   const openAddFavorite = () => openPopup('Add favorite network', <AddFavoritePopup favorites={favorites} />)
+  const openRequestRide = () => openPopup('Request a ride', <RequestRidePopup onSaved={() => fetchDataRef.current?.()} />)
+
+  const handleCancelRequest = async (reason) => {
+    const id = cancelingRequestId
+    setCancelingRequestId(null)
+    const ok = await cancelRideRequest(id, reason)
+    if (ok) setRideRequests(prev => prev.filter(r => r.id !== id))
+  }
 
   const banner = (
     <div
@@ -323,24 +365,29 @@ export default function Dashboard() {
   )
 
   const headerActions = (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button size="sm">
-          <Plus className="size-4 mr-1" /> Offer Ride <ChevronDown className="size-3.5 ml-1" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-48 p-1" align="end">
-        {NETWORKS.map(net => (
-          <button
-            key={net.id}
-            className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
-            onClick={() => openOffer(net.id)}
-          >
-            {net.name}
-          </button>
-        ))}
-      </PopoverContent>
-    </Popover>
+    <div className="flex items-center gap-2">
+      <Button size="sm" variant="outline" onClick={openRequestRide}>
+        <Plus className="size-4 mr-1" /> Request Ride
+      </Button>
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button size="sm">
+            <Plus className="size-4 mr-1" /> Offer Ride <ChevronDown className="size-3.5 ml-1" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-48 p-1" align="end">
+          {NETWORKS.map(net => (
+            <button
+              key={net.id}
+              className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
+              onClick={() => openOffer(net.id)}
+            >
+              {net.name}
+            </button>
+          ))}
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 
   return (
@@ -446,6 +493,121 @@ export default function Dashboard() {
             />
           </>))}
         </section>
+
+        {/* ── Requested Rides ──────────────────────────────── */}
+        {rideRequests.length > 0 && (
+          <section className="space-y-2 rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/30 p-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h4 className="text-sm font-semibold uppercase tracking-wide text-purple-800 dark:text-purple-300">
+                Requested Rides <span className="font-normal">({filteredRideRequests.length})</span>
+              </h4>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="w-40">
+                  <DatePicker
+                    date={requestFilterDate ? new Date(requestFilterDate + 'T12:00:00') : undefined}
+                    setDate={(d) => setRequestFilterDate(d ? toLocalDateStr(d) : '')}
+                  />
+                </div>
+                <Select value={requestFilterOrigin} onValueChange={setRequestFilterOrigin}>
+                  <SelectTrigger className="w-44 h-9 text-sm">
+                    <SelectValue placeholder="Origin" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {requestOriginOptions.map(id => (
+                      <SelectItem key={id} value={id}>{resolveLocation(id)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={requestFilterDestination} onValueChange={setRequestFilterDestination}>
+                  <SelectTrigger className="w-44 h-9 text-sm">
+                    <SelectValue placeholder="Destination" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {requestDestinationOptions.map(id => (
+                      <SelectItem key={id} value={id}>{resolveLocation(id)}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  onClick={() => openPopup('Search requests', <SearchRidesPopup initialValue={requestSearchTerm} onApply={setRequestSearchTerm} />)}
+                >
+                  <Search className="size-3.5 mr-1" /> {requestSearchTerm ? `“${requestSearchTerm}”` : 'Search'}
+                </Button>
+                {hasRequestFilters && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setRequestFilterDate(''); setRequestFilterOrigin(''); setRequestFilterDestination(''); setRequestSearchTerm('') }}
+                  >
+                    <X className="size-3.5 mr-1" /> Clear filters
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {filteredRideRequests.length === 0 ? (
+              <Card>
+                <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                  No requests match your filters.
+                </CardContent>
+              </Card>
+            ) : (
+            <div className="space-y-2">
+              {filteredRideRequests.map(r => (
+                <Card
+                  key={r.id}
+                  className="py-0 cursor-pointer hover:border-primary/50 transition-colors"
+                  onClick={() => openPopup(
+                    'Ride request details',
+                    <RideRequestDetailsPopup request={r} onChanged={() => fetchDataRef.current?.()} />
+                  )}
+                >
+                  <CardContent className="py-2.5 flex items-center justify-between gap-4 flex-wrap">
+                    <div className="space-y-1">
+                      <div className="font-semibold flex items-center gap-2">
+                        <MapPin className="size-4 text-muted-foreground shrink-0" />
+                        {resolveLocation(r.departure)}
+                        <MoveRight className="size-4 text-muted-foreground" />
+                        {resolveLocation(r.arrival)}
+                      </div>
+                      <div className="text-sm text-muted-foreground flex items-center gap-1">
+                        <Clock className="size-3.5" />
+                        <span className="font-bold text-foreground">{formatDate(r.departure_date)}</span>
+                        <span>at</span>
+                        <span className="font-bold text-foreground">{formatTime(r.departure_time)}</span>
+                      </div>
+                      {r.requester?.fullname && (
+                        <div className="text-sm text-muted-foreground flex items-center gap-1.5">
+                          <UserAvatar user={r.requester} size="sm" />
+                          Requested by: <span className="text-foreground font-medium">{r.requester.fullname}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline">{r.seats_requested} seat{r.seats_requested !== 1 ? 's' : ''}</Badge>
+                      {r.equipment && r.equipment !== 'no_equipment' && (
+                        <Badge variant="outline">{equipmentLabel(r.equipment)}</Badge>
+                      )}
+                      <span className="text-xs font-medium px-2.5 py-1 rounded-full border bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200">
+                        Ride request
+                      </span>
+                      {r.requesterId === user?.uid && (
+                        <Button size="sm" variant="outline" onClick={e => { e.stopPropagation(); setCancelingRequestId(r.id) }}>
+                          Cancel
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+            )}
+          </section>
+        )}
 
         {/* ── Available Rides ─────────────────────────────── */}
         <section className="space-y-5">
@@ -662,6 +824,14 @@ export default function Dashboard() {
         onOpenChange={setBadgeDialogOpen}
         badges={earnedBadges}
         onAcknowledge={handleBadgeAcknowledge}
+      />
+
+      <CancelReasonDialog
+        open={!!cancelingRequestId}
+        onOpenChange={(open) => { if (!open) setCancelingRequestId(null) }}
+        title="Cancel your ride request?"
+        description="This removes your request from the board. You can submit a new one any time."
+        onConfirm={handleCancelRequest}
       />
     </DashboardLayout>
   )

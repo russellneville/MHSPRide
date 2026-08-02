@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { FieldValue } from 'firebase-admin/firestore'
 import { verifyAuthRequest } from '@/lib/adminAuth'
 import { getAdminDb } from '@/lib/firebaseAdmin'
-import { evaluateActivityBadges, evaluateMilestoneBadges, evaluateThemeBadges } from '@/lib/badges/evaluate'
+import { evaluateActivityBadges, evaluateMilestoneBadges, evaluateRideRequestBadges, evaluateThemeBadges } from '@/lib/badges/evaluate'
 import { badgeById } from '@/lib/badges/catalog'
 
 // Re-running this on every dashboard load is wasted read volume once a member
@@ -37,9 +37,10 @@ export async function POST(request) {
       return NextResponse.json({ newlyEarned: [], throttled: true })
     }
 
-    const [offeredRidesSnap, bookedRidesSnap, existingBadgesSnap] = await Promise.all([
+    const [offeredRidesSnap, bookedRidesSnap, rideRequestsSnap, existingBadgesSnap] = await Promise.all([
       db.collection('rides').where('driverId', '==', uid).get(),
       db.collection('bookings').where('passengerId', '==', uid).get(),
+      db.collection('ride_requests').where('requesterId', '==', uid).get(),
       db.collection('users').doc(uid).collection('badges').get(),
     ])
 
@@ -48,12 +49,14 @@ export async function POST(request) {
       ...d.data(),
       booked_at: toDate(d.data().booked_at),
     }))
+    const rideRequests = rideRequestsSnap.docs.map((d) => d.data())
     const alreadyEarnedIds = new Set(existingBadgesSnap.docs.map((d) => d.id))
 
     const now = new Date()
     const earnedIds = new Set([
       ...evaluateMilestoneBadges({ offeredRides, bookedRides, now }),
       ...evaluateActivityBadges({ offeredRides, bookedRides, user, now }),
+      ...evaluateRideRequestBadges({ rideRequests, offeredRides, bookedRides }),
       ...evaluateThemeBadges({ theme }),
     ])
 

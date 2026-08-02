@@ -4,6 +4,7 @@ import { getAdminDb } from '@/lib/firebaseAdmin'
 import { flattenVehicleForSnapshot } from '@/lib/vehicles'
 import { diffPrefilledFields } from '@/lib/rideRequests'
 import { sendRideRequestFulfilledEmail } from '@/lib/email'
+import { awardBadge } from '@/lib/badges/award'
 
 function generateInviteCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -66,6 +67,14 @@ export async function POST(request) {
       // never the request body — mirrors offerRide()'s exact shape.
       const driver = { ...userData, ...flattenVehicleForSnapshot(vehicle), id: auth.uid }
 
+      // Response-time facts, computed once here rather than re-derived later
+      // from raw timestamps — feeds the "Quick Draw"/"Down to the Wire" lazy
+      // badge evaluators (lib/badges/evaluate.js), which only see the ride
+      // doc, never the (now-fulfilled) request doc.
+      const now = new Date()
+      const responseMinutes = Math.round((now - reqData.created_at.toDate()) / 60000)
+      const minutesUntilExpiry = Math.round((reqData.expires_at.toDate() - now) / 60000)
+
       const passengerEntry = {
         id: reqData.requesterId,
         email: reqData.requester?.email || '',
@@ -73,7 +82,7 @@ export async function POST(request) {
         fullname: reqData.requester?.fullname || '',
         photoURL: reqData.requester?.photoURL || '',
         booked_seats: bookedSeats,
-        booked_at: new Date(),
+        booked_at: now,
         booking_id: bookingRef.id,
         status: 'booked',
       }
@@ -99,7 +108,11 @@ export async function POST(request) {
         network_id: networkId,
         passengers: [passengerEntry],
         ride_status: 'not started',
-        created_at: new Date(),
+        created_at: now,
+        source_request_id: requestId,
+        source_requester_id: reqData.requesterId,
+        request_response_minutes: responseMinutes,
+        request_minutes_until_expiry: minutesUntilExpiry,
       })
 
       t.set(bookingRef, {
@@ -137,13 +150,22 @@ export async function POST(request) {
         booking_status: 'booked',
         booked_seats: bookedSeats,
         networkId,
-        booked_at: new Date(),
+        booked_at: now,
+        source_request_id: requestId,
+        request_changed: diffs.length > 0,
       })
 
       t.update(requestRef, { status: 'fulfilled', fulfilled_ride_id: rideRef.id })
 
       return { diffs, driver, totalSeats, bookedSeats, reqData }
     })
+
+    if (result.diffs.length > 0) {
+      awardBadge(db, auth.uid, 'switching-it-up').catch(err => console.error('[ride-requests/fulfill] badge award failed', err))
+    }
+    if (result.totalSeats > result.reqData.seats_requested) {
+      awardBadge(db, auth.uid, 'room-to-spare').catch(err => console.error('[ride-requests/fulfill] badge award failed', err))
+    }
 
     if (result.reqData.requester?.email) {
       const ride = {

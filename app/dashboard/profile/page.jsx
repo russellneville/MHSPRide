@@ -22,7 +22,7 @@ import { db } from "@/lib/firebaseClient";
 
 export default function ProfilePage (){
     const { user , updateProfile , uploadPhoto, isLoading } = useAuth()
-    const { toggleFavoriteDriver } = useNetwork()
+    const { toggleFavoriteDriver, toggleFavoriteRider } = useNetwork()
     const { theme, setTheme } = useTheme()
     const [themeMounted, setThemeMounted] = useState(false)
     const [uploading, setUploading] = useState(false)
@@ -185,6 +185,33 @@ export default function ProfilePage (){
                                 <button
                                     className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors shrink-0"
                                     onClick={() => toggleFavoriteDriver(driver)}
+                                >
+                                    unfavorite
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {user?.favorite_riders?.length > 0 && (
+                <div className="border-t border-border mt-4 pt-4 space-y-3">
+                    <Label>⭐️ Favorite Riders</Label>
+                    <div className="space-y-2">
+                        {user.favorite_riders.map(rider => (
+                            <div key={rider.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                                <div className="flex items-center gap-3">
+                                    <UserAvatar user={rider} size="sm" />
+                                    <div>
+                                        <p className="text-sm font-medium text-foreground">{rider.fullname || "Unknown"}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {rider.phone || "No phone listed"}
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors shrink-0"
+                                    onClick={() => toggleFavoriteRider(rider)}
                                 >
                                     unfavorite
                                 </button>

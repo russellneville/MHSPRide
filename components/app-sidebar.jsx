@@ -5,9 +5,11 @@ import {
   Activity,
   BarChart2,
   Car,
+  FileText,
   HelpCircle,
   Home,
   List,
+  Lock,
   Mail,
   MapPin,
   MessageSquare,
@@ -136,6 +138,18 @@ export function AppSidebar({ user, ...props }) {
               <SidebarMenuButton href="/contact" tooltip="Contact Us">
                 <Mail />
                 <span>Contact Us</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton href="/terms" tooltip="Terms and Conditions">
+                <FileText />
+                <span>Terms and Conditions</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton href="/privacy" tooltip="Privacy Policy">
+                <Lock />
+                <span>Privacy Policy</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

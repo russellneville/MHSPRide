@@ -28,6 +28,7 @@ MHSP members and Mountain Hosts traveling to Timberline for patrol shifts and ho
 - **Dashboard** — the single home screen: today's rides at a glance, scheduled rides (offered + booked), available rides per favorited network, and ride history — each list paginated 10/page with Previous/Next controls. Available Rides has date/origin/destination filters plus a driver/origin/destination search dialog, applied uniformly across every favorited network's list at once, with one-click clearing
 - **FAQ** — a Riders/Drivers reference covering the site's actual business rules (booking cutoff, cancellation policy, how ride status and arrival times are calculated, etc.); shown right after the onboarding wizard completes, and always reachable from the sidebar afterward
 - **Release notes** — a changelog page (`/dashboard/release-notes`, linked from the FAQ) listing feature highlights for each tagged version, newest first. Content lives in `lib/releaseNotes.js`; `npm run release-notes -- <tag> [prevTag]` drafts a new entry from git log commit subjects between two tags, which then gets trimmed down to user-facing features before committing
+- **Terms and Privacy Policy** (issue #170) — public, unauthenticated pages at `/terms` and `/privacy`, reachable from the sidebar's Contact Us section and linked from the relevant FAQ answers. Content lives in `components/legal/TermsOfUseContent.jsx` and `PrivacyPolicyContent.jsx`; the registration flow's Terms of Use acceptance step reuses the same `TermsOfUseContent` component rather than duplicating the text
 - **Email notifications** — registration verification codes and welcome email, booking receipts, ride change notices, and cancellations via Resend. Booking receipts, booking notices, and ride update emails each include "Add to Calendar" links (Google, Outlook web, and a `.ics` download for Apple Calendar/others) — see `lib/calendarLinks.js`
 - **Favorite drivers** — mark a driver as a favorite from the "Favorite Driver"/"Unfavorite Driver" link on a ride's Driver Information card; favorited drivers show a star next to their name everywhere they appear in ride listings. Manage the full list — including unfavoriting — from the Profile page's "⭐️ Favorite Drivers" section under Preferences (hidden when the list is empty). Driver info (name, photo, vehicle) is snapshotted onto the favorite entry at the time you favorite them, the same way driver info is snapshotted onto rides/bookings, since Firestore rules don't allow reading another member's live profile
 - **Favorite riders** (issue #162) — the reverse of favorite drivers: a driver can mark a rider as a favorite from the "Favorite Rider"/"Unfavorite Rider" link next to that rider in a ride's Passengers card (visible only to that ride's driver). Manage the full list from the Profile page's "⭐️ Favorite Riders" section under Preferences, same as Favorite Drivers. Rider info is snapshotted the same way driver info is
@@ -297,18 +298,21 @@ See `scripts/README.md` for full details.
 MHSPRide/
 ├── app/
 │   ├── api/                    # Server-side API routes (email, admin actions)
-│   └── dashboard/              # Protected dashboard pages
-│       ├── admin/              # Admin-only pages (users, rides, bookings, logs, feedback, reports, locations)
-│       ├── network/[networkId]/ # Network ride list (with filters), ride detail
-│       ├── profile/            # User profile (personal info, vehicle info, preferences)
-│       ├── security/           # Email/password changes — split out from profile to reduce clutter
-│       ├── onboarding/         # First-login wizard
-│       ├── faq/                # Riders/Drivers FAQ — lands here right after onboarding
-│       └── release-notes/      # Tagged-version changelog, linked from the FAQ page
+│   ├── dashboard/              # Protected dashboard pages
+│   │   ├── admin/              # Admin-only pages (users, rides, bookings, logs, feedback, reports, locations)
+│   │   ├── network/[networkId]/ # Network ride list (with filters), ride detail
+│   │   ├── profile/            # User profile (personal info, vehicle info, preferences)
+│   │   ├── security/           # Email/password changes — split out from profile to reduce clutter
+│   │   ├── onboarding/         # First-login wizard
+│   │   ├── faq/                # Riders/Drivers FAQ — lands here right after onboarding
+│   │   └── release-notes/      # Tagged-version changelog, linked from the FAQ page
+│   ├── terms/                  # Public Terms and Conditions page
+│   └── privacy/                # Public Privacy Policy page
 ├── components/
 │   ├── popup-forms/            # OfferRidePopup, EditRidePopup, RideDetailsPopup
 │   ├── CancelReasonDialog.jsx   # Shared reason + short-notice cancel flow (bookings & rides)
 │   ├── forms/                  # Registration sub-forms
+│   ├── legal/                  # Terms of Use / Privacy Policy content, shared by /terms, /privacy, and registration
 │   ├── AdminGuard.jsx          # Redirects non-admins away from admin routes
 │   ├── SuperAdminGuard.jsx     # Redirects non-super-admins away from super-admin-only routes
 │   └── ui/                     # shadcn components + FeedbackWidget, CookieConsent

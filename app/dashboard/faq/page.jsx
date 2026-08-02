@@ -50,34 +50,57 @@ export default function FaqPage() {
             <QA q="Who can create an MHSP Ride account?">
               Registration is limited to eligible MHSP members whose MHSP number, last name, and Troopiter
               email match the roster. A verification code is sent to the Troopiter address, and registrants
-              must confirm that they are eighteen or older and accept the Terms of Use.
+              must confirm that they are eighteen or older and accept the{' '}
+              <Link href="/terms" className="text-foreground underline">
+                Terms of Use
+              </Link>.
             </QA>
             <QA q="What personal information does MHSP Ride collect, and why?">
               MHSP Ride stores membership identifiers, name, login email, phone, home address, profile
               information, vehicles, network preferences, rides, bookings, requests, feedback, badges, and
               relevant activity records to verify membership and operate the carpool service. Profile photos
               are stored in Firebase Storage, and production analytics may be processed through Google
-              Analytics according to your consent selection.
+              Analytics according to your consent selection. See the{' '}
+              <Link href="/privacy" className="text-foreground underline">
+                Privacy Policy
+              </Link>{' '}
+              for more details.
             </QA>
             <QA q="Does MHSP Ride use cookies or analytics?">
               Essential browser storage supports application operation and preference state. In production,
               Google Analytics is enabled unless you choose the analytics opt-out option; advertising storage
-              and personalization are denied.
+              and personalization are denied. See the{' '}
+              <Link href="/privacy" className="text-foreground underline">
+                Privacy Policy
+              </Link>{' '}
+              for more details.
             </QA>
             <QA q="Who can see my phone number, email, address, and vehicle information?">
               To use the app, you must be an MHSP member. Drivers and passengers receive one another's
               contact details in relevant booking emails, admins can access member records, and authenticated
-              members can read ride and open-request details.
+              members can read ride and open-request details. See the{' '}
+              <Link href="/privacy" className="text-foreground underline">
+                Privacy Policy
+              </Link>{' '}
+              for more details.
             </QA>
             <QA q="Do you share my information or plan to monetize me in some way?">
               Nope! This app was developed with the Golden Rule: treat others like I'd like to be treated,
-              and I don't want to be monetized.
+              and I don't want to be monetized. See the{' '}
+              <Link href="/privacy" className="text-foreground underline">
+                Privacy Policy
+              </Link>{' '}
+              for more details.
             </QA>
             <QA q="How secure is my information?">
               The application was developed with OWASP security standards and has been through multiple
               security scans for both client and server vulnerabilities. I will make every effort to keep
               the application secure and vulnerability free. Your information is available to other MHSP
-              members — only enter information you are comfortable sharing with this community.
+              members — only enter information you are comfortable sharing with this community. See the{' '}
+              <Link href="/privacy" className="text-foreground underline">
+                Privacy Policy
+              </Link>{' '}
+              for more details.
             </QA>
             <QA q="Does MHSP Ride send text or push notifications?">
               No. MHSP Ride currently sends email; phone numbers are used so drivers and riders can contact
@@ -130,7 +153,11 @@ export default function FaqPage() {
               Feedback widget or{' '}
               <Link href="/contact" className="text-foreground underline">
                 Contact Us
-              </Link>.
+              </Link>. See the{' '}
+              <Link href="/privacy" className="text-foreground underline">
+                Privacy Policy
+              </Link>{' '}
+              for more details.
             </QA>
             <QA q="What happens when the site is in maintenance mode?">
               Maintenance mode logs out and blocks standard members while allowing administrators to remain
@@ -285,9 +312,15 @@ export default function FaqPage() {
         </Card>
 
         <p className="text-xs text-muted-foreground">
-          Using MHSP Ride means agreeing to its Terms of Use, including that the site may only be used through
-          the interfaces it provides — attempts to script, automate, or otherwise interfere with the site are
-          grounds for account suspension.
+          Using MHSP Ride means agreeing to its{' '}
+          <Link href="/terms" className="text-foreground underline">
+            Terms of Use
+          </Link>, including that the site may only be used through the interfaces it provides — attempts to
+          script, automate, or otherwise interfere with the site are grounds for account suspension. See also
+          the{' '}
+          <Link href="/privacy" className="text-foreground underline">
+            Privacy Policy
+          </Link>.
         </p>
 
         <Button href="/dashboard">Continue to Dashboard</Button>

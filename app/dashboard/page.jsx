@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { AlertTriangle, ArrowDown, ArrowUp, Car, ChevronDown, ChevronLeft, ChevronRight, Clock, Info, MapPin, MoveRight, Navigation, Plus, Search, X } from "lucide-react"
+import { AlertTriangle, ArrowDown, ArrowUp, Car, ChevronDown, ChevronLeft, ChevronRight, Clock, Info, MapPin, MoveRight, Navigation, Plus, Search, Star, X } from "lucide-react"
 import Link from "next/link"
 import UserAvatar from "@/components/ui/user-avatar"
 import DatePicker from "@/components/ui/date-picker"
@@ -117,7 +117,8 @@ export default function Dashboard() {
   const [filterOrigin, setFilterOrigin] = useState('')
   const [filterDestination, setFilterDestination] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
-  const hasAvailableFilters = filterDate || filterOrigin || filterDestination || searchTerm
+  const [favoriteDriversOnly, setFavoriteDriversOnly] = useState(false)
+  const hasAvailableFilters = filterDate || filterOrigin || filterDestination || searchTerm || favoriteDriversOnly
 
   // Requested Rides filters — same shape as Available Rides' above, but its
   // own independent state since it's a separate, flat (no per-network) list.
@@ -125,7 +126,8 @@ export default function Dashboard() {
   const [requestFilterOrigin, setRequestFilterOrigin] = useState('')
   const [requestFilterDestination, setRequestFilterDestination] = useState('')
   const [requestSearchTerm, setRequestSearchTerm] = useState('')
-  const hasRequestFilters = requestFilterDate || requestFilterOrigin || requestFilterDestination || requestSearchTerm
+  const [favoriteRidersOnly, setFavoriteRidersOnly] = useState(false)
+  const hasRequestFilters = requestFilterDate || requestFilterOrigin || requestFilterDestination || requestSearchTerm || favoriteRidersOnly
 
   // Ordered favorites from the live user doc, restricted to known networks
   const favorites = (Array.isArray(user?.favorite_networks) ? user.favorite_networks : [])
@@ -290,12 +292,14 @@ export default function Dashboard() {
 
   // Filters apply uniformly across every network's list (issue #84)
   const searchLower = searchTerm.trim().toLowerCase()
+  const favoriteDriverIds = new Set((user?.favorite_drivers || []).map(d => d.id))
   const availableByNetwork = Object.fromEntries(favorites.map(id => [
     id,
     rawAvailableByNetwork[id].filter(r => {
       if (filterDate && r.departure_date !== filterDate) return false
       if (filterOrigin && r.departure !== filterOrigin) return false
       if (filterDestination && r.arrival !== filterDestination) return false
+      if (favoriteDriversOnly && !favoriteDriverIds.has(r.driverId || r.driver?.id)) return false
       if (searchLower) {
         const haystack = [r.driver?.fullname, resolveLocation(r.departure), resolveLocation(r.arrival)]
           .filter(Boolean).join(' ').toLowerCase()
@@ -311,10 +315,12 @@ export default function Dashboard() {
     .sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)))
 
   const requestSearchLower = requestSearchTerm.trim().toLowerCase()
+  const favoriteRiderIds = new Set((user?.favorite_riders || []).map(r => r.id))
   const filteredRideRequests = rideRequests.filter(r => {
     if (requestFilterDate && r.departure_date !== requestFilterDate) return false
     if (requestFilterOrigin && r.departure !== requestFilterOrigin) return false
     if (requestFilterDestination && r.arrival !== requestFilterDestination) return false
+    if (favoriteRidersOnly && !favoriteRiderIds.has(r.requesterId || r.requester?.id)) return false
     if (requestSearchLower) {
       const haystack = [r.requester?.fullname, resolveLocation(r.departure), resolveLocation(r.arrival)]
         .filter(Boolean).join(' ').toLowerCase()
@@ -537,11 +543,20 @@ export default function Dashboard() {
                 >
                   <Search className="size-3.5 mr-1" /> {requestSearchTerm ? `“${requestSearchTerm}”` : 'Search'}
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  aria-pressed={favoriteRidersOnly}
+                  onClick={() => setFavoriteRidersOnly(v => !v)}
+                >
+                  <Star className={`size-3.5 mr-1 ${favoriteRidersOnly ? 'fill-yellow-400 text-yellow-400' : ''}`} /> Favorite riders
+                </Button>
                 {hasRequestFilters && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => { setRequestFilterDate(''); setRequestFilterOrigin(''); setRequestFilterDestination(''); setRequestSearchTerm('') }}
+                    onClick={() => { setRequestFilterDate(''); setRequestFilterOrigin(''); setRequestFilterDestination(''); setRequestSearchTerm(''); setFavoriteRidersOnly(false) }}
                   >
                     <X className="size-3.5 mr-1" /> Clear filters
                   </Button>
@@ -650,11 +665,20 @@ export default function Dashboard() {
                 >
                   <Search className="size-3.5 mr-1" /> {searchTerm ? `“${searchTerm}”` : 'Search'}
                 </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  aria-pressed={favoriteDriversOnly}
+                  onClick={() => setFavoriteDriversOnly(v => !v)}
+                >
+                  <Star className={`size-3.5 mr-1 ${favoriteDriversOnly ? 'fill-yellow-400 text-yellow-400' : ''}`} /> Favorite drivers
+                </Button>
                 {hasAvailableFilters && (
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => { setFilterDate(''); setFilterOrigin(''); setFilterDestination(''); setSearchTerm('') }}
+                    onClick={() => { setFilterDate(''); setFilterOrigin(''); setFilterDestination(''); setSearchTerm(''); setFavoriteDriversOnly(false) }}
                   >
                     <X className="size-3.5 mr-1" /> Clear filters
                   </Button>

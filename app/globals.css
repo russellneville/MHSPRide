@@ -589,6 +589,10 @@
   color: #0f3558;
 }
 
+.contact-card.policy-card {
+  max-width: 760px;
+}
+
 .contact-sub {
   margin: 0.4rem 0 1.5rem;
   color: #4a7a9b;

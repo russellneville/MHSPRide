@@ -7,15 +7,24 @@ import { badgeById, badgeImagePath } from "@/lib/badges/catalog"
 // Badges section (resources/badging.md). Takes the caller's earned badge docs
 // (users/{uid}/badges/*: { badgeId, earnedAt }) and resolves each against the
 // catalog for display. Two modes:
-// - Editable (Profile page, onToggleHide passed): shows the hide_badges
-//   checkbox and collapses the grid when hidden — the parent page owns
-//   persisting it and replaying any missed celebration dialog on uncheck.
-// - Read-only (admin viewing another member, no onToggleHide): no checkbox,
-//   always shows the real grid regardless of that member's own hide_badges —
-//   an admin needs to see what was actually earned, not the member's own
-//   display preference for it.
-export default function BadgesCard({ badges = [], hideBadges = false, onToggleHide, className }) {
-  const editable = typeof onToggleHide === "function"
+// - Editable (Profile page, onToggleHideBadges passed): shows the hide_badges
+//   and hide_badge_notifications checkboxes (independent — see issue #177)
+//   and collapses the grid when hideBadges is checked. The parent page owns
+//   persisting both and replaying any missed celebration dialog when
+//   notifications are unhidden.
+// - Read-only (admin viewing another member, no onToggleHideBadges): no
+//   checkboxes, always shows the real grid regardless of that member's own
+//   hide_badges — an admin needs to see what was actually earned, not the
+//   member's own display preference for it.
+export default function BadgesCard({
+  badges = [],
+  hideBadges = false,
+  hideNotifications = false,
+  onToggleHideBadges,
+  onToggleHideNotifications,
+  className,
+}) {
+  const editable = typeof onToggleHideBadges === "function"
   const earned = badges
     .map((award) => ({ award, badge: badgeById(award.badgeId) }))
     .filter(({ badge }) => badge) // drop ids the catalog no longer defines
@@ -26,15 +35,27 @@ export default function BadgesCard({ badges = [], hideBadges = false, onToggleHi
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <CardTitle>Badges</CardTitle>
           {editable && (
-            <div className="flex items-center gap-2">
-              <Checkbox
-                id="hide-badges"
-                checked={hideBadges}
-                onCheckedChange={(checked) => onToggleHide(!!checked)}
-              />
-              <Label htmlFor="hide-badges" className="font-normal text-sm text-muted-foreground">
-                Hide badges and badge notifications
-              </Label>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="hide-badges"
+                  checked={hideBadges}
+                  onCheckedChange={(checked) => onToggleHideBadges(!!checked)}
+                />
+                <Label htmlFor="hide-badges" className="font-normal text-sm text-muted-foreground">
+                  Hide badges on my profile
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="hide-badge-notifications"
+                  checked={hideNotifications}
+                  onCheckedChange={(checked) => onToggleHideNotifications(!!checked)}
+                />
+                <Label htmlFor="hide-badge-notifications" className="font-normal text-sm text-muted-foreground">
+                  Hide badge notifications
+                </Label>
+              </div>
             </div>
           )}
         </div>

@@ -4,7 +4,7 @@ import { useNetwork } from "@/context/NetworksContext";
 import DashboardLayout from "../dashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTheme } from "next-themes";
 import DriverProfile from "@/components/forms/DriverProfile";
 import ProfileForm, { PROFILE_SECTION_CARD_CLASS } from "@/components/forms/ProfileForm";
@@ -77,18 +77,31 @@ export default function ProfilePage (){
         setThemeMounted(true)
     }, []);
 
-    // Badging is opt-out (users/{uid}.hide_badges, off by default), saved
-    // immediately on toggle rather than batched into the "Update Profile"
-    // button below — same pattern as the theme select and unfavorite buttons
-    // on this page. Unchecking replays anything earned while hidden (or any
-    // other never-shown badge — see fetchUnseenBadges) as the normal
-    // celebration dialog, right here rather than waiting for a dashboard visit.
+    // Badging display/notifications are both opt-out (users/{uid}.hide_badges
+    // and .hide_badge_notifications, off by default), saved immediately on
+    // toggle rather than batched into the "Update Profile" button below —
+    // same pattern as the theme select and unfavorite buttons on this page.
+    // The two used to be a single "hide badges and notifications" checkbox
+    // (issue #177) — see the migration effect below for how existing members
+    // who had it checked keep notifications hidden after the split.
     const handleToggleHideBadges = async (checked) => {
         if (!user?.uid) return
         try {
             await updateDoc(doc(db, 'users', user.uid), { hide_badges: checked })
         } catch (error) {
             console.error('[profile] hide_badges update failed:', error)
+        }
+    }
+
+    // Unchecking replays anything earned while hidden (or any other
+    // never-shown badge — see fetchUnseenBadges) as the normal celebration
+    // dialog, right here rather than waiting for a dashboard visit.
+    const handleToggleHideNotifications = async (checked) => {
+        if (!user?.uid) return
+        try {
+            await updateDoc(doc(db, 'users', user.uid), { hide_badge_notifications: checked })
+        } catch (error) {
+            console.error('[profile] hide_badge_notifications update failed:', error)
             return
         }
         if (checked) return
@@ -110,6 +123,21 @@ export default function ProfilePage (){
             console.error('[profile] fetching missed badges failed:', error)
         }
     }
+
+    // Migration (issue #177): hide_badges used to gate both the profile grid
+    // and notifications together. A member who had it checked shouldn't start
+    // getting notifications again just because the option was split — write
+    // hide_badge_notifications: true once, the first time we see the old flag
+    // on without the new one, mirroring the favorites migration on the
+    // dashboard page.
+    const notificationsMigratedRef = useRef(false)
+    useEffect(() => {
+        if (!user?.uid || !user.hide_badges || user.hide_badge_notifications !== undefined || notificationsMigratedRef.current) return
+        notificationsMigratedRef.current = true
+        updateDoc(doc(db, 'users', user.uid), { hide_badge_notifications: true }).catch((error) =>
+            console.error('[profile] hide_badge_notifications migration failed:', error)
+        )
+    }, [user?.uid, user?.hide_badges, user?.hide_badge_notifications]);
 
     function handleMissedBadgeAcknowledge(badgeId) {
         acknowledgeBadge(badgeId).catch((error) => console.error('[profile] badge acknowledge failed:', error))
@@ -223,14 +251,16 @@ export default function ProfilePage (){
         </CardContent>
        </Card>
 
+       <DriverProfile profile={profile} setProfile={setProfile} className={`mt-4 ${PROFILE_SECTION_CARD_CLASS}`}/>
+
        <BadgesCard
             badges={badges}
             hideBadges={!!user?.hide_badges}
-            onToggleHide={handleToggleHideBadges}
+            hideNotifications={!!(user?.hide_badge_notifications ?? user?.hide_badges)}
+            onToggleHideBadges={handleToggleHideBadges}
+            onToggleHideNotifications={handleToggleHideNotifications}
             className={`mt-4 ${PROFILE_SECTION_CARD_CLASS}`}
        />
-
-       <DriverProfile profile={profile} setProfile={setProfile} className={`mt-4 ${PROFILE_SECTION_CARD_CLASS}`}/>
 
        <div className="flex items-center justify-end bg-background py-3">
             <Button onClick={()=> updateProfile(profile)} disabled={isLoading}>{isLoading ? 'Updating... ' : 'Update Profile'}</Button>

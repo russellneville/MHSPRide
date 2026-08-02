@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { evaluateActivityBadges, evaluateMilestoneBadges, evaluateThemeBadges } from "@/lib/badges/evaluate";
+import {
+  evaluateActivityBadges,
+  evaluateMilestoneBadges,
+  evaluateRideRequestBadges,
+  evaluateThemeBadges,
+} from "@/lib/badges/evaluate";
 
 const now = new Date("2026-02-10T12:00:00");
 
@@ -341,5 +346,81 @@ describe("evaluateThemeBadges", () => {
     expect(evaluateThemeBadges({ theme: "dark" })).toEqual(["dark-side"]);
     expect(evaluateThemeBadges({ theme: "light" })).toEqual([]);
     expect(evaluateThemeBadges({})).toEqual([]);
+  });
+});
+
+describe("evaluateRideRequestBadges", () => {
+  it("awards nothing with no history", () => {
+    expect(evaluateRideRequestBadges({ rideRequests: [], offeredRides: [], bookedRides: [] })).toEqual([]);
+  });
+
+  it("awards the rider request-count milestones off the raw count of requests, regardless of status", () => {
+    const requests = (n, status) => Array(n).fill({ status });
+
+    expect(evaluateRideRequestBadges({ rideRequests: requests(1, "expired") })).toContain("first-ride-requested");
+    expect(evaluateRideRequestBadges({ rideRequests: requests(5, "canceled") })).toContain("five-rides-requested");
+    expect(evaluateRideRequestBadges({ rideRequests: requests(10, "fulfilled") })).toContain("ten-rides-requested");
+    expect(evaluateRideRequestBadges({ rideRequests: requests(25, "open") })).toContain("needy-rider");
+    expect(evaluateRideRequestBadges({ rideRequests: requests(4, "open") })).not.toContain("five-rides-requested");
+  });
+
+  it("awards mountain-mover/carpool-hero/carpool-captain off rides fulfilled from a request", () => {
+    const fulfillment = { source_request_id: "req-1" };
+    const plainOffer = { driverId: "me" };
+
+    expect(
+      evaluateRideRequestBadges({ offeredRides: [fulfillment, plainOffer] })
+    ).toEqual(expect.arrayContaining(["mountain-mover"]));
+    expect(evaluateRideRequestBadges({ offeredRides: [plainOffer] })).not.toContain("mountain-mover");
+    expect(evaluateRideRequestBadges({ offeredRides: Array(5).fill(fulfillment) })).toContain("carpool-hero");
+    expect(evaluateRideRequestBadges({ offeredRides: Array(10).fill(fulfillment) })).toContain("carpool-captain");
+  });
+
+  it("awards quick-draw only within 15 minutes of the request being posted", () => {
+    const fast = { source_request_id: "req-1", request_response_minutes: 15 };
+    const slow = { source_request_id: "req-2", request_response_minutes: 16 };
+
+    expect(evaluateRideRequestBadges({ offeredRides: [fast] })).toContain("quick-draw");
+    expect(evaluateRideRequestBadges({ offeredRides: [slow] })).not.toContain("quick-draw");
+  });
+
+  it("awards down-to-the-wire only within the last hour before expiry", () => {
+    const barely = { source_request_id: "req-1", request_minutes_until_expiry: 60 };
+    const early = { source_request_id: "req-2", request_minutes_until_expiry: 61 };
+
+    expect(evaluateRideRequestBadges({ offeredRides: [barely] })).toContain("down-to-the-wire");
+    expect(evaluateRideRequestBadges({ offeredRides: [early] })).not.toContain("down-to-the-wire");
+  });
+
+  it("awards rescue-squad for three distinct requesters, not three requests from one rider", () => {
+    const threeDistinct = ["rider-1", "rider-2", "rider-3"].map((id) => ({
+      source_request_id: `req-${id}`,
+      source_requester_id: id,
+    }));
+    const sameRiderThrice = Array(3).fill({ source_request_id: "req-x", source_requester_id: "rider-1" });
+
+    expect(evaluateRideRequestBadges({ offeredRides: threeDistinct })).toContain("rescue-squad");
+    expect(evaluateRideRequestBadges({ offeredRides: sameRiderThrice })).not.toContain("rescue-squad");
+  });
+
+  it("awards repeat-fulfiller when the same rider is fulfilled three times", () => {
+    const sameRiderThrice = Array(3).fill({ source_request_id: "req-x", source_requester_id: "rider-1" });
+    const threeDistinct = ["rider-1", "rider-2", "rider-3"].map((id) => ({
+      source_request_id: `req-${id}`,
+      source_requester_id: id,
+    }));
+
+    expect(evaluateRideRequestBadges({ offeredRides: sameRiderThrice })).toContain("repeat-fulfiller");
+    expect(evaluateRideRequestBadges({ offeredRides: threeDistinct })).not.toContain("repeat-fulfiller");
+  });
+
+  it("awards rolling-with-it when a changed fulfillment booking wasn't canceled", () => {
+    const keptChanged = { request_changed: true, booking_status: "booked" };
+    const canceledChanged = { request_changed: true, booking_status: "canceled" };
+    const unchanged = { request_changed: false, booking_status: "booked" };
+
+    expect(evaluateRideRequestBadges({ bookedRides: [keptChanged] })).toContain("rolling-with-it");
+    expect(evaluateRideRequestBadges({ bookedRides: [canceledChanged] })).not.toContain("rolling-with-it");
+    expect(evaluateRideRequestBadges({ bookedRides: [unchanged] })).not.toContain("rolling-with-it");
   });
 });

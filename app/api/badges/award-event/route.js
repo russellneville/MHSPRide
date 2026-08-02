@@ -23,16 +23,16 @@ const NETWORK_BADGE_IDS = {
 const HIGH_FIVE_THRESHOLD = 5
 const EVERYBODYS_FAVORITE_THRESHOLD = 10
 
-async function countFavoriters(db, driverId) {
+async function countFavoriters(db, targetId, field) {
   // Same full-collection-scan approach already used by the admin favorites
-  // leaderboard (app/dashboard/admin/reports/page.jsx) — favorite_drivers is
-  // an array of snapshot objects, not plain ids, so there's no array-contains
-  // query that can match on driverId alone without a reverse index.
+  // leaderboard (app/dashboard/admin/reports/page.jsx) — favorite_drivers /
+  // favorite_riders are arrays of snapshot objects, not plain ids, so there's
+  // no array-contains query that can match on an id alone without a reverse index.
   const usersSnap = await db.collection('users').get()
   let count = 0
   for (const doc of usersSnap.docs) {
-    const favorites = doc.data().favorite_drivers || []
-    if (favorites.some((d) => d.id === driverId)) count += 1
+    const favorites = doc.data()[field] || []
+    if (favorites.some((d) => d.id === targetId)) count += 1
   }
   return count
 }
@@ -42,7 +42,7 @@ export async function POST(request) {
   if (auth.error) return auth.error
 
   try {
-    const { event, networkId, driverId } = await request.json()
+    const { event, networkId, driverId, riderId } = await request.json()
     const db = getAdminDb()
     const uid = auth.uid
 
@@ -84,13 +84,39 @@ export async function POST(request) {
       const awarded = []
       if (await awardBadge(db, uid, 'picking-favorites')) awarded.push('picking-favorites')
 
-      const favoriterCount = await countFavoriters(db, driverId)
+      const favoriterCount = await countFavoriters(db, driverId, 'favorite_drivers')
       if (favoriterCount >= 1 && (await awardBadge(db, driverId, 'favorited'))) awarded.push('favorited')
       if (favoriterCount >= HIGH_FIVE_THRESHOLD && (await awardBadge(db, driverId, 'high-five-driver'))) {
         awarded.push('high-five-driver')
       }
       if (favoriterCount >= EVERYBODYS_FAVORITE_THRESHOLD && (await awardBadge(db, driverId, 'everybodys-favorite'))) {
         awarded.push('everybodys-favorite')
+      }
+      return NextResponse.json({ awarded })
+    }
+
+    if (event === 'rider-favorited') {
+      if (!riderId) return NextResponse.json({ error: 'riderId is required' }, { status: 400 })
+      // Mirrors driver-favorited's self-favorite guard — favorite_riders is
+      // similarly an unrestricted array on the member's own user doc.
+      if (riderId === uid) return NextResponse.json({ awarded: [] })
+
+      const userSnap = await db.collection('users').doc(uid).get()
+      const favoriteRiders = userSnap.data()?.favorite_riders || []
+      if (!favoriteRiders.some((r) => r.id === riderId)) {
+        return NextResponse.json({ awarded: [] })
+      }
+
+      const awarded = []
+      if (await awardBadge(db, uid, 'picking-favorites-rider')) awarded.push('picking-favorites-rider')
+
+      const favoriterCount = await countFavoriters(db, riderId, 'favorite_riders')
+      if (favoriterCount >= 1 && (await awardBadge(db, riderId, 'favorited-rider'))) awarded.push('favorited-rider')
+      if (favoriterCount >= HIGH_FIVE_THRESHOLD && (await awardBadge(db, riderId, 'high-five-rider'))) {
+        awarded.push('high-five-rider')
+      }
+      if (favoriterCount >= EVERYBODYS_FAVORITE_THRESHOLD && (await awardBadge(db, riderId, 'everybodys-favorite-rider'))) {
+        awarded.push('everybodys-favorite-rider')
       }
       return NextResponse.json({ awarded })
     }

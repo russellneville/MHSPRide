@@ -50,7 +50,7 @@ import {
 
 export default function RidePage() {
   const { rideId, networkId } = useParams();
-  const { getRide, isLoading, bookRide, cancelRide, cancelBooking, getBookings, getRides, toggleFavoriteDriver } = useNetwork();
+  const { getRide, isLoading, bookRide, cancelRide, cancelBooking, getBookings, getRides, toggleFavoriteDriver, toggleFavoriteRider } = useNetwork();
   const { resolveLocation, byId: locationsById } = useLocations();
   const { user } = useAuth();
   const { openPopup } = usePopup();
@@ -127,6 +127,13 @@ export default function RidePage() {
   const handleToggleFavoriteDriver = () => {
     if (!rideData?.driver?.id) return
     toggleFavoriteDriver(rideData.driver)
+  }
+
+  const isRiderFavorited = (rider) => (user?.favorite_riders || []).some(r => r.id === rider.id);
+
+  const handleToggleFavoriteRider = (rider) => {
+    if (!rider?.id) return
+    toggleFavoriteRider(rider)
   }
 
   const inProgress = (() => {
@@ -354,9 +361,18 @@ export default function RidePage() {
                           >
                             <UserAvatar user={p} size="sm" className="mt-0.5" />
                             <div>
-                              <p className="font-medium text-foreground">
+                              <p className="font-medium text-foreground flex items-center gap-2">
                                 {p.fullname || "Unknown"}
+                                {isRiderFavorited(p) && <Star className="size-4 fill-yellow-400 text-yellow-400 shrink-0" />}
                               </p>
+                              {isRideDriver && p.id && (
+                                <button
+                                  className="text-xs text-primary underline underline-offset-2 hover:text-primary/70 transition-colors"
+                                  onClick={() => handleToggleFavoriteRider(p)}
+                                >
+                                  {isRiderFavorited(p) ? "Unfavorite Rider" : "Favorite Rider"}
+                                </button>
+                              )}
                               <p className="flex items-center gap-1">
                                 <Mail className="size-3" /> {p.email}
                               </p>

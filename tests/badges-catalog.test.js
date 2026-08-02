@@ -22,8 +22,16 @@ describe("badge catalog", () => {
     expect(new Set(BADGE_IDS).size).toBe(BADGE_IDS.length);
   });
 
-  it("has no duplicate image filenames", () => {
-    const images = BADGES.map((b) => b.image);
+  it("has no duplicate image filenames outside the documented rider/driver shares", () => {
+    // picking-favorites-rider, favorited-rider, and everybodys-favorite-rider
+    // intentionally reuse their driver-favorite counterpart's art indefinitely
+    // (issue #167 scoped custom illustration to High-5 Rider only).
+    const KNOWN_SHARED_IMAGES = new Set([
+      "picking-favorites-badge.png",
+      "favorited-badge.png",
+      "everybodys-favorite-badge.png",
+    ]);
+    const images = BADGES.map((b) => b.image).filter((image) => !KNOWN_SHARED_IMAGES.has(image));
     expect(new Set(images).size).toBe(images.length);
   });
 

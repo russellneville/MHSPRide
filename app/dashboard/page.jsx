@@ -146,18 +146,21 @@ export default function Dashboard() {
   // the signed-in user. The server throttles repeat calls to every 10 minutes
   // (app/api/badges/evaluate), so this is safe even though it fires on every
   // navigation back to the dashboard, not just first login. Evaluation always
-  // runs, even when the member has hidden badges (Profile → Badges) — hiding
-  // only suppresses the reveal, not the tracking, so nothing is lost when
-  // they turn it back on. After evaluating, check for ANY unseen badge, not
-  // just ones this call awarded — event-based badges (favorited/photo-
-  // uploaded, via award-event/route.js) have no other surface that shows
-  // the celebration dialog, so this is also what makes those ever appear.
+  // runs, even when the member has hidden badge notifications (Profile →
+  // Badges) — hiding only suppresses the reveal, not the tracking, so nothing
+  // is lost when they turn it back on. After evaluating, check for ANY unseen
+  // badge, not just ones this call awarded — event-based badges (favorited/
+  // photo-uploaded, via award-event/route.js) have no other surface that
+  // shows the celebration dialog, so this is also what makes those ever
+  // appear. hide_badge_notifications falls back to the legacy combined
+  // hide_badges flag for members who haven't been migrated yet (issue #177's
+  // split) — see the migration effect on the profile page.
   useEffect(() => {
     if (!user?.uid) return
     let cancelled = false
     evaluateBadges({ theme })
       .then(() => {
-        if (cancelled || user.hide_badges) return null
+        if (cancelled || (user.hide_badge_notifications ?? user.hide_badges)) return null
         return fetchUnseenBadges(user.uid)
       })
       .then((unseenIds) => {

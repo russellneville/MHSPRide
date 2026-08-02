@@ -84,7 +84,7 @@ export default function CancelReasonDialog({
               <AlertDialogTitle>Short notice cancellation</AlertDialogTitle>
               <AlertDialogDescription>
                 You are canceling this ride with short notice. Please call or text your driver
-                at: {driverPhone || 'the number on file'} to ensure they know you won't be riding with them.
+                at {driverPhone || 'the number on file'} to ensure they know you won't be riding with them.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

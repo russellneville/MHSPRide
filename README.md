@@ -297,6 +297,20 @@ Local development defaults to the test project — point `.env.local`'s `NEXT_PU
 
 The hourly ride-request-expiry cron (`.github/workflows/expire-ride-requests.yml`) runs against both environments as separate jobs, `mhspride.com` with `CRON_SECRET` and `test.mhspride.com` with `CRON_SECRET_TEST`.
 
+All outbound email links (dashboard, login, calendar `.ics`, password reset, ride-request deep links) resolve against `lib/siteUrl.js`'s `SITE_URL`, which points at `test.mhspride.com` or `mhspride.com` based on `NEXT_PUBLIC_FIREBASE_PROJECT_ID` — so a link emailed from the test environment never points at production (or vice versa). Emails sent from the test project also get a `MHSP Ride - TEST` sender name instead of `MHSP Ride`, so testers can tell them apart from real notifications.
+
+### Migrating a specific user's Auth account into test
+
+`mhspride-test`'s Firestore `users` collection is periodically synced from production, but that doesn't create a matching Firebase Auth account — without one, anything Auth-based (login, password reset) silently fails for that user on `test.mhspride.com`, since routes deliberately don't reveal whether an account exists (see issue #188). `scripts/migrateAuthUsers.mjs` migrates specific, named users' Auth accounts from `mhspride` into `mhspride-test`, preserving their existing password hash so they can keep using the same password, and reusing the same `uid` as their existing test Firestore doc so the two stay linked. It only ever acts on emails passed explicitly on the command line — never a bulk/wildcard mode — since it touches real users' credentials and requires their consent.
+
+```bash
+node scripts/migrateAuthUsers.mjs someone@example.com another@example.com
+```
+
+Requires, in addition to the usual `scripts/serviceAccountKey.json` (`mhspride-test`):
+- `.env.local`'s `PROD_FIREBASE_SERVICE_ACCOUNT_KEY` — a `mhspride` service account key, used read-only
+- `.env.local`'s `PROD_PASSWORD_HASH_KEY` / `PROD_PASSWORD_HASH_SALT_SEPARATOR` / `PROD_PASSWORD_HASH_ROUNDS` / `PROD_PASSWORD_HASH_MEM_COST` — from Firebase Console → `mhspride` → Authentication → Users → ⋮ → "Password hash parameters", needed so Firebase can verify the migrated password on future logins
+
 ---
 
 ## Roster sync

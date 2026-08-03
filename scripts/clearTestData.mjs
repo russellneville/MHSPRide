@@ -12,7 +12,7 @@
  *   - Preserves: everything belonging to real users
  *
  * Prerequisites:
- *   - scripts/serviceAccountKey.json (Firebase Admin service account)
+ *   - scripts/serviceAccountKey.json (service account for the mhspride-test Firebase project — refuses to run against any other project)
  *
  * Usage:
  *   node scripts/clearTestData.mjs
@@ -22,10 +22,12 @@ import { createRequire } from 'module'
 import { initializeApp, cert } from 'firebase-admin/app'
 import { getFirestore } from 'firebase-admin/firestore'
 import { getAuth } from 'firebase-admin/auth'
+import { assertTestProject } from './lib/assertTestProject.mjs'
 
 const require = createRequire(import.meta.url)
 const serviceAccount = require('./serviceAccountKey.json')
 
+assertTestProject(serviceAccount)
 initializeApp({ credential: cert(serviceAccount) })
 const db = getFirestore()
 const auth = getAuth()

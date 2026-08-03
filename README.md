@@ -118,6 +118,11 @@ FIREBASE_SERVICE_ACCOUNT_KEY=
 # CRON_SECRET repo secret in GitHub Actions.
 CRON_SECRET=
 
+# Same as CRON_SECRET but for the test environment (test.mhspride.com) — set
+# as the CRON_SECRET_TEST repo secret in GitHub Actions. See
+# "Test / UAT environment" below.
+CRON_SECRET_TEST=
+
 # Test data seed script (optional — see docs/test-data.md)
 TEST_EMAIL_BASE=you@gmail.com
 TEST_PASSWORD=yourpassword
@@ -125,7 +130,7 @@ TEST_PASSWORD=yourpassword
 
 ### 3. Seed the database
 
-Place a Firebase service account key at `scripts/serviceAccountKey.json`, then:
+Place a service account key for the **`mhspride-test`** Firebase project at `scripts/serviceAccountKey.json` (seed/clear scripts refuse to run against any other project — see [Test / UAT environment](#test--uat-environment) below), then:
 
 ```bash
 node scripts/seedNetworks.mjs
@@ -195,7 +200,7 @@ node scripts/promoteSuperAdmin.mjs someone@example.com
 
 ### Firestore rules for admin access
 
-The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuperAdmin()`/`isSuspended()` helpers, and rules for `users`, `users/{uid}/badges`, `members`, `rides`, `networks`, `bookings`, `activity_log`, `locations`, `driveTimes`, `config`, `system_messages`, `rate_limits`, `registration_verifications`). `users/{uid}/badges` is owner-or-admin read, Admin-SDK-write-only; the Reports page's badge leaderboard additionally needs a second, admin-only rule written with the `{path=**}/badges/{badgeId}` recursive-wildcard form, since Firestore doesn't extend a subcollection-path rule to a `collectionGroup()` query on its own — every other collection here is read via its normal path, so this is the only one that needs it. `locations`/`driveTimes` are client-readable (any authenticated, non-suspended user — needed for the ride-offer dropdowns) but writable only through the Admin SDK–gated `/api/admin/locations/*` routes, which now require super-admin. `system_messages` goes further and allows read to anyone, signed in or not — the login page banner needs to read it pre-auth — but write is Admin SDK only, both for the super-admin check and because non-overlap validation needs a query across all existing messages that Firestore rules can't express. `config/maintenance` follows the same public-read/Admin-SDK-write pattern as `system_messages`, carved out as a rule specifically for that one document path — everything else under `config/{id}` stays super-admin-only. `firebase.json`/`.firebaserc` link this directory to the `mhspride` project, so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months, including the admin Users page's role-change/suspend actions, which the deployed `users` rule was actually rejecting the whole time; that write path now goes through `app/api/admin/update-user` — Admin SDK, `verifyAdminRequest`-gated — instead of a client Firestore write). The `bookings` update rule had the same class of gap for a while: it only allowed the passenger or driver on the booking to update it, so an admin clicking Remove on the Rides page's rider list (a client-side `updateDoc`, not an API route) got silently rejected — the dialog closed as if it worked, with the booking left unchanged. `bookings` now includes `isAdmin()` alongside passenger/driver, matching `rides`.
+The admin pages require updated Firestore security rules — see [`firestore.rules`](firestore.rules) for the canonical rule set (`isAdmin()`/`isSuperAdmin()`/`isSuspended()` helpers, and rules for `users`, `users/{uid}/badges`, `members`, `rides`, `networks`, `bookings`, `activity_log`, `locations`, `driveTimes`, `config`, `system_messages`, `rate_limits`, `registration_verifications`). `users/{uid}/badges` is owner-or-admin read, Admin-SDK-write-only; the Reports page's badge leaderboard additionally needs a second, admin-only rule written with the `{path=**}/badges/{badgeId}` recursive-wildcard form, since Firestore doesn't extend a subcollection-path rule to a `collectionGroup()` query on its own — every other collection here is read via its normal path, so this is the only one that needs it. `locations`/`driveTimes` are client-readable (any authenticated, non-suspended user — needed for the ride-offer dropdowns) but writable only through the Admin SDK–gated `/api/admin/locations/*` routes, which now require super-admin. `system_messages` goes further and allows read to anyone, signed in or not — the login page banner needs to read it pre-auth — but write is Admin SDK only, both for the super-admin check and because non-overlap validation needs a query across all existing messages that Firestore rules can't express. `config/maintenance` follows the same public-read/Admin-SDK-write pattern as `system_messages`, carved out as a rule specifically for that one document path — everything else under `config/{id}` stays super-admin-only. `firebase.json`/`.firebaserc` link this directory to the `mhspride` project by default (see [Test / UAT environment](#test--uat-environment) for the `test` alias), so `firebase deploy --only firestore:rules` deploys directly — no need to paste into the console. Check the deployed rules match this file before assuming a rules-dependent feature (like suspension enforcement) is actually enforced server-side — the two can drift if a change here isn't deployed (they did, silently, for several months, including the admin Users page's role-change/suspend actions, which the deployed `users` rule was actually rejecting the whole time; that write path now goes through `app/api/admin/update-user` — Admin SDK, `verifyAdminRequest`-gated — instead of a client Firestore write). The `bookings` update rule had the same class of gap for a while: it only allowed the passenger or driver on the booking to update it, so an admin clicking Remove on the Rides page's rider list (a client-side `updateDoc`, not an API route) got silently rejected — the dialog closed as if it worked, with the booking left unchanged. `bookings` now includes `isAdmin()` alongside passenger/driver, matching `rides`.
 
 Non-owner updates to `rides` are scoped to only the fields booking actually needs (`available_seats`/`passengers`), not a blanket "any authenticated user can rewrite the whole document." `networks` docs are legacy membership records — the app now treats networks as fixed categories (`lib/networks.js`) with per-user favorites stored on `users/{uid}.favorite_networks`, so network docs are admin-write-only.
 
@@ -268,6 +273,29 @@ node scripts/clearTestData.mjs     # remove test data
 node scripts/fixStaleBookingStatuses.mjs --dry-run
 node scripts/fixStaleBookingStatuses.mjs
 ```
+
+---
+
+## Test / UAT environment
+
+Real users are on `mhspride.com` now (production Firebase project `mhspride`), so testing needs a completely separate Firebase project and a non-production domain (issue #184).
+
+- `main` branch → Vercel Production → `mhspride.com` → Firebase project `mhspride`
+- `test` branch → Vercel Preview (branch domain) → `test.mhspride.com` → Firebase project `mhspride-test`
+- Feature branches PR into `test` first; once verified on `test.mhspride.com`, promote with a `test` → `main` PR
+
+`.firebaserc` defines explicit aliases (`prod` → `mhspride`, `test` → `mhspride-test`) so Firestore rules/index deploys are deliberate:
+
+```bash
+firebase deploy --only firestore:rules --project prod   # production (same as omitting --project)
+firebase deploy --only firestore:rules --project test   # test project
+```
+
+Local development defaults to the test project — point `.env.local`'s `NEXT_PUBLIC_FIREBASE_*` vars and `FIREBASE_SERVICE_ACCOUNT_KEY` at `mhspride-test`, not production. Vercel's Preview environment variables (scoped to the `test` branch) are already set to the same values; pull them with `vercel env pull` (see the repo's `vercel:env` Claude Code skill) instead of hand-typing them.
+
+`scripts/seedTestData.mjs` and `scripts/clearTestData.mjs` refuse to run unless `scripts/serviceAccountKey.json` is a service account for `mhspride-test` — see `scripts/lib/assertTestProject.mjs`. This is what stops someone from accidentally seeding or wiping production.
+
+The hourly ride-request-expiry cron (`.github/workflows/expire-ride-requests.yml`) runs against both environments as separate jobs, `mhspride.com` with `CRON_SECRET` and `test.mhspride.com` with `CRON_SECRET_TEST`.
 
 ---
 

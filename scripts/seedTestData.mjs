@@ -9,7 +9,7 @@
  * All test user fullnames end with " (Test)" — clearTestData.mjs uses this to scope deletion.
  *
  * Prerequisites:
- *   - scripts/serviceAccountKey.json (Firebase Admin service account)
+ *   - scripts/serviceAccountKey.json (service account for the mhspride-test Firebase project — refuses to run against any other project)
  *   - npm install --save-dev firebase-admin
  *
  * Usage:
@@ -24,6 +24,7 @@ import { createRequire } from 'module'
 import { config } from 'dotenv'
 import { resolve } from 'path'
 import { fileURLToPath } from 'url'
+import { assertTestProject } from './lib/assertTestProject.mjs'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 
@@ -56,6 +57,7 @@ const serviceAccount = require('./serviceAccountKey.json')
 const DRY_RUN = process.argv.includes('--dry-run')
 
 if (!DRY_RUN) {
+  assertTestProject(serviceAccount)
   initializeApp({ credential: cert(serviceAccount) })
 }
 

@@ -18,3 +18,11 @@ jobs:
         run: |
           curl -sf -X POST "https://mhspride.com/api/cron/expire-ride-requests" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+
+  expire-ride-requests-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call expiry endpoint (test)
+        run: |
+          curl -sf -X POST "https://test.mhspride.com/api/cron/expire-ride-requests" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET_TEST }}"

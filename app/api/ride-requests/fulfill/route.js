@@ -5,6 +5,7 @@ import { flattenVehicleForSnapshot } from '@/lib/vehicles'
 import { diffPrefilledFields } from '@/lib/rideRequests'
 import { sendRideRequestFulfilledEmail } from '@/lib/email'
 import { awardBadge } from '@/lib/badges/award'
+import { SITE_URL } from '@/lib/siteUrl'
 
 function generateInviteCode() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
@@ -184,7 +185,7 @@ export async function POST(request) {
         ride,
         diffs: result.diffs,
         seatsShortfall: result.bookedSeats < result.reqData.seats_requested,
-        deepLink: `https://mhspride.com/dashboard/network/${networkId}/rides/${rideRef.id}`,
+        deepLink: `${SITE_URL}/dashboard/network/${networkId}/rides/${rideRef.id}`,
       }).catch(err => console.error('[ride-requests/fulfill] email failed:', err))
     }
 

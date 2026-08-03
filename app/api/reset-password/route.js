@@ -5,6 +5,7 @@ import { FieldValue, Timestamp } from 'firebase-admin/firestore'
 import { sendPasswordResetEmail } from '@/lib/email'
 import { verifyAdminRequest, isSuperAdminUser } from '@/lib/adminAuth'
 import { recordAttempt, getClientIp, normalizeEmail, isValidEmailInput } from '@/lib/rateLimit'
+import { SITE_URL } from '@/lib/siteUrl'
 
 // Firebase's own generatePasswordResetLink always lands on Firebase's hosted reset
 // page (or requires Hosting-tied domain verification for a custom action URL, which
@@ -70,7 +71,7 @@ export async function POST(request) {
       expiresAt: Timestamp.fromMillis(Date.now() + RESET_TOKEN_TTL_MS),
     })
 
-    const link = `https://mhspride.com/reset-password?token=${token}`
+    const link = `${SITE_URL}/reset-password?token=${token}`
     await sendPasswordResetEmail({ email, link, adminInitiated: !!adminInitiated })
   } catch (error) {
     // Don't reveal whether the email has an account — log server-side only.

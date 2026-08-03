@@ -3,6 +3,7 @@ import { formatDate, formatTime } from "@/lib/utils"
 import { useLocations } from "@/context/LocationsContext"
 import { normalizeStatus, isCanceledStatus } from "@/lib/rides"
 import { adminCancelBooking } from "@/lib/bookings"
+import { toast } from "sonner"
 import { Calendar, Clock, Mail, MapPin, MoveRight, Phone, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -64,6 +65,8 @@ export default function AdminRideDetailsPopup({ ride, status, networkName, booki
       // Refresh the underlying page's rides/bookings in the background so
       // seat counts and future dialog opens reflect the change too.
       onBookingChanged?.()
+    } catch (err) {
+      toast.error(err.message || 'Could not remove rider')
     } finally {
       setActing(false)
       setRemoveTarget(null)

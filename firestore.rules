@@ -120,7 +120,8 @@ service cloud.firestore {
       allow update: if request.auth != null
         && !isSuspended()
         && (resource.data.passengerId == request.auth.uid
-            || resource.data.driver.id == request.auth.uid);
+            || resource.data.driver.id == request.auth.uid
+            || isAdmin());
       allow delete: if false;
     }
 

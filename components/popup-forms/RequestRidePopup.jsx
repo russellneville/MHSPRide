@@ -12,7 +12,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "../ui/alert-dialog"
-import { LocationPicker } from "./OfferRidePopup"
+import { LocationPicker } from "./LocationPicker"
 import { toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils"
 import { EQUIPMENT_OPTIONS, hasOpenRideRequest } from "@/lib/rideRequests"
 
@@ -22,7 +22,7 @@ import { EQUIPMENT_OPTIONS, hasOpenRideRequest } from "@/lib/rideRequests"
 export default function RequestRidePopup({ onSaved }) {
   const { closePopup } = usePopup()
   const { requestRide, getMyRideRequests } = useNetwork()
-  const { origins, destinations } = useLocations()
+  const { origins, destinations, getLocationCoords } = useLocations()
   const [showAlreadyOpen, setShowAlreadyOpen] = useState(false)
   // Local, not the shared NetworksContext isLoading — that flag defaults to
   // true and only flips once some other useNetwork() call resolves, so a
@@ -34,6 +34,8 @@ export default function RequestRidePopup({ onSaved }) {
   const [departureOther, setDepartureOther] = useState('')
   const [arrivalSelect, setArrivalSelect] = useState('')
   const [arrivalOther, setArrivalOther] = useState('')
+  const [departureCoords, setDepartureCoords] = useState(null)
+  const [arrivalCoords, setArrivalCoords] = useState(null)
   const [date, setDate] = useState(undefined)
   const [departureTime, setDepartureTime] = useState('')
   const [seatsRequested, setSeatsRequested] = useState('')
@@ -48,6 +50,8 @@ export default function RequestRidePopup({ onSaved }) {
     const newErrors = {}
     if (!effectiveDeparture) newErrors.departure = "Departure is required"
     if (!effectiveArrival) newErrors.arrival = "Arrival is required"
+    if (departureOther.trim() && !departureCoords) newErrors.departure = "Please confirm this address before submitting"
+    if (arrivalOther.trim() && !arrivalCoords) newErrors.arrival = "Please confirm this address before submitting"
     if (!date) newErrors.date = "Date is required"
     if (!departureTime) newErrors.departure_time = "Requested pickup time is required"
     if (!seatsRequested || Number(seatsRequested) < 1) newErrors.seats_requested = "Number of seats is required"
@@ -71,6 +75,10 @@ export default function RequestRidePopup({ onSaved }) {
       arrival: effectiveArrival,
       custom_departure: !!departureOther.trim(),
       custom_arrival: !!arrivalOther.trim(),
+      departure_lat: departureCoords?.latitude ?? null,
+      departure_lng: departureCoords?.longitude ?? null,
+      arrival_lat: arrivalCoords?.latitude ?? null,
+      arrival_lng: arrivalCoords?.longitude ?? null,
       departure_date: toLocalDateStr(date),
       departure_time: departureTime,
       seats_requested: Number(seatsRequested),
@@ -89,9 +97,10 @@ export default function RequestRidePopup({ onSaved }) {
           <Label>Departure</Label>
           <LocationPicker
             value={departureSelect}
-            onSelectChange={setDepartureSelect}
+            onSelectChange={(id) => { setDepartureSelect(id); setDepartureCoords(getLocationCoords(id)) }}
             otherValue={departureOther}
             onOtherChange={setDepartureOther}
+            onValidated={setDepartureCoords}
             locations={origins}
             selectPlaceholder="Select pickup location"
           />
@@ -102,9 +111,10 @@ export default function RequestRidePopup({ onSaved }) {
           <Label>Arrival</Label>
           <LocationPicker
             value={arrivalSelect}
-            onSelectChange={setArrivalSelect}
+            onSelectChange={(id) => { setArrivalSelect(id); setArrivalCoords(getLocationCoords(id)) }}
             otherValue={arrivalOther}
             onOtherChange={setArrivalOther}
+            onValidated={setArrivalCoords}
             locations={destinations}
             selectPlaceholder="Select arrival location"
           />

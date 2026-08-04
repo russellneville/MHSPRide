@@ -102,8 +102,17 @@ NEXT_PUBLIC_GA_MEASUREMENT_ID=
 # Resend (resend.com) — transactional email
 RESEND_API_KEY=
 
-# Google Maps — Geocoding API (admin roster/location address lookup) and
-# Directions API (drive-time computation when an admin adds a location)
+# Google Maps — Geocoding API (admin roster/location address lookup),
+# Directions API (precomputed drive time when an admin adds a location, plus
+# live arrival-time estimates for rides where the departure or arrival is a
+# confirmed free-text address rather than a predefined location), Address
+# Validation API (confirming free-text ride locations at creation time), and
+# Static Maps API (ride card/detail-page map thumbnails).
+# NOTE: Address Validation and Static Maps are separate Cloud products from
+# Geocoding/Directions and need their own enablement per Google Cloud
+# project (Console → APIs & Services) — the same key works for all four once
+# each is enabled, but enabling Geocoding/Directions does not enable the
+# other two automatically. Easy to miss when standing up a new environment.
 GOOGLE_MAPS_API_KEY=
 
 # Firebase Admin SDK — full service account JSON, as a single-line string

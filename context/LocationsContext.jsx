@@ -59,8 +59,20 @@ export const LocationsProvider = ({ children }) => {
     return byId.get(id)?.name || prettify(id)
   }
 
+  // Predefined locations are already geocoded + admin-reviewed (see
+  // app/api/admin/locations/add/route.js), unlike free-text ride locations —
+  // this is the single place that turns a known location id into the same
+  // {latitude, longitude, formattedAddress} shape address validation returns
+  // for free text, so ride forms and map rendering share one lookup instead
+  // of each re-deriving lat/lon from a location doc independently.
+  const getLocationCoords = (id) => {
+    const loc = byId.get(id)
+    if (!loc || loc.lat == null || loc.lon == null) return null
+    return { latitude: loc.lat, longitude: loc.lon, formattedAddress: loc.name }
+  }
+
   return (
-    <LocationsContext.Provider value={{ origins, destinations, byId, isLoading, refresh, resolveLocation, getLocationName }}>
+    <LocationsContext.Provider value={{ origins, destinations, byId, isLoading, refresh, resolveLocation, getLocationName, getLocationCoords }}>
       {children}
     </LocationsContext.Provider>
   )

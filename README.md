@@ -311,6 +311,17 @@ Requires, in addition to the usual `scripts/serviceAccountKey.json` (`mhspride-t
 - `.env.local`'s `PROD_FIREBASE_SERVICE_ACCOUNT_KEY` — a `mhspride` service account key, used read-only
 - `.env.local`'s `PROD_PASSWORD_HASH_KEY` / `PROD_PASSWORD_HASH_SALT_SEPARATOR` / `PROD_PASSWORD_HASH_ROUNDS` / `PROD_PASSWORD_HASH_MEM_COST` — from Firebase Console → `mhspride` → Authentication → Users → ⋮ → "Password hash parameters", needed so Firebase can verify the migrated password on future logins
 
+### Syncing locations, drive times, and support config into test
+
+`locations`/`driveTimes` (admin-UI-managed reference data behind the ride-offer dropdowns, see `lib/drive-times.js`) and `config/site` (the support-form recipient address) aren't part of any regular test-data seed — they only ever existed in `mhspride` from the original one-time migration in issue #66, and never got backported when `mhspride-test` was split off (issue #191). `scripts/syncLocationsToTest.mjs` mirrors these from `mhspride` into `mhspride-test`, overwriting test's copy every time so it can be re-run whenever prod's locations change:
+
+```bash
+node scripts/syncLocationsToTest.mjs
+node scripts/syncLocationsToTest.mjs --dry-run
+```
+
+Requires the same `PROD_FIREBASE_SERVICE_ACCOUNT_KEY` as `migrateAuthUsers.mjs` above, plus the usual `scripts/serviceAccountKey.json` (`mhspride-test`).
+
 ---
 
 ## Roster sync

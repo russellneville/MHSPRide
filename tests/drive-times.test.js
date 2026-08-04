@@ -44,3 +44,21 @@ describe("drive time estimates", () => {
     expect(await estimateArrival("06:00", "powell-butte", "unknown")).toBeNull();
   });
 });
+
+describe("addMinutesToTime", () => {
+  it("adds minutes within the same day", async () => {
+    const { addMinutesToTime } = await import("@/lib/drive-times");
+    expect(addMinutesToTime("06:00", 69)).toBe("07:09");
+  });
+
+  it("wraps past midnight", async () => {
+    const { addMinutesToTime } = await import("@/lib/drive-times");
+    expect(addMinutesToTime("23:30", 44)).toBe("00:14");
+  });
+
+  it("returns null when time or minutes is missing", async () => {
+    const { addMinutesToTime } = await import("@/lib/drive-times");
+    expect(addMinutesToTime("", 44)).toBeNull();
+    expect(addMinutesToTime("06:00", null)).toBeNull();
+  });
+});

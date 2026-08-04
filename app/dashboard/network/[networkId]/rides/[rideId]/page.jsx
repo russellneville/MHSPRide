@@ -42,6 +42,7 @@ import { buildIcsCalendar, downloadIcsFile, googleCalendarUrl } from "@/lib/ics"
 import { Skeleton } from "@/components/ui/skeleton";
 import EditRidePopup from "@/components/popup-forms/EditRidePopup";
 import CancelReasonDialog from "@/components/CancelReasonDialog";
+import RideMapPreview from "@/components/RideMapPreview";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -231,6 +232,14 @@ export default function RidePage() {
                 </CardHeader>
 
                 <CardContent className="space-y-3 text-sm text-muted-foreground">
+                  <RideMapPreview
+                    origin={{ lat: rideData.departure_lat, lng: rideData.departure_lng }}
+                    destination={{ lat: rideData.arrival_lat, lng: rideData.arrival_lng }}
+                    isDriver={isRideDriver}
+                    width={640}
+                    height={280}
+                    className="w-full max-w-md"
+                  />
                   <p>
                     <MapPin className="inline size-4 mr-1" />{" "}
                     <span className="font-medium">Departure:</span>{" "}

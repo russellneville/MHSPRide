@@ -10,7 +10,7 @@ export function Popup() {
 
   return (
     <div
-      className="fixed w-full min-h-screen p-5 flex justify-center items-center top-0 inset-0 z-50 bg-black/50"
+      className="fixed w-full h-dvh p-5 flex justify-center items-center top-0 inset-0 z-50 bg-black/50"
     >
       {/* Popup */}
       <div

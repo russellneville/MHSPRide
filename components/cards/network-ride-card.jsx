@@ -8,6 +8,7 @@ import { useLocations } from "@/context/LocationsContext";
 import { useAuth } from "@/context/AuthContext";
 import { formatDate, formatTime } from "@/lib/utils";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import RideMapPreview from "@/components/RideMapPreview";
 
 export const STATUS_LABEL = {
   open:        'Open',
@@ -32,37 +33,48 @@ export default function NetworkRideCard({ ride, networkId, muted }) {
   const { resolveLocation } = useLocations()
   const { user } = useAuth()
   const isFavoritedDriver = (user?.favorite_drivers || []).some(d => d.id === ride.driver?.id)
+  const isDriver = !!user?.uid && ride.driver?.id === user.uid
 
   return (
     <Link href={`/dashboard/network/${networkId}/rides/${ride.id}`}>
       <Card className={`py-0 hover:border-primary/50 transition-colors cursor-pointer ${muted ? 'opacity-60' : ''}`}>
         <CardContent className="py-2.5 flex items-center justify-between gap-4 flex-wrap">
-          <div className="space-y-1">
-            <div className="font-semibold flex items-center gap-2">
-              <MapPin className="size-4 text-muted-foreground shrink-0" />
-              {resolveLocation(ride.departure)}
-              <MoveRight className="size-4 text-muted-foreground" />
-              {resolveLocation(ride.arrival)}
-            </div>
-            <div className="text-sm text-muted-foreground flex items-center gap-1">
-              <Clock className="size-3.5" />
-              <span className="font-bold text-foreground">{formatDate(ride.departure_date)}</span>
-              <span>at</span>
-              <span className="font-bold text-foreground">{formatTime(ride.departure_time)}</span>
-            </div>
-            {ride.driver?.fullname && (
-              <div className="text-sm text-muted-foreground flex items-center gap-1.5">
-                <UserAvatar user={ride.driver} size="sm" />
-                {isFavoritedDriver && <Star className="size-[17.5px] fill-yellow-400 text-yellow-400 shrink-0" />}
-                Driver: <span className="text-foreground font-medium">{ride.driver.fullname}</span>
-                <button
-                  className="text-xs text-primary underline underline-offset-2 hover:text-primary/70 transition-colors"
-                  onClick={e => { e.preventDefault(); openPopup(`${ride.driver.fullname}'s car`, <DriverDetailsPopup driver={ride.driver} />) }}
-                >
-                  car details
-                </button>
+          <div className="flex items-center gap-3 min-w-0">
+            <RideMapPreview
+              origin={{ lat: ride.departure_lat, lng: ride.departure_lng }}
+              destination={{ lat: ride.arrival_lat, lng: ride.arrival_lng }}
+              isDriver={isDriver}
+              width={160}
+              height={112}
+              className="w-20 h-14"
+            />
+            <div className="space-y-1">
+              <div className="font-semibold flex items-center gap-2">
+                <MapPin className="size-4 text-muted-foreground shrink-0" />
+                {resolveLocation(ride.departure)}
+                <MoveRight className="size-4 text-muted-foreground" />
+                {resolveLocation(ride.arrival)}
               </div>
-            )}
+              <div className="text-sm text-muted-foreground flex items-center gap-1">
+                <Clock className="size-3.5" />
+                <span className="font-bold text-foreground">{formatDate(ride.departure_date)}</span>
+                <span>at</span>
+                <span className="font-bold text-foreground">{formatTime(ride.departure_time)}</span>
+              </div>
+              {ride.driver?.fullname && (
+                <div className="text-sm text-muted-foreground flex items-center gap-1.5">
+                  <UserAvatar user={ride.driver} size="sm" />
+                  {isFavoritedDriver && <Star className="size-[17.5px] fill-yellow-400 text-yellow-400 shrink-0" />}
+                  Driver: <span className="text-foreground font-medium">{ride.driver.fullname}</span>
+                  <button
+                    className="text-xs text-primary underline underline-offset-2 hover:text-primary/70 transition-colors"
+                    onClick={e => { e.preventDefault(); openPopup(`${ride.driver.fullname}'s car`, <DriverDetailsPopup driver={ride.driver} />) }}
+                  >
+                    car details
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {(ride._status === 'open' || ride._status === 'full') && (

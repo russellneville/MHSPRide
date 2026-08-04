@@ -75,6 +75,10 @@ Output format:
 }
 ```
 
+### `syncLocationsToTest.mjs`
+
+Mirrors the `locations`/`driveTimes` collections and `config/site` from production (`mhspride`) into the test project (`mhspride-test`) — see [Test / UAT environment](../README.md#test--uat-environment) in the root README for prerequisites and usage.
+
 ### `syncMembers.mjs`
 
 Applies a diff report to Firestore. Added members are created, changed members are updated (preserving `claimed` and `claimedBy`), and removed members are marked `active: false` (never deleted).

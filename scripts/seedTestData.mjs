@@ -292,9 +292,9 @@ const UNREGISTERED_MEMBERS = [
 // Departure and arrival pool — must match ids seeded into the Firestore
 // `locations` collection (see scripts/migrateLocationsToFirestore.mjs)
 const HP_DEPARTURES = ['powell-butte', 'sandy-fred-meyer', 'troutdale-fred-meyer', 'gresham-transit']
-const ARRIVALS_HP = ['timberline', 'buzz-bowman']
-const ARRIVALS_NORDIC = ['timberline', 'buzz-bowman', 'meadows']
-const MH_DEPARTURES = ['gresham-transit', 'clackamas-tc', 'troutdale-fred-meyer']
+const ARRIVALS_HP = ['timberline', 'buzz-bowman-center']
+const ARRIVALS_NORDIC = ['timberline', 'buzz-bowman-center', 'meadows']
+const MH_DEPARTURES = ['gresham-transit', 'clackamas-town-center-transit-center', 'troutdale-fred-meyer']
 
 // Rotate helpers
 function rotate(arr, i) { return arr[i % arr.length] }
@@ -682,7 +682,7 @@ async function main() {
       date,
       driverMhsp: 'TEST6',
       departure: rotate(weekendDeps, i),
-      arrival: 'buzz-bowman',
+      arrival: 'buzz-bowman-center',
       network: 'network-HILLPATROL',
       departureTime: timeStr(7, 0),
       arrivalTime: timeStr(8, 30),
@@ -813,7 +813,7 @@ async function main() {
       date,
       driverMhsp: 'TEST7',
       departure: 'sandy-fred-meyer',
-      arrival: 'buzz-bowman',
+      arrival: 'buzz-bowman-center',
       network: 'network-HILLPATROL',
       departureTime: timeStr(7, 0),
       arrivalTime: timeStr(8, 30),

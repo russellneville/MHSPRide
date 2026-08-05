@@ -8,6 +8,7 @@ import { Calendar, Clock, Mail, MapPin, MoveRight, Phone, Users } from "lucide-r
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { UserAvatar } from "@/components/ui/user-avatar"
+import RideMapPreview from "@/components/RideMapPreview"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,6 +84,15 @@ export default function AdminRideDetailsPopup({ ride, status, networkName, booki
           <MoveRight className="size-4 text-muted-foreground" />
           {resolveLocation(ride.arrival)}
         </div>
+        {/* Admin isn't navigating, just checking the location — pin-only, same as a rider. */}
+        <RideMapPreview
+          origin={{ lat: ride.departure_lat, lng: ride.departure_lng }}
+          destination={{ lat: ride.arrival_lat, lng: ride.arrival_lng }}
+          isDriver={false}
+          width={480}
+          height={220}
+          className="w-full max-w-sm"
+        />
         <div className="flex flex-wrap gap-4 text-muted-foreground">
           <span className="flex items-center gap-1">
             <Calendar className="size-3.5" />

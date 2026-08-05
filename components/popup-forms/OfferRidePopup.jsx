@@ -18,13 +18,14 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "../ui/alert-dialog"
 import { useEstimatedArrival } from "@/hooks/use-estimated-arrival"
+import { LocationPicker } from "./LocationPicker"
 import { formatDate, toLocalDateStr, TEXTAREA_MAX_LENGTH, LOCATION_NAME_MAX_LENGTH } from "@/lib/utils"
 import { hasActiveSameDayBooking, hasActiveSameDayRide } from "@/lib/rides"
 import { diffPrefilledFields, requiredStorageFor, equipmentLabel } from "@/lib/rideRequests"
 import { addDoc, collection, serverTimestamp } from "firebase/firestore"
 import { db, auth } from "@/lib/firebaseClient"
 import { getVehicles, getDefaultVehicle, vehicleShortLabel, STORAGE_OPTIONS } from "@/lib/vehicles"
-import { Info } from "lucide-react"
+import { Info, Loader2 } from "lucide-react"
 
 const NOTES_REQUIRED_MESSAGE = "Please tell the requesting rider about the ride change details."
 
@@ -126,45 +127,13 @@ function SuggestLocationPopover({ context }) {
   )
 }
 
-// Exported for reuse by RequestRidePopup.jsx, which needs the same
-// known-location-or-free-text picker without the rest of this form.
-export function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, locations, selectPlaceholder }) {
-  return (
-    <div className="space-y-2">
-      <Select
-        value={otherValue ? '' : value}
-        onValueChange={(v) => { onSelectChange(v); onOtherChange('') }}
-        disabled={!!otherValue}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder={selectPlaceholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {locations.map(loc => (
-            <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Input
-        placeholder="Other — type a location"
-        value={otherValue}
-        maxLength={LOCATION_NAME_MAX_LENGTH}
-        onChange={(e) => {
-          onOtherChange(e.target.value)
-          if (e.target.value) onSelectChange('')
-        }}
-      />
-    </div>
-  )
-}
-
 // Wrapper mounts the actual form only once locations have loaded — when
 // prefill is present, the form seeds its departure/arrival select-vs-other
 // state from the known location ids on first render only (useState
 // initializers run once), so it must not mount until that lookup is real.
 // Mirrors EditRidePopup's loading gate.
 export default function OfferRidePopup({ networkId, onSaved, prefill }) {
-  const { origins, destinations, isLoading: locationsLoading } = useLocations()
+  const { origins, destinations, isLoading: locationsLoading, getLocationCoords } = useLocations()
   if (locationsLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
   return (
     <OfferRidePopupForm
@@ -173,11 +142,12 @@ export default function OfferRidePopup({ networkId, onSaved, prefill }) {
       prefill={prefill}
       origins={origins}
       destinations={destinations}
+      getLocationCoords={getLocationCoords}
     />
   )
 }
 
-function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations }) {
+function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations, getLocationCoords }) {
   const { closePopup, popupState, setPopupState } = usePopup()
   const { isLoading, offerRide, fulfillRideRequest, getRides, getBookings } = useNetwork()
   const { user } = useAuth()
@@ -196,6 +166,25 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
   const [departureOther, setDepartureOther] = useState(initDepOther)
   const [arrivalSelect, setArrivalSelect] = useState(initArrSelect)
   const [arrivalOther, setArrivalOther] = useState(initArrOther)
+  // Coords backing departure_lat/lng + arrival_lat/lng on submit — set either
+  // from a predefined location's trusted lat/lon (see handleDepartureSelect
+  // below) or from LocationPicker's onValidated callback once free text is
+  // confirmed. null blocks submit for free text; predefined locations submit
+  // regardless (see validateForm). A free-text prefill (fulfilling a request
+  // that was already validated when submitted) trusts its stored coords
+  // rather than forcing re-confirmation — mirrors EditRidePopup.
+  const [departureCoords, setDepartureCoords] = useState(
+    initDepSelect ? getLocationCoords(initDepSelect)
+      : (initDepOther && prefill?.departure_lat != null && prefill?.departure_lng != null)
+        ? { latitude: prefill.departure_lat, longitude: prefill.departure_lng, formattedAddress: prefill.departure }
+        : null
+  )
+  const [arrivalCoords, setArrivalCoords] = useState(
+    initArrSelect ? getLocationCoords(initArrSelect)
+      : (initArrOther && prefill?.arrival_lat != null && prefill?.arrival_lng != null)
+        ? { latitude: prefill.arrival_lat, longitude: prefill.arrival_lng, formattedAddress: prefill.arrival }
+        : null
+  )
   const [date, setDate] = useState(prefill?.departure_date ? new Date(prefill.departure_date + 'T12:00:00') : undefined)
   const [oneWay, setOneWay] = useState(false)
   const [takenDates, setTakenDates] = useState([])
@@ -231,7 +220,10 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
     if (prefill) return
     if (arrivalSelect || arrivalOther) return
     const defaultDest = destinations.find(d => d.defaultForNetworkId === networkId)
-    if (defaultDest) setArrivalSelect(defaultDest.id)
+    if (defaultDest) {
+      setArrivalSelect(defaultDest.id)
+      setArrivalCoords(getLocationCoords(defaultDest.id))
+    }
   }, [networkId, destinations])
 
   // Days the user already offers or has booked a ride get disabled in the date picker
@@ -253,8 +245,14 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
 
   // Recompute arrival time whenever departure time, origin, or destination changes —
   // not just on the departure_time field's own onChange — so switching pickup/dropoff
-  // after a time is already set keeps the estimate in sync.
-  const estimatedArrival = useEstimatedArrival(rideData.departure_time, effectiveDeparture, effectiveArrival)
+  // after a time is already set keeps the estimate in sync. Predefined-to-predefined
+  // pairs use the free precomputed lookup; a free-text side falls to a live
+  // Directions estimate once its address is confirmed (departureCoords/arrivalCoords).
+  const { arrivalTime: estimatedArrival, estimating: estimatingArrival } = useEstimatedArrival(
+    rideData.departure_time,
+    { locationId: departureSelect || null, coords: departureCoords ? { lat: departureCoords.latitude, lng: departureCoords.longitude } : null },
+    { locationId: arrivalSelect || null, coords: arrivalCoords ? { lat: arrivalCoords.latitude, lng: arrivalCoords.longitude } : null }
+  )
   useEffect(() => {
     if (!estimatedArrival) return
     setRideData(prev => (prev.arrival_time === estimatedArrival ? prev : { ...prev, arrival_time: estimatedArrival }))
@@ -282,6 +280,10 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
     const newErrors = {}
     if (!effectiveDeparture) newErrors.departure = "Departure is required"
     if (!effectiveArrival) newErrors.arrival = "Arrival is required"
+    // Predefined locations are already trusted (see LocationsContext.getLocationCoords)
+    // and skip this gate entirely — only free text must be confirmed before submit.
+    if (departureOther.trim() && !departureCoords) newErrors.departure = "Please confirm this address before submitting"
+    if (arrivalOther.trim() && !arrivalCoords) newErrors.arrival = "Please confirm this address before submitting"
     if (!date) newErrors.date = "Date is required"
     if (!rideData.departure_time) newErrors.departure_time = "Departure time is required"
     if (!oneWay && !rideData.return_departure_time) newErrors.return_departure_time = "Return time is required — or mark the trip one way"
@@ -300,6 +302,10 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
     // which source it came from without these.
     custom_departure: !!departureOther.trim(),
     custom_arrival: !!arrivalOther.trim(),
+    departure_lat: departureCoords?.latitude ?? null,
+    departure_lng: departureCoords?.longitude ?? null,
+    arrival_lat: arrivalCoords?.latitude ?? null,
+    arrival_lng: arrivalCoords?.longitude ?? null,
     departure_date: dateStr,
     arrival_date: dateStr,
     departure_time: rideData.departure_time,
@@ -365,9 +371,10 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
           </div>
           <LocationPicker
             value={departureSelect}
-            onSelectChange={setDepartureSelect}
+            onSelectChange={(id) => { setDepartureSelect(id); setDepartureCoords(getLocationCoords(id)) }}
             otherValue={departureOther}
             onOtherChange={setDepartureOther}
+            onValidated={setDepartureCoords}
             locations={origins}
             selectPlaceholder="Select pickup location"
           />
@@ -381,9 +388,10 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
           </div>
           <LocationPicker
             value={arrivalSelect}
-            onSelectChange={setArrivalSelect}
+            onSelectChange={(id) => { setArrivalSelect(id); setArrivalCoords(getLocationCoords(id)) }}
             otherValue={arrivalOther}
             onOtherChange={setArrivalOther}
+            onValidated={setArrivalCoords}
             locations={destinations}
             selectPlaceholder="Select arrival location"
           />
@@ -413,6 +421,11 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
         <div className="space-y-1">
           <Label htmlFor="arrival_time">Arrival time</Label>
           <TimeInput id="arrival_time" onChange={handleChange} value={rideData.arrival_time} />
+          {estimatingArrival && (
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Loader2 className="size-3 animate-spin" /> Estimating arrival time…
+            </p>
+          )}
         </div>
       </div>
 

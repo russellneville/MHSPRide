@@ -8,7 +8,7 @@ import { useLocations } from "@/context/LocationsContext"
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
-import { LocationPicker } from "./OfferRidePopup"
+import { LocationPicker } from "./LocationPicker"
 import { toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils"
 import { EQUIPMENT_OPTIONS } from "@/lib/rideRequests"
 
@@ -18,7 +18,7 @@ import { EQUIPMENT_OPTIONS } from "@/lib/rideRequests"
 export default function EditRideRequestPopup({ request, onSaved }) {
   const { closePopup } = usePopup()
   const { updateRideRequest } = useNetwork()
-  const { origins, destinations } = useLocations()
+  const { origins, destinations, getLocationCoords } = useLocations()
   // Local, not the shared NetworksContext isLoading (that flag defaults to
   // true and only flips once some other useNetwork() call resolves — on
   // pages like this admin page that never call one on mount, it would stay
@@ -32,6 +32,8 @@ export default function EditRideRequestPopup({ request, onSaved }) {
   const [departureOther, setDepartureOther] = useState(knownDepIds.has(request.departure) ? '' : (request.departure || ''))
   const [arrivalSelect, setArrivalSelect] = useState(knownArrIds.has(request.arrival) ? request.arrival : '')
   const [arrivalOther, setArrivalOther] = useState(knownArrIds.has(request.arrival) ? '' : (request.arrival || ''))
+  const [departureCoords, setDepartureCoords] = useState(knownDepIds.has(request.departure) ? getLocationCoords(request.departure) : null)
+  const [arrivalCoords, setArrivalCoords] = useState(knownArrIds.has(request.arrival) ? getLocationCoords(request.arrival) : null)
   const [date, setDate] = useState(request.departure_date ? new Date(request.departure_date + 'T12:00:00') : undefined)
   const [departureTime, setDepartureTime] = useState(request.departure_time || '')
   const [seatsRequested, setSeatsRequested] = useState(request.seats_requested ? String(request.seats_requested) : '')
@@ -46,6 +48,8 @@ export default function EditRideRequestPopup({ request, onSaved }) {
     const newErrors = {}
     if (!effectiveDeparture) newErrors.departure = "Departure is required"
     if (!effectiveArrival) newErrors.arrival = "Arrival is required"
+    if (departureOther.trim() && !departureCoords) newErrors.departure = "Please confirm this address before submitting"
+    if (arrivalOther.trim() && !arrivalCoords) newErrors.arrival = "Please confirm this address before submitting"
     if (!date) newErrors.date = "Date is required"
     if (!departureTime) newErrors.departure_time = "Requested pickup time is required"
     if (!seatsRequested || Number(seatsRequested) < 1) newErrors.seats_requested = "Number of seats is required"
@@ -62,6 +66,10 @@ export default function EditRideRequestPopup({ request, onSaved }) {
       arrival: effectiveArrival,
       custom_departure: !!departureOther.trim(),
       custom_arrival: !!arrivalOther.trim(),
+      departure_lat: departureCoords?.latitude ?? null,
+      departure_lng: departureCoords?.longitude ?? null,
+      arrival_lat: arrivalCoords?.latitude ?? null,
+      arrival_lng: arrivalCoords?.longitude ?? null,
       departure_date: toLocalDateStr(date),
       departure_time: departureTime,
       seats_requested: Number(seatsRequested),
@@ -82,9 +90,10 @@ export default function EditRideRequestPopup({ request, onSaved }) {
           <Label>Departure</Label>
           <LocationPicker
             value={departureSelect}
-            onSelectChange={setDepartureSelect}
+            onSelectChange={(id) => { setDepartureSelect(id); setDepartureCoords(getLocationCoords(id)) }}
             otherValue={departureOther}
             onOtherChange={setDepartureOther}
+            onValidated={setDepartureCoords}
             locations={origins}
             selectPlaceholder="Select pickup location"
           />
@@ -95,9 +104,10 @@ export default function EditRideRequestPopup({ request, onSaved }) {
           <Label>Arrival</Label>
           <LocationPicker
             value={arrivalSelect}
-            onSelectChange={setArrivalSelect}
+            onSelectChange={(id) => { setArrivalSelect(id); setArrivalCoords(getLocationCoords(id)) }}
             otherValue={arrivalOther}
             onOtherChange={setArrivalOther}
+            onValidated={setArrivalCoords}
             locations={destinations}
             selectPlaceholder="Select arrival location"
           />

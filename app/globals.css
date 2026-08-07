@@ -128,15 +128,30 @@
   --secondary: #0e5533;
   --secondary-foreground: oklch(0.985 0 0);
   --ring: #126d41;
-  --sidebar: #0b3a24;
+  /* White nav with a thin gray separator, matching Troopiter's own look
+   * (as opposed to MHSP Ride's dark sidebar) — fixed regardless of the
+   * viewer's light/dark preference, same "one skin" reasoning as the rest
+   * of this block. */
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: #126d41;
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: #164d2e;
+  --sidebar-accent: oklch(0.96 0 0);
+  --sidebar-accent-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.9 0 0);
   --sidebar-ring: #126d41;
 }
 
 [data-skin="troopiter"] body {
   font-family: var(--font-inter), sans-serif;
+}
+
+/* The sidebar/body separator (components/ui/sidebar.jsx's border-r) draws
+ * from the shared --border token, not --sidebar-border — overriding it
+ * scoped to just the sidebar container avoids recoloring every bordered
+ * element (cards, inputs, tables) app-wide for this skin. */
+[data-skin="troopiter"] [data-slot="sidebar-container"] {
+  border-color: oklch(0.9 0 0);
 }
 
 @layer base {

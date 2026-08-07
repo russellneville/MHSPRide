@@ -38,13 +38,16 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Session expired — please re-upload the CSV' }, { status: 410 })
   }
 
-  const { diff } = session
+  const { diff, noStatusTracking } = session
   const summary = { renames: 0, newMembers: 0, updated: 0, deactivated: 0, accountsDisabled: 0, geocoded: 0 }
 
-  // Geocode only when the member is Active and has an address.
-  // Inactive/past members are stored with null coords — they can't register anyway.
+  // Geocode when the member is Active and has an address — or, for orgs with
+  // no Status concept at all (noStatusTracking, set at upload time), whenever
+  // there's an address, since there's no Active/Alumni/etc distinction to
+  // gate on. Inactive/past MHSP members are still stored with null coords —
+  // they can't register anyway.
   async function resolveCoords(address, status, existingLatitude, existingLongitude) {
-    if (address && status === 'Active') {
+    if (address && (status === 'Active' || noStatusTracking)) {
       try {
         const coords = await geocodeAddress(address)
         summary.geocoded++

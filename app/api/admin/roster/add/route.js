@@ -32,7 +32,11 @@ export async function POST(request) {
   const trimmedAddress = String(address || '').trim()
   let latitude = null
   let longitude = null
-  if (trimmedAddress && status === 'Active') {
+  // Blank status isn't a meaningful "inactive" signal here (unlike a bulk CSV
+  // import, there's no per-row Status column to have deliberately left
+  // blank) — only skip geocoding when a status was actively chosen and it
+  // isn't Active.
+  if (trimmedAddress && (!status || status === 'Active')) {
     try {
       const coords = await geocodeAddress(trimmedAddress)
       latitude = coords.latitude

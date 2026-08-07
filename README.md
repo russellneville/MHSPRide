@@ -81,6 +81,8 @@ cd MHSPRide
 npm install
 ```
 
+`.npmrc` sets `ignore-scripts=true` repo-wide, blocking `preinstall`/`postinstall` scripts from any package (a common npm supply-chain worm vector). No current dependency needs an install script; if a future one legitimately does, run it manually rather than removing this setting. Dependabot opens weekly PRs for dependency updates against `main` — it does not auto-merge, so each bump still needs review.
+
 ### 2. Configure environment variables
 
 Create a `.env.local` file in the project root:

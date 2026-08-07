@@ -10,6 +10,10 @@
  * pipeline without depending on Troopiter's team, and doubles as the
  * reference payload to hand them once real integration starts.
  *
+ * Signing itself lives in lib/troopiterTestSigning.js, shared with
+ * app/api/troopiter-demo/mint/route.js (the mock shift page's "Get a Ride"
+ * button) so the two entry points can't drift on payload/signing shape.
+ *
  * Prerequisites:
  *   - .env.local: TROOPITER_TEST_PRIVATE_KEY (scripts/generateTroopiterTestKeypair.mjs)
  *
@@ -18,11 +22,10 @@
  *   node scripts/mintTestLaunchToken.mjs someone@example.com "Someone Person"
  */
 
-import { SignJWT, importPKCS8 } from 'jose'
-import { randomUUID } from 'crypto'
 import { config } from 'dotenv'
 import { resolve } from 'path'
 import { fileURLToPath } from 'url'
+import { signTestLaunchToken, readPemEnv } from '../lib/troopiterTestSigning.js'
 
 const __dirname = fileURLToPath(new URL('.', import.meta.url))
 config({ path: resolve(__dirname, '../.env.local') })
@@ -37,23 +40,7 @@ if (!process.env.TROOPITER_TEST_PRIVATE_KEY) {
   process.exit(1)
 }
 
-// dotenv unescapes \n and strips the surrounding quotes from a
-// double-quoted .env value, so locally this is already raw PEM by the time
-// we see it — but the same JSON.stringify()'d value stored verbatim as a
-// Vercel env var (app/api/launch/route.js's deployed counterpart) is not
-// dotenv-processed, so it arrives still JSON-encoded. Handle both.
-function readPemEnv(name) {
-  const raw = process.env[name]
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return raw
-  }
-}
-
 async function main() {
-  const privateKey = await importPKCS8(readPemEnv('TROOPITER_TEST_PRIVATE_KEY'), 'RS256')
-
   // A shift starting tomorrow at 8am, matching the seeded Armadillo locations
   // (scripts/seedTroopiterLocations.mjs) — chevron-govt-camp is a real
   // origin stop, "Armadillo" is the renamed Timberline-equivalent destination.
@@ -63,18 +50,13 @@ async function main() {
     org: { id: 'armadillo-mountain', name: 'Armadillo Mountain Ski Patrol' },
     user: { name: fullname, email },
     shift: { date: shiftDate, time: '08:00', location: 'Armadillo' },
-    // Shift companions (proposal's "Shift companions" section) — left empty
-    // in this rehearsal since the roster hasn't been uploaded yet; the
-    // launch/auth pipeline this script exercises doesn't depend on it.
+    // Shift companions (proposal's "Shift companions" section) — empty by
+    // default here; use the Troopiter Shift Demo page (admin nav) to build
+    // a token with a populated roster instead.
     roster: [],
   }
 
-  const jwt = await new SignJWT(payload)
-    .setProtectedHeader({ alg: 'RS256' })
-    .setIssuedAt()
-    .setExpirationTime('2m')
-    .setJti(randomUUID())
-    .sign(privateKey)
+  const jwt = await signTestLaunchToken(readPemEnv(process.env.TROOPITER_TEST_PRIVATE_KEY), payload)
 
   const url = `https://${LAUNCH_HOST}/launch#token=${jwt}`
   console.log(`\nLaunch payload:\n${JSON.stringify(payload, null, 2)}\n`)

@@ -237,11 +237,12 @@ service cloud.firestore {
     }
 
     // Troopiter org config (issue #199): logoUrl/displayName per patrol.
-    // Publicly readable (the root layout needs it for signed-out visitors
-    // hitting the Troopiter-skinned domain before they've logged in);
-    // writes only happen via Admin SDK scripts for this rehearsal prototype.
+    // app/layout.jsx reads this server-side via the Admin SDK (bypasses these
+    // rules entirely) so it works for signed-out visitors too — the only
+    // client-side reader is the admin Organizations page, hence admin-only
+    // here. Writes go through /api/admin/organizations/* (Admin SDK).
     match /organizations/{orgId} {
-      allow read: if true;
+      allow read: if isAdmin();
       allow write: if false;
     }
   }

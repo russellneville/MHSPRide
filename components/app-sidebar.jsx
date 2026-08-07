@@ -4,7 +4,9 @@ import { useEffect, useState } from "react"
 import {
   Activity,
   BarChart2,
+  Building2,
   Car,
+  ExternalLink,
   FileText,
   HelpCircle,
   Home,
@@ -51,10 +53,16 @@ const ADMIN_MENU = [
   { name: "Rides",          icon: Car,           href: "/dashboard/admin/rides" },
   { name: "Roster Import",  icon: Upload,        href: "/dashboard/admin/roster-import", superAdminOnly: true },
   { name: "Locations",      icon: MapPin,        href: "/dashboard/admin/locations", superAdminOnly: true },
+  { name: "Organizations",  icon: Building2,     href: "/dashboard/admin/organizations", superAdminOnly: true },
   { name: "Activity Log",   icon: Activity,      href: "/dashboard/admin/activity-log" },
   { name: "Feedback",       icon: MessageSquare, href: "/dashboard/admin/feedback" },
   { name: "Reports",        icon: BarChart2,     href: "/dashboard/admin/reports" },
   { name: "Settings",       icon: Settings,      href: "/dashboard/admin/settings", superAdminOnly: true },
+  // Not an MHSP Ride admin feature — a standalone, unauthenticated page
+  // (app/troopiter-shift-demo) that mimics Troopiter's own shift UI, for
+  // rehearsing the launch handoff. Opens in a new tab since it's meant to
+  // feel like leaving MHSP Ride the way a real Troopiter link would.
+  { name: "Troopiter Shift Demo", icon: ExternalLink, href: "/troopiter-shift-demo", superAdminOnly: true, external: true },
 ]
 
 export function AppSidebar({ user, ...props }) {
@@ -143,7 +151,11 @@ export function AppSidebar({ user, ...props }) {
               <SidebarMenu>
                 {visibleAdminMenu.map(item => (
                   <SidebarMenuItem key={item.name}>
-                    <SidebarMenuButton href={item.href} tooltip={item.name}>
+                    <SidebarMenuButton
+                      href={item.href}
+                      tooltip={item.name}
+                      {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                    >
                       <item.icon />
                       <span>
                         {item.name}

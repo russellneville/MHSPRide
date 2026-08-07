@@ -1,5 +1,6 @@
 'use client'
 import { useNetwork } from "@/context/NetworksContext"
+import { useSkin } from "@/context/SkinContext"
 import DashboardLayout from "./dashboardLayout"
 import { useAuth } from "@/context/AuthContext"
 import { usePopup } from "@/context/PopupContext"
@@ -91,6 +92,8 @@ export default function Dashboard() {
   const { resolveLocation } = useLocations()
   const router = useRouter()
   const { user } = useAuth()
+  const { org } = useSkin()
+  const orgName = org?.displayName || 'Mount Hood Ski Patrol'
   const { openPopup, isOpen } = usePopup()
   const [rideRequests, setRideRequests] = useState([])
   const [cancelingRequestId, setCancelingRequestId] = useState(null)
@@ -367,7 +370,7 @@ export default function Dashboard() {
         <UserAvatar user={user} size="lg" />
         <div>
           <p className="text-white text-2xl font-bold leading-tight">{user?.fullname}</p>
-          <p className="text-white/70 text-sm">Mount Hood Ski Patrol</p>
+          <p className="text-white/70 text-sm">{orgName}</p>
         </div>
       </div>
     </div>

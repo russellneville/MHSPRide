@@ -12,6 +12,7 @@ export default function EditOrganizationPopup({ org, onSaved }) {
   const { closePopup } = usePopup()
   const [displayName, setDisplayName] = useState(org.displayName || "")
   const [logoUrl, setLogoUrl] = useState(org.logoUrl || "")
+  const [productName, setProductName] = useState(org.productName || "")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
 
@@ -26,7 +27,7 @@ export default function EditOrganizationPopup({ org, onSaved }) {
       const res = await fetch("/api/admin/organizations/update", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ id: org.id, displayName: displayName.trim(), logoUrl: logoUrl.trim() }),
+        body: JSON.stringify({ id: org.id, displayName: displayName.trim(), logoUrl: logoUrl.trim(), productName: productName.trim() }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || "Could not update organization")
@@ -73,6 +74,12 @@ export default function EditOrganizationPopup({ org, onSaved }) {
             <span className="text-xs text-muted-foreground">Preview</span>
           </div>
         )}
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="org-product-name">App name</Label>
+        <Input id="org-product-name" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Troopiter Ride" />
+        <p className="text-xs text-muted-foreground">What this org's members see as the app's name. Leave blank to use "Troopiter Ride".</p>
       </div>
 
       {error && <p className="text-red-500 text-sm">{error}</p>}

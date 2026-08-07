@@ -16,11 +16,12 @@ export async function POST(request) {
   const auth = await verifySuperAdminRequest(request)
   if (auth.error) return auth.error
 
-  const { id, displayName, logoUrl } = await request.json()
+  const { id, displayName, logoUrl, productName } = await request.json()
 
   const trimmedId = String(id || '').trim()
   const trimmedName = String(displayName || '').trim()
   const trimmedLogoUrl = String(logoUrl || '').trim()
+  const trimmedProductName = String(productName || '').trim()
 
   if (!trimmedId) {
     return NextResponse.json({ error: 'id is required' }, { status: 400 })
@@ -31,6 +32,9 @@ export async function POST(request) {
   if (trimmedLogoUrl && !isValidUrl(trimmedLogoUrl)) {
     return NextResponse.json({ error: 'Logo URL must be a valid http(s) URL' }, { status: 400 })
   }
+  if (trimmedProductName.length > NAME_MAX_LENGTH) {
+    return NextResponse.json({ error: 'Product name is too long' }, { status: 400 })
+  }
 
   const db = getAdminDb()
   const ref = db.collection('organizations').doc(trimmedId)
@@ -39,7 +43,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Organization not found' }, { status: 404 })
   }
 
-  await ref.update({ displayName: trimmedName, logoUrl: trimmedLogoUrl })
+  await ref.update({ displayName: trimmedName, logoUrl: trimmedLogoUrl, productName: trimmedProductName })
 
   await db.collection('activity_log').add({
     type: 'organization.updated',

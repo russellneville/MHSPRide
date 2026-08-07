@@ -18,7 +18,7 @@ function QA({ q, children }) {
 
 export default function FaqPage() {
   const { skin, org } = useSkin()
-  const name = productName(skin)
+  const name = productName(skin, org)
   const orgName = org?.displayName || 'Mount Hood Ski Patrol'
   const isTroopiter = skin === 'troopiter'
 

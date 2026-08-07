@@ -18,6 +18,7 @@ export default function AddOrganizationPopup({ onSaved }) {
   const [id, setId] = useState("")
   const [idTouched, setIdTouched] = useState(false)
   const [logoUrl, setLogoUrl] = useState("")
+  const [productName, setProductName] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
 
@@ -38,7 +39,7 @@ export default function AddOrganizationPopup({ onSaved }) {
       const res = await fetch("/api/admin/organizations/create", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ id: id.trim(), displayName: displayName.trim(), logoUrl: logoUrl.trim() }),
+        body: JSON.stringify({ id: id.trim(), displayName: displayName.trim(), logoUrl: logoUrl.trim(), productName: productName.trim() }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data.error || "Could not create organization")
@@ -85,6 +86,12 @@ export default function AddOrganizationPopup({ onSaved }) {
       <div className="space-y-2">
         <Label htmlFor="org-logo">Logo URL (optional)</Label>
         <Input id="org-logo" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} placeholder="https://…" />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="org-product-name">App name (optional)</Label>
+        <Input id="org-product-name" value={productName} onChange={(e) => setProductName(e.target.value)} placeholder="Troopiter Ride" />
+        <p className="text-xs text-muted-foreground">What this org's members see as the app's name. Leave blank to use "Troopiter Ride".</p>
       </div>
 
       {error && <p className="text-red-500 text-sm">{error}</p>}

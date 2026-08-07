@@ -22,7 +22,7 @@ export default function OnboardingPage() {
   const { saveFavorites } = useNetwork()
   const { skin, org } = useSkin()
 
-  const name = productName(skin)
+  const name = productName(skin, org)
   const orgName = org?.displayName || 'Mount Hood Ski Patrol'
 
   // "Networks" (Hill Patrol, Nordic, etc.) are an MHSP-specific concept —

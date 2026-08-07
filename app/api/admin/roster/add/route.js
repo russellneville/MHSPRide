@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { verifyAdminRequest } from '@/lib/adminAuth'
 import { getAdminDb } from '@/lib/firebaseAdmin'
 import { geocodeAddress } from '@/lib/geocodeAddress'
+import { normalizeEmail } from '@/lib/rosterDiff'
 
 export async function POST(request) {
   const auth = await verifyAdminRequest(request)
@@ -9,19 +10,23 @@ export async function POST(request) {
 
   const { mhspNumber, lastName, firstName, email, status, classification, address } = await request.json()
 
-  const id = String(mhspNumber || '').trim()
+  // Not every org has MHSP-style patrol ID numbers (Armadillo Mountain, the
+  // Troopiter integration's rehearsal org, has none) — fall back to the
+  // normalized email as the member doc ID when no MHSP # is given.
+  const trimmedMhspNumber = String(mhspNumber || '').trim()
   const trimmedLastName = String(lastName || '').trim()
   const trimmedEmail = String(email || '').trim()
+  const id = trimmedMhspNumber || normalizeEmail(trimmedEmail)
 
   if (!id || !trimmedLastName || !trimmedEmail) {
-    return NextResponse.json({ error: 'MHSP #, Last Name, and Troopiter Email are required' }, { status: 400 })
+    return NextResponse.json({ error: 'Last Name, Troopiter Email, and either an MHSP # or the email are required' }, { status: 400 })
   }
 
   const db = getAdminDb()
   const memberRef = db.collection('members').doc(id)
   const existing = await memberRef.get()
   if (existing.exists) {
-    return NextResponse.json({ error: `MHSP #${id} already exists in the roster` }, { status: 409 })
+    return NextResponse.json({ error: `${trimmedMhspNumber ? `MHSP #${id}` : trimmedEmail} already exists in the roster` }, { status: 409 })
   }
 
   const trimmedAddress = String(address || '').trim()
@@ -38,7 +43,7 @@ export async function POST(request) {
   }
 
   await memberRef.set({
-    mhspNumber: id,
+    mhspNumber: trimmedMhspNumber,
     firstName: String(firstName || '').trim(),
     lastName: trimmedLastName,
     email: trimmedEmail,
@@ -54,11 +59,11 @@ export async function POST(request) {
 
   await db.collection('activity_log').add({
     type: 'member.added_manually',
-    message: `Roster record added manually: ${firstName || ''} ${trimmedLastName} #${id}`.trim(),
+    message: `Roster record added manually: ${firstName || ''} ${trimmedLastName} ${trimmedMhspNumber ? `#${trimmedMhspNumber}` : `<${trimmedEmail}>`}`.trim(),
     userId: auth.uid,
     userName: 'Admin',
     userMhspHex: null,
-    metadata: { mhspNumber: id },
+    metadata: { mhspNumber: trimmedMhspNumber, memberId: id },
     timestamp: new Date(),
   })
 

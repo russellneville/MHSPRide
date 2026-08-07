@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeDiff } from "@/lib/rosterDiff";
+import { computeDiff, parseCsvRows } from "@/lib/rosterDiff";
 
 function member(overrides) {
   return {
@@ -20,7 +20,7 @@ function member(overrides) {
 }
 
 function csvRow(overrides) {
-  return {
+  const row = {
     mhspNumber: "1000",
     firstName: "Jane",
     lastName: "Doe",
@@ -30,6 +30,9 @@ function csvRow(overrides) {
     address: "123 Main St",
     ...overrides,
   };
+  // Mirrors parseCsvRows(): id is the MHSP# when present, otherwise the
+  // normalized email (for orgs with no patrol ID numbers at all).
+  return { id: row.mhspNumber || row.email.trim().toLowerCase(), ...row };
 }
 
 describe("computeDiff", () => {
@@ -150,5 +153,52 @@ describe("computeDiff", () => {
     expect(diff.newMembers).toHaveLength(1);
     expect(diff.newMembers[0].id).toBe("9000");
     expect(diff.updated).toEqual([]);
+  });
+
+  // Orgs with no MHSP-style patrol ID numbers at all (e.g. Armadillo Mountain,
+  // the Troopiter-integration rehearsal org) key member docs by normalized
+  // email instead — same diffing logic, just a different id source.
+  it("keys a member with no MHSP# by normalized email", () => {
+    const diff = computeDiff(
+      [csvRow({ mhspNumber: "", email: "New.Member@Example.com" })],
+      []
+    );
+    expect(diff.newMembers).toHaveLength(1);
+    expect(diff.newMembers[0].id).toBe("new.member@example.com");
+  });
+
+  it("treats an unchanged email-only member as neither new, updated, nor removed", () => {
+    const diff = computeDiff(
+      [csvRow({ mhspNumber: "", email: "jane@example.com" })],
+      [member({ id: "jane@example.com" })]
+    );
+    expect(diff.newMembers).toEqual([]);
+    expect(diff.updated).toEqual([]);
+    expect(diff.deactivated).toEqual([]);
+  });
+});
+
+describe("parseCsvRows", () => {
+  it("falls back to normalized email as id when MHSP Number is blank", () => {
+    const rows = parseCsvRows([
+      { "MHSP Number": "", "First Name": "Jane", "Last Name": "Doe", "Email": "Jane@Example.com", "Status": "Active", "Classifications": "", "Addresses": "" },
+    ]);
+    expect(rows).toHaveLength(1);
+    expect(rows[0].id).toBe("jane@example.com");
+    expect(rows[0].mhspNumber).toBe("");
+  });
+
+  it("skips rows with neither an MHSP Number nor an Email", () => {
+    const rows = parseCsvRows([
+      { "MHSP Number": "", "First Name": "No", "Last Name": "Signal", "Email": "", "Status": "Active", "Classifications": "", "Addresses": "" },
+    ]);
+    expect(rows).toEqual([]);
+  });
+
+  it("keeps using MHSP Number as id when present", () => {
+    const rows = parseCsvRows([
+      { "MHSP Number": "1234", "First Name": "Jane", "Last Name": "Doe", "Email": "jane@example.com", "Status": "Active", "Classifications": "", "Addresses": "" },
+    ]);
+    expect(rows[0].id).toBe("1234");
   });
 });

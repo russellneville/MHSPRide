@@ -71,7 +71,7 @@ export async function POST(request, { params }) {
       : { latitude: oldData.latitude ?? null, longitude: oldData.longitude ?? null }
 
     const newDoc = {
-      mhspNumber:      newId,
+      mhspNumber:      newData.mhspNumber || '',
       firstName:       newData.firstName,
       lastName:        newData.lastName,
       email:           newData.email,
@@ -143,7 +143,7 @@ export async function POST(request, { params }) {
     const batch = db.batch()
     for (const { id, data, coords } of chunk) {
       batch.set(db.collection('members').doc(id), {
-        mhspNumber:      id,
+        mhspNumber:      data.mhspNumber || '',
         firstName:       data.firstName,
         lastName:        data.lastName,
         email:           data.email,

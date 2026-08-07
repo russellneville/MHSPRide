@@ -136,7 +136,7 @@ function RosterDetailContent() {
         <>
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-xl font-semibold">{member?.lastName}, {member?.firstName}</h2>
-            <Badge variant="outline" className="font-mono">MHSP #{member?.mhspNumber}</Badge>
+            <Badge variant="outline" className="font-mono">{member?.mhspNumber ? `MHSP #${member.mhspNumber}` : member?.email}</Badge>
             {member?.claimed && <Badge variant="default">Registered</Badge>}
           </div>
 

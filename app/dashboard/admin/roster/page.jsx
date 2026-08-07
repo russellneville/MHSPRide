@@ -200,7 +200,7 @@ export default function RosterPage() {
                             <TableCell className="font-medium whitespace-nowrap">
                               {m.lastName}, {m.firstName}
                             </TableCell>
-                            <TableCell className="font-mono text-sm">{m.mhspNumber}</TableCell>
+                            <TableCell className="font-mono text-sm">{m.mhspNumber || '—'}</TableCell>
                             <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                               {m.email || '—'}
                             </TableCell>

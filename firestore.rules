@@ -41,7 +41,7 @@ service cloud.firestore {
         && request.auth.uid == userId
         && !isSuspended()
         && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['role', 'mhspNumber', 'created_at', 'suspended', 'email'])
+            .hasAny(['role', 'mhspNumber', 'memberId', 'created_at', 'suspended', 'email'])
         // Length caps only apply when the field is actually being changed, so
         // documents written before these caps existed aren't retroactively
         // locked out of unrelated writes (e.g. toggling a favorite network).

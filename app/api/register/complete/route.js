@@ -60,7 +60,12 @@ export async function POST(request) {
       return NextResponse.json({ ok: false, expired: true, error: 'Verification session expired. Please start over.' }, { status: 400 })
     }
 
-    const memberRef = db.collection('members').doc(verification.mhspNumber)
+    // verification.memberId is the members/{id} doc key resolved at the
+    // verify-membership step — an MHSP # when the org has one, otherwise the
+    // normalized email (see lib/rosterDiff.js). Older verification docs
+    // (pre-dating this field) fall back to mhspNumber, which was always the
+    // key before email-only orgs existed.
+    const memberRef = db.collection('members').doc(verification.memberId || verification.mhspNumber)
     const memberSnap = await memberRef.get()
 
     if (!memberSnap.exists || memberSnap.data().claimed) {
@@ -109,7 +114,8 @@ export async function POST(request) {
       address: trimmedAddress,
       bio: '',
       role: 'member',
-      mhspNumber: verification.mhspNumber,
+      mhspNumber: verification.mhspNumber || '',
+      memberId: memberRef.id,
       classifications: memberData.classifications || [],
       latitude,
       longitude,

@@ -197,7 +197,7 @@ function ReviewStep({ preview, onConfirm, onCancel, loading }) {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>MHSP #</TableHead>
+                <TableHead>MHSP # / Email</TableHead>
                 <TableHead>Classifications</TableHead>
               </TableRow>
             </TableHeader>
@@ -221,7 +221,7 @@ function ReviewStep({ preview, onConfirm, onCancel, loading }) {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>MHSP #</TableHead>
+                <TableHead>MHSP # / Email</TableHead>
                 <TableHead>Changed fields</TableHead>
               </TableRow>
             </TableHeader>
@@ -259,7 +259,7 @@ function ReviewStep({ preview, onConfirm, onCancel, loading }) {
               <TableRow>
                 <TableHead className="w-8"></TableHead>
                 <TableHead>Name</TableHead>
-                <TableHead>MHSP #</TableHead>
+                <TableHead>MHSP # / Email</TableHead>
                 <TableHead>Has account?</TableHead>
               </TableRow>
             </TableHeader>

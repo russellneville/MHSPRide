@@ -28,7 +28,7 @@ export async function POST(request) {
 
   const csvRows = parseCsvRows(rawRows)
   if (csvRows.length === 0) {
-    return NextResponse.json({ error: 'No valid MHSP Number rows found in CSV' }, { status: 400 })
+    return NextResponse.json({ error: 'No valid rows found in CSV — each row needs an MHSP Number or an Email' }, { status: 400 })
   }
 
   // Fetch every member, including inactive ones — computeDiff searches inactive docs

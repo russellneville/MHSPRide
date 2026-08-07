@@ -37,7 +37,11 @@ export default function AddRosterRecordPopup({ onSaved }) {
 
   const validateForm = () => {
     const newErrors = {}
-    if (!record.mhspNumber.trim()) newErrors.mhspNumber = "MHSP # is required"
+    // Not every org has MHSP-style patrol ID numbers — email alone is enough
+    // to key the record when there's no MHSP #.
+    if (!record.mhspNumber.trim() && !record.email.trim()) {
+      newErrors.mhspNumber = "MHSP # or email is required"
+    }
     if (!record.lastName.trim()) newErrors.lastName = "Last name is required"
     if (!record.email.trim()) newErrors.email = "Troopiter email is required"
     setValidationErrors(newErrors)
@@ -70,7 +74,7 @@ export default function AddRosterRecordPopup({ onSaved }) {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
-          <Label htmlFor="mhspNumber">MHSP #</Label>
+          <Label htmlFor="mhspNumber">MHSP # (optional)</Label>
           <Input id="mhspNumber" value={record.mhspNumber} onChange={handleChange} />
           {validationError.mhspNumber && <p className="text-red-500 text-sm">{validationError.mhspNumber}</p>}
         </div>

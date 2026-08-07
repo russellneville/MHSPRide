@@ -12,13 +12,16 @@ export async function POST(request) {
   if (authResult.error) return authResult.error
 
   try {
-    const { uid, mhspNumber } = await request.json()
-    if (!uid || !mhspNumber) {
-      return NextResponse.json({ error: 'uid and mhspNumber are required' }, { status: 400 })
+    const { uid, mhspNumber, memberId: memberIdInput } = await request.json()
+    // memberId is the members/{id} doc key (MHSP # or, for orgs without one,
+    // the normalized email — see lib/rosterDiff.js). Users registered before
+    // this field existed only have mhspNumber, so fall back to that.
+    const memberId = String(memberIdInput || mhspNumber || '').trim()
+    if (!uid || !memberId) {
+      return NextResponse.json({ error: 'uid and memberId (or mhspNumber) are required' }, { status: 400 })
     }
 
     const db = getAdminDb()
-    const memberId = String(mhspNumber).trim()
     const memberRef = db.collection('members').doc(memberId)
     const memberSnap = await memberRef.get()
     if (!memberSnap.exists) {

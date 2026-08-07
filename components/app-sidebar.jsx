@@ -25,6 +25,7 @@ import { NavMain } from "./nav-main"
 import { NavUser } from "@/components/nav-user"
 import { db } from "@/lib/firebaseClient"
 import { collection, onSnapshot } from "firebase/firestore"
+import { useSkin } from "@/context/SkinContext"
 import {
   Sidebar,
   SidebarContent,
@@ -57,6 +58,7 @@ const ADMIN_MENU = [
 ]
 
 export function AppSidebar({ user, ...props }) {
+  const { skin, org } = useSkin()
   const menu = [
     { name: "Home", icon: Home, href: "/dashboard" },
     { name: "Profile", icon: User, href: "/dashboard/profile" },
@@ -80,27 +82,53 @@ export function AppSidebar({ user, ...props }) {
     <Sidebar collapsible="icon" {...props}>
       {/* Header */}
       <SidebarHeader className="p-0">
-        {/* Expanded: full-width transparent logo */}
-        <div className="group-data-[collapsible=icon]:hidden w-full px-3 py-3">
-          <div className="rounded-xl overflow-hidden bg-white">
-          <Image
-            src="/assets/mhspride_alt_logo.png"
-            alt="MHSP Ride"
-            width={423}
-            height={286}
-            className="w-full h-auto"
-          />
-          </div>
-        </div>
-        {/* Collapsed: small shield icon centered */}
-        <div className="group-data-[collapsible=icon]:flex hidden justify-center py-3">
-          <Image
-            src="/assets/mhsp_main_logo.png"
-            alt="MHSP Ride"
-            height={28}
-            width={28}
-          />
-        </div>
+        {skin === 'troopiter' ? (
+          <>
+            {/* Expanded: org logo (falls back to a text wordmark if the org hasn't uploaded one) + org name */}
+            <div className="group-data-[collapsible=icon]:hidden w-full px-3 py-3 flex items-center gap-2">
+              {org?.logoUrl ? (
+                <img src={org.logoUrl} alt={org?.displayName || 'Troopiter'} className="h-8 w-8 rounded object-contain bg-white" />
+              ) : (
+                <span className="font-[family-name:var(--font-inter)] font-bold text-lg text-[#126D41]">Troopiter</span>
+              )}
+              {org?.displayName && (
+                <span className="text-sm text-sidebar-foreground/80 truncate">{org.displayName}</span>
+              )}
+            </div>
+            {/* Collapsed: just the org logo or initial */}
+            <div className="group-data-[collapsible=icon]:flex hidden justify-center py-3">
+              {org?.logoUrl ? (
+                <img src={org.logoUrl} alt={org?.displayName || 'Troopiter'} className="h-7 w-7 rounded object-contain bg-white" />
+              ) : (
+                <span className="font-[family-name:var(--font-inter)] font-bold text-[#126D41]">T</span>
+              )}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Expanded: full-width transparent logo */}
+            <div className="group-data-[collapsible=icon]:hidden w-full px-3 py-3">
+              <div className="rounded-xl overflow-hidden bg-white">
+              <Image
+                src="/assets/mhspride_alt_logo.png"
+                alt="MHSP Ride"
+                width={423}
+                height={286}
+                className="w-full h-auto"
+              />
+              </div>
+            </div>
+            {/* Collapsed: small shield icon centered */}
+            <div className="group-data-[collapsible=icon]:flex hidden justify-center py-3">
+              <Image
+                src="/assets/mhsp_main_logo.png"
+                alt="MHSP Ride"
+                height={28}
+                width={28}
+              />
+            </div>
+          </>
+        )}
       </SidebarHeader>
 
       {/* Content */}

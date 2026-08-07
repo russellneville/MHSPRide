@@ -2,7 +2,8 @@
   "projects": {
     "default": "mhspride",
     "prod": "mhspride",
-    "test": "mhspride-test"
+    "test": "mhspride-test",
+    "troopiter": "mhspride-troopiter"
   },
   "targets": {},
   "etags": {}

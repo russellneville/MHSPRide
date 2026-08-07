@@ -228,5 +228,21 @@ service cloud.firestore {
     match /password_resets/{id} {
       allow read, write: if false;
     }
+
+    // Troopiter launch token replay guard (issue #199): one doc per
+    // consumed jti, keyed by the token's own jti. Admin SDK only — written
+    // by app/api/launch inside the same transaction that checks it.
+    match /launch_tokens_consumed/{id} {
+      allow read, write: if false;
+    }
+
+    // Troopiter org config (issue #199): logoUrl/displayName per patrol.
+    // Publicly readable (the root layout needs it for signed-out visitors
+    // hitting the Troopiter-skinned domain before they've logged in);
+    // writes only happen via Admin SDK scripts for this rehearsal prototype.
+    match /organizations/{orgId} {
+      allow read: if true;
+      allow write: if false;
+    }
   }
 }

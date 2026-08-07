@@ -48,7 +48,7 @@ async function main() {
 
   const payload = {
     org: { id: 'armadillo-mountain', name: 'Armadillo Mountain Ski Patrol' },
-    user: { name: fullname, email },
+    user: { name: fullname, email, photoUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullname)}&background=126D41&color=fff&size=256` },
     shift: { date: shiftDate, time: '08:00', location: 'Armadillo' },
     // Shift companions (proposal's "Shift companions" section) — empty by
     // default here; use the Troopiter Shift Demo page (admin nav) to build

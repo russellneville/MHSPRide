@@ -164,6 +164,9 @@ async function createAccountFromRoster(db, launchUser) {
     classifications: memberData.classifications || [],
     latitude: memberData.latitude || null,
     longitude: memberData.longitude || null,
+    // Offered, not applied automatically — onboarding asks before making this
+    // the user's photoURL, same as a manual upload would require a choice.
+    troopiterPhotoURL: launchUser.photoUrl || '',
     created_at: FieldValue.serverTimestamp(),
   })
 

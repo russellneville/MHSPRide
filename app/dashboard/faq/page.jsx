@@ -3,6 +3,8 @@ import DashboardLayout from '@/app/dashboard/dashboardLayout'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { NETWORKS } from '@/lib/networks'
+import { useSkin } from '@/context/SkinContext'
+import { productName } from '@/lib/skin'
 import Link from 'next/link'
 
 function QA({ q, children }) {
@@ -15,6 +17,11 @@ function QA({ q, children }) {
 }
 
 export default function FaqPage() {
+  const { skin, org } = useSkin()
+  const name = productName(skin)
+  const orgName = org?.displayName || 'Mount Hood Ski Patrol'
+  const isTroopiter = skin === 'troopiter'
+
   return (
     <DashboardLayout>
       <div className="space-y-5 max-w-3xl">
@@ -22,7 +29,7 @@ export default function FaqPage() {
           <div>
             <h2 className="text-2xl font-semibold">Frequently Asked Questions</h2>
             <p className="text-sm text-muted-foreground mt-1">
-              How MHSP Ride works, for riders and drivers.
+              How {name} works, for riders and drivers.
             </p>
           </div>
           <Button href="/dashboard" className="shrink-0">Continue to Dashboard</Button>
@@ -30,33 +37,48 @@ export default function FaqPage() {
 
         <Card>
           <CardContent className="space-y-4">
-            <QA q="What's new in MHSP Ride?">
+            <QA q={`What's new in ${name}?`}>
               See the{' '}
               <Link href="/dashboard/release-notes" className="text-foreground underline">
                 Release Notes
               </Link>{' '}
               page for a running log of features added in each tagged version.
             </QA>
-            <QA q="What is MHSP Ride?">
-              MHSP Ride connects Mount Hood Ski Patrol volunteers for carpooling to and from the mountain.
-              It's organized around {NETWORKS.length} networks — {NETWORKS.map(n => n.name).join(', ')} — each with its
-              own pool of offered rides. Favorite the networks you want to see on your dashboard; you can change your favorites anytime.
-            </QA>
-            <QA q="Is there a cost to use MHSP Ride?">
+            {isTroopiter ? (
+              <QA q={`What is ${name}?`}>
+                {name} connects {orgName} volunteers for carpooling to and from the mountain. Rides are
+                scoped to the shift you're carpooling for — there's no separate network or group to join first.
+              </QA>
+            ) : (
+              <QA q={`What is ${name}?`}>
+                {name} connects {orgName} volunteers for carpooling to and from the mountain.
+                It's organized around {NETWORKS.length} networks — {NETWORKS.map(n => n.name).join(', ')} — each with its
+                own pool of offered rides. Favorite the networks you want to see on your dashboard; you can change your favorites anytime.
+              </QA>
+            )}
+            <QA q={`Is there a cost to use ${name}?`}>
               The app is completely free with no ads, no subscriptions, and no catch. This group of
               dedicated folks give so much of their time and effort and I wanted to contribute to help our
-              MHSP community out.
+              {' '}{orgName} community out.
             </QA>
-            <QA q="Who can create an MHSP Ride account?">
-              Registration is limited to eligible MHSP members whose MHSP number, last name, and Troopiter
-              email match the roster. A verification code is sent to the Troopiter address, and registrants
-              must confirm that they are eighteen or older and accept the{' '}
-              <Link href="/terms" className="text-foreground underline">
-                Terms of Use
-              </Link>.
-            </QA>
-            <QA q="What personal information does MHSP Ride collect, and why?">
-              MHSP Ride stores membership identifiers, name, login email, phone, home address, profile
+            {isTroopiter ? (
+              <QA q={`Who can create a ${name} account?`}>
+                You're signed in automatically the first time you use the carpool link from your Troopiter
+                shift page — there's no separate registration form. {name} matches you against the {orgName}
+                {' '}roster using the identity Troopiter already verified.
+              </QA>
+            ) : (
+              <QA q={`Who can create a ${name} account?`}>
+                Registration is limited to eligible MHSP members whose MHSP number, last name, and Troopiter
+                email match the roster. A verification code is sent to the Troopiter address, and registrants
+                must confirm that they are eighteen or older and accept the{' '}
+                <Link href="/terms" className="text-foreground underline">
+                  Terms of Use
+                </Link>.
+              </QA>
+            )}
+            <QA q={`What personal information does ${name} collect, and why?`}>
+              {name} stores membership identifiers, name, login email, phone, home address, profile
               information, vehicles, network preferences, rides, bookings, requests, feedback, badges, and
               relevant activity records to verify membership and operate the carpool service. Profile photos
               are stored in Firebase Storage, and production analytics may be processed through Google
@@ -66,7 +88,7 @@ export default function FaqPage() {
               </Link>{' '}
               for more details.
             </QA>
-            <QA q="Does MHSP Ride use cookies or analytics?">
+            <QA q={`Does ${name} use cookies or analytics?`}>
               Essential browser storage supports application operation and preference state. In production,
               Google Analytics is enabled unless you choose the analytics opt-out option; advertising storage
               and personalization are denied. See the{' '}
@@ -76,7 +98,7 @@ export default function FaqPage() {
               for more details.
             </QA>
             <QA q="Who can see my phone number, email, address, and vehicle information?">
-              To use the app, you must be an MHSP member. Drivers and passengers receive one another's
+              To use the app, you must be an {orgName} member. Drivers and passengers receive one another's
               contact details in relevant booking emails, admins can access member records, and authenticated
               members can read ride and open-request details. See the{' '}
               <Link href="/privacy" className="text-foreground underline">
@@ -95,27 +117,27 @@ export default function FaqPage() {
             <QA q="How secure is my information?">
               The application was developed with OWASP security standards and has been through multiple
               security scans for both client and server vulnerabilities. I will make every effort to keep
-              the application secure and vulnerability free. Your information is available to other MHSP
-              members — only enter information you are comfortable sharing with this community. See the{' '}
+              the application secure and vulnerability free. Your information is available to other {orgName}
+              {' '}members — only enter information you are comfortable sharing with this community. See the{' '}
               <Link href="/privacy" className="text-foreground underline">
                 Privacy Policy
               </Link>{' '}
               for more details.
             </QA>
-            <QA q="Does MHSP Ride send text or push notifications?">
-              No. MHSP Ride currently sends email; phone numbers are used so drivers and riders can contact
+            <QA q={`Does ${name} send text or push notifications?`}>
+              No. {name} currently sends email; phone numbers are used so drivers and riders can contact
               one another directly.
             </QA>
-            <QA q="Does MHSP Ride screen drivers or guarantee a ride?">
-              No. MHSP Ride is a voluntary coordination tool for the MHSP community, not a transportation
+            <QA q={`Does ${name} screen drivers or guarantee a ride?`}>
+              No. {name} is a voluntary coordination tool for the {orgName} community, not a transportation
               provider. Members should verify people they do not recognize, confirm plans directly, use
               reasonable safety judgment, and call emergency services — not the application — during an
               emergency.
             </QA>
-            <QA q="Is MHSP Ride a mobile app?">
-              MHSP Ride is currently a responsive web application used through a browser on phones, tablets,
+            <QA q={`Is ${name} a mobile app?`}>
+              {name} is currently a responsive web application used through a browser on phones, tablets,
               and computers. There is no separate native iOS or Android application, and browser use does not
-              currently provide MHSP Ride push notifications.
+              currently provide {name} push notifications.
             </QA>
             <QA q="Can I choose which notifications I receive?">
               Ride and account emails do not currently have per-category opt-out controls because they
@@ -173,17 +195,27 @@ export default function FaqPage() {
               location. Later ride changes don't necessarily update an event you already added, so compare it
               with the current ride details and update your calendar if necessary.
             </QA>
-            <QA q="What does favoriting a network do?">
-              Favoriting a network controls which ride pools appear on your dashboard and in what order —
-              it's not a separate membership or approval process. Initial favorites may come from your
-              Troopiter classification, and you can reorder or change them later.
-            </QA>
-            <QA q="Who created this site? What's the deal?">
-              I'm Russell Neville, an MHSP Mountain Host with a software engineering background. After the
-              n-th time coordinating a ride via texting and emails and saying to myself "there should be an
-              app for that!", I decided to create one that met my needs and (hopefully!) the needs of the
-              MHSP community.
-            </QA>
+            {!isTroopiter && (
+              <QA q="What does favoriting a network do?">
+                Favoriting a network controls which ride pools appear on your dashboard and in what order —
+                it's not a separate membership or approval process. Initial favorites may come from your
+                Troopiter classification, and you can reorder or change them later.
+              </QA>
+            )}
+            {isTroopiter ? (
+              <QA q="Who created this site? What's the deal?">
+                {name} is built by Russell Neville, an MHSP Mountain Host with a software engineering
+                background, on the same carpool tool originally built for Mount Hood Ski Patrol — now made
+                available to other patrols through Troopiter.
+              </QA>
+            ) : (
+              <QA q="Who created this site? What's the deal?">
+                I'm Russell Neville, an MHSP Mountain Host with a software engineering background. After the
+                n-th time coordinating a ride via texting and emails and saying to myself "there should be an
+                app for that!", I decided to create one that met my needs and (hopefully!) the needs of the
+                MHSP community.
+              </QA>
+            )}
             <QA q="What if I want to help offset the hosting costs or recognize the development effort?">
               Sure!{' '}
               <a
@@ -312,7 +344,7 @@ export default function FaqPage() {
         </Card>
 
         <p className="text-xs text-muted-foreground">
-          Using MHSP Ride means agreeing to its{' '}
+          Using {name} means agreeing to its{' '}
           <Link href="/terms" className="text-foreground underline">
             Terms of Use
           </Link>, including that the site may only be used through the interfaces it provides — attempts to

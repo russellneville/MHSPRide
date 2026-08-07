@@ -68,9 +68,12 @@ export async function POST(request) {
   const orgSnap = await db.collection('organizations').doc(TROOPITER_ORG_ID).get()
   const orgName = orgSnap.exists ? orgSnap.data().displayName : TROOPITER_ORG_ID
 
+  const fullname = name?.trim() || `${member.firstName} ${member.lastName}`.trim()
   const payload = {
     org: { id: TROOPITER_ORG_ID, name: orgName },
-    user: { name: name?.trim() || `${member.firstName} ${member.lastName}`.trim(), email: member.email },
+    // Standing in for Troopiter's real profile photo — a real integration
+    // would send Troopiter's own stored photo URL here instead.
+    user: { name: fullname, email: member.email, photoUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullname)}&background=126D41&color=fff&size=256` },
     shift: {
       date: shiftDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       time: shiftTime || '08:00',

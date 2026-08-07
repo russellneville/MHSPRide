@@ -29,7 +29,7 @@ import NetworkRideCard from "@/components/cards/network-ride-card"
 import { useLocations } from "@/context/LocationsContext"
 import { computeRideStatus } from "@/lib/rides"
 import { equipmentLabel } from "@/lib/rideRequests"
-import { NETWORKS, NETWORK_IDS, networkName, defaultFavoritesFor } from "@/lib/networks"
+import { NETWORKS, NETWORK_IDS, TROOPITER_NETWORK_ID, networkName, defaultFavoritesFor } from "@/lib/networks"
 import { useTheme } from "next-themes"
 import AchievementBadge from "@/components/AchievementBadge"
 import { badgeById } from "@/lib/badges/catalog"
@@ -43,6 +43,30 @@ function normalizeStatus(s) {
 
 function rideNetworkId(r) {
   return r.network_id || r.networkId
+}
+
+// Troopiter tenants have no network concept — the shift/event name Troopiter
+// dispatched the ride under (issue #199) stands in for it wherever a network
+// name would otherwise show. Only ever set on troopiter-originated rides, so
+// this is a no-op for MHSP's own networks.
+function rideGroupLabel(r) {
+  return r.shift_name || networkName(rideNetworkId(r))
+}
+
+// Buckets already-sorted (by date/time) available rides by shift/event name,
+// groups ordered by their earliest ride's date — mirrors how a real Troopiter
+// month view lists dispatches chronologically (resources/troopiter screenshot,
+// December 2025).
+function groupByShift(rides) {
+  const groups = new Map()
+  for (const r of rides) {
+    const key = r.shift_name || 'Unscheduled'
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(r)
+  }
+  return [...groups.entries()]
+    .map(([name, rides]) => ({ name, rides }))
+    .sort((a, b) => (a.rides[0]?.departure_date || '9999').localeCompare(b.rides[0]?.departure_date || '9999'))
 }
 
 function rideHref(r) {
@@ -92,7 +116,8 @@ export default function Dashboard() {
   const { resolveLocation } = useLocations()
   const router = useRouter()
   const { user } = useAuth()
-  const { org } = useSkin()
+  const { skin, org } = useSkin()
+  const isTroopiter = skin === 'troopiter'
   const orgName = org?.displayName || 'Mount Hood Ski Patrol'
   const { openPopup, isOpen } = usePopup()
   const [rideRequests, setRideRequests] = useState([])
@@ -132,18 +157,22 @@ export default function Dashboard() {
   const [favoriteRidersOnly, setFavoriteRidersOnly] = useState(false)
   const hasRequestFilters = requestFilterDate || requestFilterOrigin || requestFilterDestination || requestSearchTerm || favoriteRidersOnly
 
-  // Ordered favorites from the live user doc, restricted to known networks
+  // Ordered favorites from the live user doc, restricted to known networks —
+  // meaningless for troopiter tenants (no network-favoriting concept there;
+  // groupIds below stands in for it with the single fixed troopiter network).
   const favorites = (Array.isArray(user?.favorite_networks) ? user.favorite_networks : [])
     .filter(id => NETWORK_IDS.includes(id))
+  const groupIds = isTroopiter ? [TROOPITER_NETWORK_ID] : favorites
 
   // Lazy migration: users from before favorites existed (or who somehow have
   // none) get defaults from their roster classifications, else all networks.
+  // Troopiter tenants skip this entirely — there's nothing to favorite.
   useEffect(() => {
-    if (!user || favorites.length > 0 || migratedRef.current) return
+    if (isTroopiter || !user || favorites.length > 0 || migratedRef.current) return
     migratedRef.current = true
     const defaults = defaultFavoritesFor(user.classifications)
     saveFavorites(defaults.length > 0 ? defaults : NETWORK_IDS)
-  }, [user, favorites.length])
+  }, [user, favorites.length, isTroopiter])
 
   // Badge evaluation (resources/badging.md): runs once per dashboard mount for
   // the signed-in user. The server throttles repeat calls to every 10 minutes
@@ -190,19 +219,19 @@ export default function Dashboard() {
         getRides(),
         getBookings(),
         getRideRequests(),
-        ...favorites.map(id => getRidesByNetworkId(id)),
+        ...groupIds.map(id => getRidesByNetworkId(id)),
       ])
       if (cancelled) return
       setRides(rideData || [])
       setBookings(bookingData || [])
       setRideRequests(requestData || [])
-      setNetworkRides(Object.fromEntries(favorites.map((id, i) => [id, networkLists[i] || []])))
+      setNetworkRides(Object.fromEntries(groupIds.map((id, i) => [id, networkLists[i] || []])))
       setLoaded(true)
     }
     fetchDataRef.current = fetchData
     fetchData()
     return () => { cancelled = true }
-  }, [user, isOpen, favorites.join(',')])
+  }, [user, isOpen, groupIds.join(',')])
 
   // Refresh when the tab regains focus (e.g. after booking a ride on the detail page)
   useEffect(() => {
@@ -273,7 +302,7 @@ export default function Dashboard() {
   const activeBookedRideIds = new Set(
     dedupedBookings.filter(b => !isCanceled({ ...b, _type: 'booked' })).map(b => b.ride_id)
   )
-  const rawAvailableByNetwork = Object.fromEntries(favorites.map(id => [
+  const rawAvailableByNetwork = Object.fromEntries(groupIds.map(id => [
     id,
     (networkRides?.[id] || [])
       .map(r => ({ ...r, _status: computeRideStatus(r) }))
@@ -299,7 +328,7 @@ export default function Dashboard() {
   // Filters apply uniformly across every network's list (issue #84)
   const searchLower = searchTerm.trim().toLowerCase()
   const favoriteDriverIds = new Set((user?.favorite_drivers || []).map(d => d.id))
-  const availableByNetwork = Object.fromEntries(favorites.map(id => [
+  const availableByNetwork = Object.fromEntries(groupIds.map(id => [
     id,
     rawAvailableByNetwork[id].filter(r => {
       if (filterDate && r.departure_date !== filterDate) return false
@@ -314,6 +343,8 @@ export default function Dashboard() {
       return true
     }),
   ]))
+
+  const shiftGroups = isTroopiter ? groupByShift(availableByNetwork[TROOPITER_NETWORK_ID] || []) : []
 
   const requestOriginOptions = [...new Set(rideRequests.map(r => r.departure).filter(Boolean))]
     .sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)))
@@ -381,24 +412,30 @@ export default function Dashboard() {
       <Button size="sm" variant="outline" onClick={openRequestRide}>
         <Plus className="size-4 mr-1" /> Request Ride
       </Button>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button size="sm">
-            <Plus className="size-4 mr-1" /> Offer Ride <ChevronDown className="size-3.5 ml-1" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-48 p-1" align="end">
-          {NETWORKS.map(net => (
-            <button
-              key={net.id}
-              className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
-              onClick={() => openOffer(net.id)}
-            >
-              {net.name}
-            </button>
-          ))}
-        </PopoverContent>
-      </Popover>
+      {isTroopiter ? (
+        <Button size="sm" onClick={() => openOffer(TROOPITER_NETWORK_ID)}>
+          <Plus className="size-4 mr-1" /> Offer Ride
+        </Button>
+      ) : (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm">
+              <Plus className="size-4 mr-1" /> Offer Ride <ChevronDown className="size-3.5 ml-1" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-1" align="end">
+            {NETWORKS.map(net => (
+              <button
+                key={net.id}
+                className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
+                onClick={() => openOffer(net.id)}
+              >
+                {net.name}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   )
 
@@ -456,7 +493,7 @@ export default function Dashboard() {
                   )}
                   badges={<>
                     {typeBadge(r)}
-                    <Badge variant="outline">{networkName(rideNetworkId(r))}</Badge>
+                    <Badge variant="outline">{rideGroupLabel(r)}</Badge>
                     <Badge variant="outline">{seatsText(r)}</Badge>
                   </>}
                   onClick={rideHref(r) ? () => router.push(rideHref(r)) : undefined}
@@ -471,7 +508,7 @@ export default function Dashboard() {
                     <TableHead>Type</TableHead>
                     <TableHead>Date &amp; Time</TableHead>
                     <TableHead>Route</TableHead>
-                    <TableHead>Network</TableHead>
+                    <TableHead>{isTroopiter ? 'Shift' : 'Network'}</TableHead>
                     <TableHead>Return</TableHead>
                     <TableHead>Seats</TableHead>
                   </TableRow>
@@ -488,7 +525,7 @@ export default function Dashboard() {
                         <TableCell>{typeBadge(r)}</TableCell>
                         <TableCell className="whitespace-nowrap">{formatDate(r.departure_date)} at {formatTime(r.departure_time)}</TableCell>
                         <TableCell>{resolveLocation(r.departure)} → {resolveLocation(r.arrival)}</TableCell>
-                        <TableCell className="whitespace-nowrap">{networkName(rideNetworkId(r))}</TableCell>
+                        <TableCell className="whitespace-nowrap">{rideGroupLabel(r)}</TableCell>
                         <TableCell>{formatTime(r.return_departure_time)}</TableCell>
                         <TableCell className="whitespace-nowrap">{seatsText(r)}</TableCell>
                       </TableRow>
@@ -698,6 +735,52 @@ export default function Dashboard() {
               <Skeleton className="h-9 w-full" />
               <Skeleton className="h-9 w-full" />
             </div>
+          ) : isTroopiter ? (
+            shiftGroups.length === 0 ? (
+              <Card>
+                <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                  {hasAvailableFilters && (rawAvailableByNetwork[TROOPITER_NETWORK_ID] || []).length > 0 ? (
+                    'No rides match your filters.'
+                  ) : (
+                    <>No rides available. Be the first to{' '}
+                      <button className="text-primary underline" onClick={() => openOffer(TROOPITER_NETWORK_ID)}>
+                        offer one
+                      </button>.
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              shiftGroups.map(({ name, rides: shiftRides }) => {
+                const { page: availPage, pageCount: availPageCount, paged: pagedAvailable } = paginate(shiftRides, availablePages[name] || 0)
+                const setAvailPage = (updater) => setAvailablePages(prev => ({ ...prev, [name]: updater(prev[name] || 0) }))
+                return (
+                  <div key={name} className="space-y-2 rounded-lg border border-border bg-muted/45 dark:bg-[oklch(0.39_0_0)] p-3">
+                    <button
+                      className="flex items-center gap-2 font-semibold hover:text-primary transition-colors"
+                      onClick={() => toggleSection(name)}
+                    >
+                      {collapsed[name] ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+                      {name}
+                      <span className="text-muted-foreground font-normal">
+                        {formatDate(shiftRides[0]?.departure_date)} · {shiftRides.length}
+                      </span>
+                    </button>
+                    {!collapsed[name] && (<>
+                      {pagedAvailable.map(ride => (
+                        <NetworkRideCard key={ride.id} ride={ride} networkId={TROOPITER_NETWORK_ID} />
+                      ))}
+                      <Pager
+                        page={availPage}
+                        pageCount={availPageCount}
+                        onPrev={() => setAvailPage(p => p - 1)}
+                        onNext={() => setAvailPage(p => p + 1)}
+                      />
+                    </>)}
+                  </div>
+                )
+              })
+            )
           ) : (
             favorites.map((id, idx) => {
               const available = availableByNetwork[id] || []
@@ -773,7 +856,7 @@ export default function Dashboard() {
             })
           )}
 
-          {favorites.length > 0 && favorites.length < NETWORKS.length && (
+          {!isTroopiter && favorites.length > 0 && favorites.length < NETWORKS.length && (
             <Button variant="outline" size="sm" onClick={openAddFavorite}>
               <Plus className="size-4 mr-1" /> Add favorite
             </Button>

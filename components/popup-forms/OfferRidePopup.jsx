@@ -6,6 +6,7 @@ import DatePicker from "../ui/date-picker"
 import { usePopup } from "@/context/PopupContext"
 import { useNetwork } from "@/context/NetworksContext"
 import { useAuth } from "@/context/AuthContext"
+import { useSkin } from "@/context/SkinContext"
 import { useLocations } from "@/context/LocationsContext"
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
@@ -151,6 +152,13 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
   const { closePopup, popupState, setPopupState } = usePopup()
   const { isLoading, offerRide, fulfillRideRequest, getRides, getBookings } = useNetwork()
   const { user } = useAuth()
+  const { skin } = useSkin()
+  const isTroopiter = skin === 'troopiter'
+  // Troopiter has no network to pick — the shift/event name Troopiter dispatched
+  // this driver under is the organizing concept instead (issue #199). Prefilled
+  // from the name captured at launch, but editable in case the driver is
+  // offering ahead for a different shift than the one they just arrived from.
+  const [shiftName, setShiftName] = useState(prefill?.shift_name || user?.currentShiftName || '')
   const [showDayConflict, setShowDayConflict] = useState(false)
   const [showEquipmentWarning, setShowEquipmentWarning] = useState(false)
   const [pendingSubmit, setPendingSubmit] = useState(null)
@@ -288,6 +296,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
     if (!rideData.departure_time) newErrors.departure_time = "Departure time is required"
     if (!oneWay && !rideData.return_departure_time) newErrors.return_departure_time = "Return time is required — or mark the trip one way"
     if (!rideData.total_seats || Number(rideData.total_seats) < 1) newErrors.total_seats = "Number of seats is required"
+    if (isTroopiter && !shiftName.trim()) newErrors.shift_name = "Shift / event name is required"
     if (notesRequired && !rideData.ride_description.trim()) newErrors.ride_description = NOTES_REQUIRED_MESSAGE
     setValidationErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -314,6 +323,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
     return_departure_time: oneWay ? '' : rideData.return_departure_time,
     ride_description: rideData.ride_description,
     total_seats: Number(rideData.total_seats),
+    ...(isTroopiter && { shift_name: shiftName.trim() }),
   })
 
   const doFulfill = async (submittedRideData) => {
@@ -359,6 +369,20 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
 
   return (
     <div className="space-y-5">
+
+      {/* ── Shift / event (troopiter tenants only) ───────── */}
+      {isTroopiter && (
+        <div className="space-y-1">
+          <Label htmlFor="shift_name">Shift / event</Label>
+          <Input
+            id="shift_name"
+            placeholder="e.g. Timberline - Mountain Host"
+            value={shiftName}
+            onChange={e => setShiftName(e.target.value)}
+          />
+          {validationError.shift_name && <p className="text-red-500 text-sm">{validationError.shift_name}</p>}
+        </div>
+      )}
 
       {/* ── To Destination ─────────────────────────────── */}
       <div className="space-y-3">

@@ -55,10 +55,14 @@ export async function POST(request) {
       return NextResponse.json({ ok: false, error: 'Invalid or expired launch token.' }, { status: 401 })
     }
 
-    const { user, jti } = payload
+    const { user, jti, shift } = payload
     if (!user?.email || !jti) {
       return NextResponse.json({ ok: false, error: 'Malformed launch token.' }, { status: 400 })
     }
+    // Troopiter's own shift-dispatch name (e.g. "Timberline - Mountain Host")
+    // — captured on every launch so Offer Ride can prefill it without the
+    // driver typing it by hand (issue #199's shift-based dashboard grouping).
+    const currentShiftName = shift?.location || ''
 
     const db = getAdminDb()
 
@@ -87,7 +91,7 @@ export async function POST(request) {
 
     const userQuery = await db.collection('users').where('email', '==', user.email).limit(1).get()
     if (userQuery.empty) {
-      const shortcutUid = await createAccountFromRoster(db, user)
+      const shortcutUid = await createAccountFromRoster(db, user, currentShiftName)
       if (shortcutUid) {
         const customToken = await getAdminAuth().createCustomToken(shortcutUid)
         return NextResponse.json({ ok: true, customToken })
@@ -103,6 +107,11 @@ export async function POST(request) {
     }
 
     const uid = userQuery.docs[0].id
+    // Refresh on every relaunch, not just account creation — a returning
+    // driver's most recent shift is whatever they just launched from.
+    if (currentShiftName) {
+      await db.collection('users').doc(uid).update({ currentShiftName }).catch(() => {})
+    }
     const customToken = await getAdminAuth().createCustomToken(uid)
     return NextResponse.json({ ok: true, customToken })
   } catch (err) {
@@ -119,7 +128,7 @@ export async function POST(request) {
 // app/api/troopiter-demo/mint uses) — this is what stands in for that
 // cross-check. Returns the new uid, or null if there's no roster match to
 // build an account from (caller falls back to the normal /register flow).
-async function createAccountFromRoster(db, launchUser) {
+async function createAccountFromRoster(db, launchUser, currentShiftName) {
   const maintenanceSnap = await db.collection('config').doc('maintenance').get()
   if (maintenanceSnap.exists && maintenanceSnap.data().enabled) return null
 
@@ -167,6 +176,7 @@ async function createAccountFromRoster(db, launchUser) {
     // Offered, not applied automatically — onboarding asks before making this
     // the user's photoURL, same as a manual upload would require a choice.
     troopiterPhotoURL: launchUser.photoUrl || '',
+    currentShiftName: currentShiftName || '',
     created_at: FieldValue.serverTimestamp(),
   })
 

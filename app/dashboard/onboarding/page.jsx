@@ -5,11 +5,14 @@ import { useAuth } from "@/context/AuthContext"
 import { useNetwork } from "@/context/NetworksContext"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { UserAvatar } from "@/components/ui/user-avatar"
 import { Check, Star, Users } from "lucide-react"
 import { NETWORKS, defaultFavoritesFor } from "@/lib/networks"
 import VehicleForm from "@/components/forms/VehicleForm"
 import { createVehicleId, EMPTY_VEHICLE } from "@/lib/vehicles"
+import { PHONE_MAX_LENGTH } from "@/lib/utils"
 
 const TOTAL_STEPS = 5
 
@@ -26,6 +29,14 @@ export default function OnboardingPage() {
   const [photoUploading, setPhotoUploading] = useState(false)
   const [photoUploaded, setPhotoUploaded] = useState(false)
   const fileInputRef = useRef(null)
+
+  // Accounts created via the Troopiter launch shortcut skip /register
+  // entirely, so they arrive here with no phone on file yet — self-service
+  // registrants already gave one during account setup and skip this.
+  const needsPhone = !user?.phone
+  const [phone, setPhone] = useState('')
+  const [phoneError, setPhoneError] = useState('')
+  const [phoneSaving, setPhoneSaving] = useState(false)
 
   // Pre-favorite networks from the user's roster classifications (issue #69);
   // they can toggle others on/off but must keep at least one.
@@ -80,6 +91,22 @@ export default function OnboardingPage() {
     setStep(5)
   }
 
+  const handleStep1Continue = async () => {
+    if (!needsPhone) {
+      setStep(2)
+      return
+    }
+    if (!phone.trim()) {
+      setPhoneError('A phone number is required so drivers and riders can reach you.')
+      return
+    }
+    setPhoneError('')
+    setPhoneSaving(true)
+    await updateProfile({ phone: phone.trim() })
+    setPhoneSaving(false)
+    setStep(2)
+  }
+
   const handleComplete = async () => {
     setSaving(true)
     await updateProfile({ onboarding_complete: true })
@@ -118,8 +145,26 @@ export default function OnboardingPage() {
                 <li className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> Add your vehicle details</li>
                 <li className="flex items-center gap-2"><Check className="h-4 w-4 text-primary" /> Start offering or finding rides</li>
               </ul>
-              <Button className="w-full" onClick={() => setStep(2)}>
-                Get Started
+              {needsPhone && (
+                <div className="space-y-1.5 pt-2">
+                  <Label htmlFor="onboarding-phone">Phone number</Label>
+                  <Input
+                    id="onboarding-phone"
+                    type="tel"
+                    value={phone}
+                    maxLength={PHONE_MAX_LENGTH}
+                    onChange={e => { setPhone(e.target.value); setPhoneError('') }}
+                    placeholder="(503) 555-0100"
+                    aria-invalid={!!phoneError}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    So drivers and riders can reach you about a ride.
+                  </p>
+                  {phoneError && <p className="text-sm text-destructive">{phoneError}</p>}
+                </div>
+              )}
+              <Button className="w-full" disabled={phoneSaving} onClick={handleStep1Continue}>
+                {phoneSaving ? 'Saving...' : 'Get Started'}
               </Button>
             </CardContent>
           </Card>

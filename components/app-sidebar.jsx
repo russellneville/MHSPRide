@@ -98,7 +98,7 @@ export function AppSidebar({ user, ...props }) {
               {org?.logoUrl ? (
                 <img src={org.logoUrl} alt={org?.displayName || 'Troopiter'} className="h-8 w-8 rounded object-contain bg-white" />
               ) : (
-                <Image src="/assets/troopiter-ride.png" alt="troopiter" width={98} height={21} className="h-5 w-auto" />
+                <Image src="/assets/troopiter-ride.png" alt="troopiter" width={132} height={21} className="h-5 w-auto" />
               )}
             </div>
             {/* Collapsed: just the org logo or initial */}

@@ -28,7 +28,7 @@ function TroopiterHeader({ user, org, headerActions }) {
     <header className="flex min-h-14 shrink-0 items-center border-b border-border bg-background px-4 gap-3">
       <SidebarTrigger className="-ml-1" />
       <Separator orientation="vertical" className="h-4" />
-      <Image src="/assets/troopiter-ride.png" alt="troopiter" width={98} height={21} className="h-5 w-auto" />
+      <Image src="/assets/troopiter-ride.png" alt="troopiter" width={132} height={21} className="h-5 w-auto" />
       {org?.displayName && (
         <span className="font-semibold text-sm text-blue-700 dark:text-blue-400 truncate">{org.displayName}</span>
       )}

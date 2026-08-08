@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { AddressConfirmMap } from '@/components/popup-forms/AddressConfirmMap'
 
 // A mockup of a Troopiter shift page (issue #199) — simulates the "Get a
 // Ride" carpool icon that would sit next to Troopiter's own carpool map on
@@ -199,7 +200,8 @@ export default function TroopiterShiftDemoPage() {
                   <p className="text-xs text-emerald-700">✓ Confirmed: {confirmedLocation.address}</p>
                 )}
                 {locationState.status === 'needs-confirmation' && locationState.result && !confirmedLocation && (
-                  <div className="text-xs rounded border border-amber-300 bg-amber-50 px-2 py-1.5 space-y-1">
+                  <div className="text-xs rounded border border-amber-300 bg-amber-50 px-2 py-1.5 space-y-2">
+                    <AddressConfirmMap lat={locationState.result.latitude} lng={locationState.result.longitude} requiresAuth={false} />
                     <p className="text-amber-800">Did you mean: <strong>{locationState.result.formattedAddress}</strong>?</p>
                     <button type="button" onClick={acceptLocationSuggestion} className="text-emerald-700 underline underline-offset-2">
                       Use this address

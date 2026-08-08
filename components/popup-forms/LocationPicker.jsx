@@ -6,6 +6,7 @@ import { LOCATION_NAME_MAX_LENGTH } from "@/lib/utils"
 import { useAddressValidation } from "@/hooks/use-address-validation"
 import { useSkin } from "@/context/SkinContext"
 import { useAuth } from "@/context/AuthContext"
+import { AddressConfirmMap } from "./AddressConfirmMap"
 import { CheckCircle2, Loader2, MapPin, TriangleAlert } from "lucide-react"
 
 // Shared by OfferRidePopup, RequestRidePopup, EditRidePopup, and
@@ -170,7 +171,8 @@ export function LocationPicker({ value, onSelectChange, otherValue, onOtherChang
         </p>
       )}
       {status === 'needs-confirmation' && result && !accepted && (
-        <div className="text-xs rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-2 py-1.5 space-y-1">
+        <div className="text-xs rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-2 py-1.5 space-y-2">
+          <AddressConfirmMap lat={result.latitude} lng={result.longitude} />
           <p className="text-amber-800 dark:text-amber-400">
             Did you mean: <strong>{result.formattedAddress}</strong>?
           </p>

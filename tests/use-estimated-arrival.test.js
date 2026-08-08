@@ -5,10 +5,10 @@ vi.mock("@/lib/firebaseClient", () => ({
   auth: { currentUser: { getIdToken: async () => "test-token" } },
 }));
 
-const estimateArrivalMock = vi.fn();
+const getDriveMinutesMock = vi.fn();
 vi.mock("@/lib/drive-times", async () => {
   const actual = await vi.importActual("@/lib/drive-times");
-  return { ...actual, estimateArrival: (...args) => estimateArrivalMock(...args) };
+  return { ...actual, getDriveMinutes: (...args) => getDriveMinutesMock(...args) };
 });
 
 async function loadHook(departureTime, origin, destination) {
@@ -21,7 +21,7 @@ async function loadHook(departureTime, origin, destination) {
 describe("useEstimatedArrival", () => {
   beforeEach(() => {
     vi.resetModules();
-    estimateArrivalMock.mockReset();
+    getDriveMinutesMock.mockReset();
   });
 
   afterEach(() => {
@@ -29,14 +29,23 @@ describe("useEstimatedArrival", () => {
     vi.useRealTimers();
   });
 
-  it("does nothing when departure time or either endpoint is missing", async () => {
-    const { result } = await loadHook("", { locationId: "powell-butte" }, { locationId: "timberline" });
+  it("does not fetch when either endpoint is missing", async () => {
+    const { result } = await loadHook("06:00", {}, { locationId: "timberline" });
     expect(result.current.arrivalTime).toBeNull();
-    expect(estimateArrivalMock).not.toHaveBeenCalled();
+    expect(getDriveMinutesMock).not.toHaveBeenCalled();
+  });
+
+  it("fetches drive time even without a departure time, but leaves arrivalTime null until one is set", async () => {
+    getDriveMinutesMock.mockResolvedValue(69);
+
+    const { result } = await loadHook("", { locationId: "powell-butte" }, { locationId: "timberline" });
+
+    await waitFor(() => expect(result.current.driveMinutes).toBe(69));
+    expect(result.current.arrivalTime).toBeNull();
   });
 
   it("uses the precomputed Firestore lookup for a predefined-to-predefined pair, without calling the live API", async () => {
-    estimateArrivalMock.mockResolvedValue("07:09");
+    getDriveMinutesMock.mockResolvedValue(69);
     const fetchSpy = vi.fn();
     vi.stubGlobal("fetch", fetchSpy);
 
@@ -47,7 +56,7 @@ describe("useEstimatedArrival", () => {
     );
 
     await waitFor(() => expect(result.current.arrivalTime).toBe("07:09"));
-    expect(estimateArrivalMock).toHaveBeenCalledWith("06:00", "powell-butte", "timberline");
+    expect(getDriveMinutesMock).toHaveBeenCalledWith("powell-butte", "timberline");
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
@@ -64,7 +73,7 @@ describe("useEstimatedArrival", () => {
     );
 
     await waitFor(() => expect(result.current.arrivalTime).toBe("07:09"));
-    expect(estimateArrivalMock).not.toHaveBeenCalled();
+    expect(getDriveMinutesMock).not.toHaveBeenCalled();
     expect(result.current.estimating).toBe(false);
   });
 
@@ -112,7 +121,7 @@ describe("useEstimatedArrival", () => {
 
     await waitFor(() => expect(result.current.arrivalTime).toBeNull());
     expect(fetchSpy).not.toHaveBeenCalled();
-    expect(estimateArrivalMock).not.toHaveBeenCalled();
+    expect(getDriveMinutesMock).not.toHaveBeenCalled();
   });
 
   it("retries a failed live call after a delay, then succeeds", async () => {

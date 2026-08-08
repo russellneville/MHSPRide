@@ -55,16 +55,20 @@ export async function POST(request) {
       return NextResponse.json({ ok: false, error: 'Invalid or expired launch token.' }, { status: 401 })
     }
 
-    const { user, jti, shift } = payload
+    const { user, jti, shift, org, roster } = payload
     if (!user?.email || !jti) {
       return NextResponse.json({ ok: false, error: 'Malformed launch token.' }, { status: 400 })
     }
-    // Troopiter's own shift-dispatch name (e.g. "Timberline - Mountain Host")
-    // — captured on every launch so Offer Ride can prefill it without the
-    // driver typing it by hand (issue #199's shift-based dashboard grouping).
-    const currentShiftName = shift?.location || ''
 
     const db = getAdminDb()
+
+    // Shifts are first-class records (issue #199) — created on first push,
+    // refreshed (title/date/time/location, and who's currently signed up)
+    // on every relaunch under the same shift.id. Runs regardless of which
+    // branch below handles the user, since it doesn't depend on that.
+    if (shift?.id && org?.id) {
+      await upsertShift(db, org.id, shift, user, roster).catch(err => console.error('[launch] shift upsert failed', err))
+    }
 
     // Single-use jti — same "Admin SDK only" collection shape as
     // password_resets/registration_verifications (firestore.rules).
@@ -91,7 +95,7 @@ export async function POST(request) {
 
     const userQuery = await db.collection('users').where('email', '==', user.email).limit(1).get()
     if (userQuery.empty) {
-      const shortcutUid = await createAccountFromRoster(db, user, currentShiftName)
+      const shortcutUid = await createAccountFromRoster(db, user)
       if (shortcutUid) {
         const customToken = await getAdminAuth().createCustomToken(shortcutUid)
         return NextResponse.json({ ok: true, customToken })
@@ -107,11 +111,6 @@ export async function POST(request) {
     }
 
     const uid = userQuery.docs[0].id
-    // Refresh on every relaunch, not just account creation — a returning
-    // driver's most recent shift is whatever they just launched from.
-    if (currentShiftName) {
-      await db.collection('users').doc(uid).update({ currentShiftName }).catch(() => {})
-    }
     const customToken = await getAdminAuth().createCustomToken(uid)
     return NextResponse.json({ ok: true, customToken })
   } catch (err) {
@@ -128,7 +127,7 @@ export async function POST(request) {
 // app/api/troopiter-demo/mint uses) — this is what stands in for that
 // cross-check. Returns the new uid, or null if there's no roster match to
 // build an account from (caller falls back to the normal /register flow).
-async function createAccountFromRoster(db, launchUser, currentShiftName) {
+async function createAccountFromRoster(db, launchUser) {
   const maintenanceSnap = await db.collection('config').doc('maintenance').get()
   if (maintenanceSnap.exists && maintenanceSnap.data().enabled) return null
 
@@ -176,7 +175,6 @@ async function createAccountFromRoster(db, launchUser, currentShiftName) {
     // Offered, not applied automatically — onboarding asks before making this
     // the user's photoURL, same as a manual upload would require a choice.
     troopiterPhotoURL: launchUser.photoUrl || '',
-    currentShiftName: currentShiftName || '',
     created_at: FieldValue.serverTimestamp(),
   })
 
@@ -194,4 +192,41 @@ async function createAccountFromRoster(db, launchUser, currentShiftName) {
   awardBadge(db, uid, 'registered').catch(err => console.error('[launch] badge award failed', err))
 
   return uid
+}
+
+// Creates or refreshes shifts/{orgId}_{shiftId} from a launch payload's
+// shift + roster fields (issue #199). Troopiter resends the shift's full
+// current roster on every launch (not a diff), so this always overwrites
+// `roster`/`rosterEmails` wholesale — that's what makes a withdrawal show up
+// (someone no longer in the incoming list drops off the stored one) without
+// this route needing to track who left. `rosterEmails` is a flat normalized-
+// email array purely so the dashboard can do a cheap array-contains query;
+// `roster` keeps the display names alongside it.
+async function upsertShift(db, orgId, shift, launchUser, roster) {
+  const members = [
+    { name: launchUser.name || '', email: launchUser.email },
+    ...(Array.isArray(roster) ? roster : []),
+  ]
+  const seen = new Set()
+  const dedupedRoster = []
+  for (const m of members) {
+    if (!m?.email) continue
+    const normalized = normalizeEmail(m.email)
+    if (seen.has(normalized)) continue
+    seen.add(normalized)
+    dedupedRoster.push({ name: m.name || '', email: m.email })
+  }
+
+  const shiftRef = db.collection('shifts').doc(`${orgId}_${shift.id}`)
+  await shiftRef.set({
+    orgId,
+    shiftId: String(shift.id),
+    title: shift.title || '',
+    date: shift.date || '',
+    time: shift.time || '',
+    location: shift.location || null,
+    roster: dedupedRoster,
+    rosterEmails: [...seen],
+    updatedAt: FieldValue.serverTimestamp(),
+  }, { merge: true })
 }

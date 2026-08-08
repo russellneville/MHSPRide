@@ -107,6 +107,10 @@ export async function POST(request) {
         driver,
         driverId: auth.uid,
         network_id: networkId,
+        // Carried over from the request so the resulting ride still sorts
+        // under the right shift section on the dashboard (issue #199) — a
+        // request made against a shift stays tied to it once fulfilled.
+        ...(reqData.shift_id && { shift_id: reqData.shift_id, shift_name: reqData.shift_name || '' }),
         passengers: [passengerEntry],
         ride_status: 'not started',
         created_at: now,

@@ -31,7 +31,7 @@ export async function POST(request) {
     return NextResponse.json({ error: 'Too many attempts. Please try again later.' }, { status: 429 })
   }
 
-  const { email, name, shiftDate, shiftTime, shiftLocation, roster } = await request.json()
+  const { email, name, shiftId, shiftTitle, shiftDate, shiftTime, shiftLocation, roster } = await request.json()
   if (!isValidEmailInput(email)) {
     return NextResponse.json({ error: 'A valid email is required.' }, { status: 400 })
   }
@@ -75,9 +75,11 @@ export async function POST(request) {
     // would send Troopiter's own stored photo URL here instead.
     user: { name: fullname, email: member.email, photoUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullname)}&background=126D41&color=fff&size=256` },
     shift: {
+      id: String(shiftId || Date.now()),
+      title: shiftTitle || 'Armadillo',
       date: shiftDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
       time: shiftTime || '08:00',
-      location: shiftLocation || 'Armadillo',
+      location: shiftLocation || null,
     },
     roster: companions,
   }

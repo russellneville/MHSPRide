@@ -49,7 +49,16 @@ async function main() {
   const payload = {
     org: { id: 'armadillo-mountain', name: 'Armadillo Mountain Ski Patrol' },
     user: { name: fullname, email, photoUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(fullname)}&background=126D41&color=fff&size=256` },
-    shift: { date: shiftDate, time: '08:00', location: 'Armadillo' },
+    shift: {
+      id: String(Date.now()),
+      title: 'Armadillo',
+      date: shiftDate,
+      time: '08:00',
+      // Real Timberline Lodge coordinates — this CLI script has no browser to
+      // run Google address validation through, so it's hardcoded rather than
+      // left unvalidated the way the mock shift page's own field is.
+      location: { address: 'Timberline Lodge, Government Camp, OR 97028', lat: 45.3311, lng: -121.7113 },
+    },
     // Shift companions (proposal's "Shift companions" section) — empty by
     // default here; use the Troopiter Shift Demo page (admin nav) to build
     // a token with a populated roster instead.

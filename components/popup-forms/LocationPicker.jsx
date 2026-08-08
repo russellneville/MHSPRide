@@ -4,7 +4,9 @@ import { Input } from "../ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
 import { LOCATION_NAME_MAX_LENGTH } from "@/lib/utils"
 import { useAddressValidation } from "@/hooks/use-address-validation"
-import { CheckCircle2, Loader2, TriangleAlert } from "lucide-react"
+import { useSkin } from "@/context/SkinContext"
+import { useAuth } from "@/context/AuthContext"
+import { CheckCircle2, Loader2, MapPin, TriangleAlert } from "lucide-react"
 
 // Shared by OfferRidePopup, RequestRidePopup, EditRidePopup, and
 // EditRideRequestPopup — known-location-or-free-text picker. Free text
@@ -17,6 +19,9 @@ import { CheckCircle2, Loader2, TriangleAlert } from "lucide-react"
 // predefined location is selected — the parent already has that location's
 // lat/lon from the locations list in that case).
 export function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, locations, selectPlaceholder, onValidated }) {
+  const { skin } = useSkin()
+  const { user } = useAuth()
+  const isTroopiter = skin === 'troopiter'
   const { status, result, error, validate, reset } = useAddressValidation()
   // The hook's status only reflects "what did Google say" — it stays
   // 'needs-confirmation' even after the user clicks "Use this address"
@@ -24,10 +29,16 @@ export function LocationPicker({ value, onSelectChange, otherValue, onOtherChang
   // it," so the UI can actually show that the click did something instead
   // of leaving the same "Did you mean…" box on screen forever.
   const [accepted, setAccepted] = useState(false)
+  // Set when the current value came from a savedLocations quick-pick
+  // (already-validated, no round trip needed) rather than the address
+  // validation hook — its own "confirmed" branch doesn't apply since there's
+  // no hook `result` behind it.
+  const [pickedFromRecent, setPickedFromRecent] = useState(false)
 
   const handleOtherChange = (newValue) => {
     onOtherChange(newValue)
     if (newValue) onSelectChange('')
+    setPickedFromRecent(false)
     // Any edit after a previous validation completed invalidates it — the
     // hook's own state no longer matches what's currently in the field.
     if (status !== 'idle') {
@@ -35,6 +46,15 @@ export function LocationPicker({ value, onSelectChange, otherValue, onOtherChang
       setAccepted(false)
       onValidated?.(null)
     }
+  }
+
+  const handleRecentPick = (loc) => {
+    onOtherChange(loc.address)
+    onSelectChange('')
+    reset()
+    setAccepted(false)
+    setPickedFromRecent(true)
+    onValidated?.({ latitude: loc.lat, longitude: loc.lng, formattedAddress: loc.address })
   }
 
   const handleBlur = () => {
@@ -60,43 +80,66 @@ export function LocationPicker({ value, onSelectChange, otherValue, onOtherChang
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status, result])
 
+  const savedLocations = isTroopiter ? (user?.savedLocations || []) : []
+
   return (
     <div className="space-y-2">
-      <Select
-        value={otherValue ? '' : value}
-        onValueChange={(v) => {
-          // onSelectChange is expected to set this field's coords itself
-          // (predefined locations are already trusted — see
-          // LocationsContext.getLocationCoords — so there's nothing for
-          // this hook to validate). Only clear the free-text validation
-          // display state here; don't call onValidated(null), which would
-          // clobber the coords onSelectChange just set.
-          onSelectChange(v)
-          onOtherChange('')
-          reset()
-          setAccepted(false)
-        }}
-        disabled={!!otherValue}
-      >
-        <SelectTrigger>
-          <SelectValue placeholder={selectPlaceholder} />
-        </SelectTrigger>
-        <SelectContent>
-          {locations.map(loc => (
-            <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      {!isTroopiter && (
+        <Select
+          value={otherValue ? '' : value}
+          onValueChange={(v) => {
+            // onSelectChange is expected to set this field's coords itself
+            // (predefined locations are already trusted — see
+            // LocationsContext.getLocationCoords — so there's nothing for
+            // this hook to validate). Only clear the free-text validation
+            // display state here; don't call onValidated(null), which would
+            // clobber the coords onSelectChange just set.
+            onSelectChange(v)
+            onOtherChange('')
+            reset()
+            setAccepted(false)
+          }}
+          disabled={!!otherValue}
+        >
+          <SelectTrigger>
+            <SelectValue placeholder={selectPlaceholder} />
+          </SelectTrigger>
+          <SelectContent>
+            {locations.map(loc => (
+              <SelectItem key={loc.id} value={loc.id}>{loc.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
       <Input
-        placeholder="Other — type a location"
+        placeholder={isTroopiter ? 'Type a location' : 'Other — type a location'}
         value={otherValue}
         maxLength={LOCATION_NAME_MAX_LENGTH}
         onChange={(e) => handleOtherChange(e.target.value)}
         onBlur={handleBlur}
       />
+      {savedLocations.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {savedLocations.map(loc => (
+            <button
+              key={loc.address}
+              type="button"
+              onClick={() => handleRecentPick(loc)}
+              className="inline-flex items-center gap-1 text-xs rounded-full border border-border bg-muted/50 hover:bg-muted px-2.5 py-1 transition-colors"
+            >
+              <MapPin className="size-3 text-muted-foreground" /> {loc.address}
+            </button>
+          ))}
+        </div>
+      )}
       {status === 'checking' && (
         <p className="text-xs text-muted-foreground flex items-center gap-1">
           <Loader2 className="size-3 animate-spin" /> Checking address…
+        </p>
+      )}
+      {pickedFromRecent && (
+        <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
+          <CheckCircle2 className="size-3" /> Using saved address
         </p>
       )}
       {(status === 'confirmed' || (status === 'needs-confirmation' && accepted)) && result && (

@@ -27,31 +27,39 @@ function to24(hour12, minute, meridiem) {
   return `${String(h).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
 }
 
-export default function TimeInput({ id, value, onChange, disabled }) {
-  const parsed = parse24(value) ?? { hour12: 12, minute: 0, meridiem: "AM" }
-  const { hour12, minute, meridiem } = parsed
+// emptyOk: when true, an unset value shows "--" placeholders instead of
+// defaulting the display to 12:00 AM (issue #199 — a Troopiter shift-scoped
+// departure time starts genuinely unknown until a drive-time estimate can
+// back-calculate it, and looking pre-filled with midnight is misleading).
+// The first select the user touches fills sensible defaults into the other
+// two, so one click always produces a complete, valid time.
+export default function TimeInput({ id, value, onChange, disabled, emptyOk }) {
+  const parsed = parse24(value) ?? (emptyOk ? null : { hour12: 12, minute: 0, meridiem: "AM" })
+  const hour12 = parsed?.hour12 ?? null
+  const minute = parsed?.minute ?? null
+  const meridiem = parsed?.meridiem ?? null
 
   const emit = (nextHour12, nextMinute, nextMeridiem) => {
-    onChange({ target: { id, value: to24(nextHour12, nextMinute, nextMeridiem) } })
+    onChange({ target: { id, value: to24(nextHour12 ?? 12, nextMinute ?? 0, nextMeridiem ?? "AM") } })
   }
 
   return (
     <div className="flex items-center gap-1.5">
-      <Select disabled={disabled} value={String(hour12)} onValueChange={(v) => emit(Number(v), minute, meridiem)}>
-        <SelectTrigger className="w-[4.25rem]"><SelectValue /></SelectTrigger>
+      <Select disabled={disabled} value={hour12 != null ? String(hour12) : ''} onValueChange={(v) => emit(Number(v), minute, meridiem)}>
+        <SelectTrigger className="w-[4.25rem]"><SelectValue placeholder="--" /></SelectTrigger>
         <SelectContent>
           {HOURS.map(h => <SelectItem key={h} value={String(h)}>{h}</SelectItem>)}
         </SelectContent>
       </Select>
       <span className="text-muted-foreground">:</span>
-      <Select disabled={disabled} value={String(minute)} onValueChange={(v) => emit(hour12, Number(v), meridiem)}>
-        <SelectTrigger className="w-[4.25rem]"><SelectValue /></SelectTrigger>
+      <Select disabled={disabled} value={minute != null ? String(minute) : ''} onValueChange={(v) => emit(hour12, Number(v), meridiem)}>
+        <SelectTrigger className="w-[4.25rem]"><SelectValue placeholder="--" /></SelectTrigger>
         <SelectContent>
           {MINUTES.map(m => <SelectItem key={m} value={String(m)}>{String(m).padStart(2, "0")}</SelectItem>)}
         </SelectContent>
       </Select>
-      <Select disabled={disabled} value={meridiem} onValueChange={(v) => emit(hour12, minute, v)}>
-        <SelectTrigger className="w-[4.5rem]"><SelectValue /></SelectTrigger>
+      <Select disabled={disabled} value={meridiem ?? ''} onValueChange={(v) => emit(hour12, minute, v)}>
+        <SelectTrigger className="w-[4.5rem]"><SelectValue placeholder="--" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="AM">AM</SelectItem>
           <SelectItem value="PM">PM</SelectItem>

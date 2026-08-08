@@ -15,9 +15,19 @@ export default function TroopiterShiftDemoPage() {
   const [error, setError] = useState('')
   const [viewingAsEmail, setViewingAsEmail] = useState('')
   const [companionEmails, setCompanionEmails] = useState(new Set())
+
+  // Shift record fields — mirrors what a real Troopiter push would carry:
+  // a stable id (so MHSP Ride can tell "same shift, resend" from "new
+  // shift"), a human descriptor, and a real geocoded location distinct from
+  // that descriptor (issue #199 feedback: "Timberline" the event name and
+  // "Ski Bowl" the destination were getting conflated in test data).
+  const [shiftId, setShiftId] = useState(() => String(Date.now()))
+  const [shiftTitle, setShiftTitle] = useState('Timberline - Mountain Host')
   const [shiftDate, setShiftDate] = useState('')
   const [shiftTime, setShiftTime] = useState('08:00')
-  const [shiftLocation, setShiftLocation] = useState('Armadillo')
+  const [locationText, setLocationText] = useState('Timberline Lodge, Government Camp, OR')
+  const [locationState, setLocationState] = useState({ status: 'idle', result: null, error: null })
+  const [confirmedLocation, setConfirmedLocation] = useState(null) // { address, lat, lng }
   const [launching, setLaunching] = useState(false)
 
   useEffect(() => {
@@ -46,6 +56,41 @@ export default function TroopiterShiftDemoPage() {
     })
   }
 
+  function handleLocationChange(text) {
+    setLocationText(text)
+    setConfirmedLocation(null)
+    setLocationState({ status: 'idle', result: null, error: null })
+  }
+
+  async function handleLocationBlur() {
+    if (!locationText.trim() || confirmedLocation) return
+    setLocationState({ status: 'checking', result: null, error: null })
+    try {
+      const res = await fetch('/api/troopiter-demo/validate-address', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address: locationText.trim() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setLocationState({ status: 'error', result: null, error: data.error || 'Could not validate that address' })
+        return
+      }
+      setLocationState({ status: data.status, result: data, error: null })
+      if (data.status === 'confirmed') {
+        setConfirmedLocation({ address: data.formattedAddress, lat: data.latitude, lng: data.longitude })
+      }
+    } catch (err) {
+      setLocationState({ status: 'error', result: null, error: err.message })
+    }
+  }
+
+  function acceptLocationSuggestion() {
+    const result = locationState.result
+    if (!result) return
+    setConfirmedLocation({ address: result.formattedAddress, lat: result.latitude, lng: result.longitude })
+  }
+
   async function handleGetRide() {
     if (!viewingAs) return
     setLaunching(true)
@@ -57,9 +102,11 @@ export default function TroopiterShiftDemoPage() {
         body: JSON.stringify({
           email: viewingAs.email,
           name: `${viewingAs.firstName} ${viewingAs.lastName}`.trim(),
+          shiftId,
+          shiftTitle,
           shiftDate,
           shiftTime,
-          shiftLocation,
+          shiftLocation: confirmedLocation,
           roster: others
             .filter(m => companionEmails.has(m.email))
             .map(m => ({ name: `${m.firstName} ${m.lastName}`.trim(), email: m.email })),
@@ -73,6 +120,8 @@ export default function TroopiterShiftDemoPage() {
       setLaunching(false)
     }
   }
+
+  const canLaunch = !!viewingAs && !!confirmedLocation && !launching
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 font-sans">
@@ -96,7 +145,31 @@ export default function TroopiterShiftDemoPage() {
             <p className="text-sm text-slate-500">Loading roster…</p>
           ) : (
             <>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-medium text-slate-600">Shift ID</label>
+                  <button
+                    type="button"
+                    onClick={() => setShiftId(String(Date.now()))}
+                    className="text-xs text-slate-500 underline underline-offset-2 hover:text-slate-700"
+                  >
+                    New shift ID
+                  </button>
+                </div>
+                <input type="text" value={shiftId} onChange={e => setShiftId(e.target.value)}
+                  className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm font-mono" />
+                <p className="text-xs text-slate-400">
+                  Stable per shift — reuse the same ID across launches to simulate a roster update; change it (or click "New shift ID") to simulate a different shift.
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Shift / event title</label>
+                <input type="text" value={shiftTitle} onChange={e => setShiftTitle(e.target.value)}
+                  className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-medium text-slate-600">Date</label>
                   <input type="date" value={shiftDate} onChange={e => setShiftDate(e.target.value)}
@@ -107,11 +180,37 @@ export default function TroopiterShiftDemoPage() {
                   <input type="time" value={shiftTime} onChange={e => setShiftTime(e.target.value)}
                     className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium text-slate-600">Location</label>
-                  <input type="text" value={shiftLocation} onChange={e => setShiftLocation(e.target.value)}
-                    className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm" />
-                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-slate-600">Location</label>
+                <input
+                  type="text"
+                  value={locationText}
+                  onChange={e => handleLocationChange(e.target.value)}
+                  onBlur={handleLocationBlur}
+                  placeholder="Where this shift happens"
+                  className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+                />
+                {locationState.status === 'checking' && (
+                  <p className="text-xs text-slate-500">Checking address…</p>
+                )}
+                {confirmedLocation && (
+                  <p className="text-xs text-emerald-700">✓ Confirmed: {confirmedLocation.address}</p>
+                )}
+                {locationState.status === 'needs-confirmation' && locationState.result && !confirmedLocation && (
+                  <div className="text-xs rounded border border-amber-300 bg-amber-50 px-2 py-1.5 space-y-1">
+                    <p className="text-amber-800">Did you mean: <strong>{locationState.result.formattedAddress}</strong>?</p>
+                    <button type="button" onClick={acceptLocationSuggestion} className="text-emerald-700 underline underline-offset-2">
+                      Use this address
+                    </button>
+                  </div>
+                )}
+                {(locationState.status === 'invalid' || locationState.status === 'error') && (
+                  <p className="text-xs text-red-600">
+                    {locationState.status === 'invalid' ? "Couldn't confirm that address — check it and try again." : (locationState.error || 'Could not validate that address.')}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -147,12 +246,13 @@ export default function TroopiterShiftDemoPage() {
               </div>
 
               {error && <p className="text-sm text-red-600">{error}</p>}
+              {!confirmedLocation && <p className="text-xs text-slate-500">Confirm the shift location above before launching.</p>}
 
               <div className="flex items-center justify-between pt-2 border-t border-slate-100">
                 <span className="text-sm text-slate-600">Carpool for this shift</span>
                 <button
                   onClick={handleGetRide}
-                  disabled={!viewingAs || launching}
+                  disabled={!canLaunch}
                   className="inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded"
                 >
                   🚗 {launching ? 'Launching…' : 'Get a Ride'}

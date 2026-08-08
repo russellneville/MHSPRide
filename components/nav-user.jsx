@@ -26,11 +26,20 @@ import {
 } from "@/components/ui/sidebar"
 import Link from "next/link"
 import { useAuth } from "@/context/AuthContext"
+import { useSkin } from "@/context/SkinContext"
 import { Button } from "./ui/button"
+
+// Troopiter users arrive via a launch handoff and never signed into MHSP
+// Ride directly (issue #199) — "Log out" for them means leaving the app
+// the way troopiter.com's own header would, not an MHSP Ride sign-out. See
+// dashboardLayout.jsx's TroopiterHeader for the same choice.
+const TROOPITER_SIGN_OUT_URL = 'https://troopiter.com/users/sign_out'
 
 export function NavUser({user}) {
   const { isMobile } = useSidebar()
   const { logOut } = useAuth()
+  const { skin } = useSkin()
+  const isTroopiter = skin === 'troopiter'
 
   return (
     <SidebarMenu>
@@ -72,7 +81,7 @@ export function NavUser({user}) {
               </Link>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={logOut}>
+            <DropdownMenuItem onClick={() => { isTroopiter ? window.location.assign(TROOPITER_SIGN_OUT_URL) : logOut() }}>
               <LogOut />
               Log out
             </DropdownMenuItem>

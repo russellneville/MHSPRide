@@ -41,7 +41,7 @@ service cloud.firestore {
         && request.auth.uid == userId
         && !isSuspended()
         && !request.resource.data.diff(resource.data).affectedKeys()
-            .hasAny(['role', 'mhspNumber', 'created_at', 'suspended', 'email'])
+            .hasAny(['role', 'mhspNumber', 'memberId', 'created_at', 'suspended', 'email'])
         // Length caps only apply when the field is actually being changed, so
         // documents written before these caps existed aren't retroactively
         // locked out of unrelated writes (e.g. toggling a favorite network).
@@ -90,16 +90,16 @@ service cloud.firestore {
       allow create: if request.auth != null
         && !isSuspended()
         && request.resource.data.driverId == request.auth.uid
-        && request.resource.data.departure.size() <= 60
-        && request.resource.data.arrival.size() <= 60;
+        && request.resource.data.departure.size() <= 120
+        && request.resource.data.arrival.size() <= 120;
       allow update: if request.auth != null
         && !isSuspended()
         && (
           (resource.data.driverId == request.auth.uid
             && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['departure'])
-                || request.resource.data.departure.size() <= 60)
+                || request.resource.data.departure.size() <= 120)
             && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['arrival'])
-                || request.resource.data.arrival.size() <= 60))
+                || request.resource.data.arrival.size() <= 120))
           || isAdmin()
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['available_seats', 'passengers'])
         );
@@ -138,8 +138,8 @@ service cloud.firestore {
       allow create: if request.auth != null
         && !isSuspended()
         && request.resource.data.requesterId == request.auth.uid
-        && request.resource.data.departure.size() <= 60
-        && request.resource.data.arrival.size() <= 60;
+        && request.resource.data.departure.size() <= 120
+        && request.resource.data.arrival.size() <= 120;
       allow update: if false;
       // Delete is a hard removal (admin housekeeping), not a status
       // transition, so it's gated directly here rather than via an API
@@ -227,6 +227,33 @@ service cloud.firestore {
     // Password reset tokens: Admin SDK only, never touched by client SDKs
     match /password_resets/{id} {
       allow read, write: if false;
+    }
+
+    // Troopiter launch token replay guard (issue #199): one doc per
+    // consumed jti, keyed by the token's own jti. Admin SDK only — written
+    // by app/api/launch inside the same transaction that checks it.
+    match /launch_tokens_consumed/{id} {
+      allow read, write: if false;
+    }
+
+    // Troopiter org config (issue #199): logoUrl/displayName per patrol.
+    // app/layout.jsx reads this server-side via the Admin SDK (bypasses these
+    // rules entirely) so it works for signed-out visitors too — the only
+    // client-side reader is the admin Organizations page, hence admin-only
+    // here. Writes go through /api/admin/organizations/* (Admin SDK).
+    match /organizations/{orgId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Troopiter shifts (issue #199): created/refreshed by app/api/launch on
+    // every launch, via the Admin SDK (bypasses these rules entirely, same
+    // as launch_tokens_consumed). Read allowed for any authenticated,
+    // non-suspended user — the dashboard shows shifts the viewer isn't
+    // rostered on too, collapsed under "Other shifts/events".
+    match /shifts/{id} {
+      allow read: if request.auth != null && !isSuspended();
+      allow write: if false;
     }
   }
 }

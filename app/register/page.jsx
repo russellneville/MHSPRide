@@ -43,7 +43,8 @@ export default function Register() {
 
   const validateStep1 = () => {
     const newErrors = {}
-    if (!registerForm.mhspNumber.trim()) newErrors.mhspNumber = "MHSP member number is required"
+    // Optional — not every org has MHSP-style patrol ID numbers. When blank,
+    // matching falls back to last name + Troopiter email (app/api/register/verify-membership).
     if (!registerForm.lastName.trim()) newErrors.lastName = "Last name is required"
     if (!registerForm.troopiterEmail.trim()) newErrors.troopiterEmail = "Troopiter email is required"
     else if (!/^\S+@\S+\.\S+$/.test(registerForm.troopiterEmail)) newErrors.troopiterEmail = "Invalid email address"

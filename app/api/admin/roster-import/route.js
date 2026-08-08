@@ -28,7 +28,7 @@ export async function POST(request) {
 
   const csvRows = parseCsvRows(rawRows)
   if (csvRows.length === 0) {
-    return NextResponse.json({ error: 'No valid MHSP Number rows found in CSV' }, { status: 400 })
+    return NextResponse.json({ error: 'No valid rows found in CSV — each row needs an MHSP Number or an Email' }, { status: 400 })
   }
 
   // Fetch every member, including inactive ones — computeDiff searches inactive docs
@@ -45,12 +45,23 @@ export async function POST(request) {
 
   const diff = computeDiff(csvRows, firestoreMembers)
 
+  // MHSP's own CSV always populates Status (Active/Past Member/Alumni/etc) on
+  // every row — the commit step only geocodes 'Active' rows so it doesn't
+  // waste API calls on Deceased/Alumni/etc members. Some orgs (Armadillo
+  // Mountain's Troopiter export) have no equivalent concept at all and leave
+  // this column blank for every row — geocoding nothing in that case would
+  // silently strand every imported member without coordinates. Detected at
+  // the whole-CSV level (not per-row) so a real MHSP CSV's per-row Active/
+  // Past Member/etc distinctions are never affected.
+  const noStatusTracking = csvRows.every(r => !r.status)
+
   // Persist session for the commit step
   const sessionId = randomUUID()
   const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000) // 2 hours
 
   await db.collection('import_sessions').doc(sessionId).set({
     diff,
+    noStatusTracking,
     status: 'pending',
     createdBy: auth.uid,
     createdAt: new Date(),

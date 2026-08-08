@@ -38,13 +38,16 @@ export async function POST(request, { params }) {
     return NextResponse.json({ error: 'Session expired — please re-upload the CSV' }, { status: 410 })
   }
 
-  const { diff } = session
+  const { diff, noStatusTracking } = session
   const summary = { renames: 0, newMembers: 0, updated: 0, deactivated: 0, accountsDisabled: 0, geocoded: 0 }
 
-  // Geocode only when the member is Active and has an address.
-  // Inactive/past members are stored with null coords — they can't register anyway.
+  // Geocode when the member is Active and has an address — or, for orgs with
+  // no Status concept at all (noStatusTracking, set at upload time), whenever
+  // there's an address, since there's no Active/Alumni/etc distinction to
+  // gate on. Inactive/past MHSP members are still stored with null coords —
+  // they can't register anyway.
   async function resolveCoords(address, status, existingLatitude, existingLongitude) {
-    if (address && status === 'Active') {
+    if (address && (status === 'Active' || noStatusTracking)) {
       try {
         const coords = await geocodeAddress(address)
         summary.geocoded++
@@ -71,7 +74,7 @@ export async function POST(request, { params }) {
       : { latitude: oldData.latitude ?? null, longitude: oldData.longitude ?? null }
 
     const newDoc = {
-      mhspNumber:      newId,
+      mhspNumber:      newData.mhspNumber || '',
       firstName:       newData.firstName,
       lastName:        newData.lastName,
       email:           newData.email,
@@ -143,7 +146,7 @@ export async function POST(request, { params }) {
     const batch = db.batch()
     for (const { id, data, coords } of chunk) {
       batch.set(db.collection('members').doc(id), {
-        mhspNumber:      id,
+        mhspNumber:      data.mhspNumber || '',
         firstName:       data.firstName,
         lastName:        data.lastName,
         email:           data.email,

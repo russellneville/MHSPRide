@@ -24,10 +24,14 @@ export async function POST(request) {
   try {
     const { mhspNumber, lastName, troopiterEmail } = await request.json()
 
-    if (!mhspNumber || !String(mhspNumber).trim() || !lastName || !String(lastName).trim() || !isValidEmailInput(troopiterEmail)) {
+    // Not every org has MHSP-style patrol ID numbers (Armadillo Mountain, the
+    // Troopiter integration's rehearsal org, has none) — mhspNumber is optional;
+    // when omitted, matching falls back to last name + Troopiter email against
+    // a members doc keyed by normalized email instead of a patrol ID.
+    if (!lastName || !String(lastName).trim() || !isValidEmailInput(troopiterEmail)) {
       return NextResponse.json({ ok: false, error: 'All fields are required.' }, { status: 400 })
     }
-    if (String(mhspNumber).trim().length > MHSP_NUMBER_MAX_LENGTH || String(lastName).trim().length > NAME_MAX_LENGTH) {
+    if (String(mhspNumber || '').trim().length > MHSP_NUMBER_MAX_LENGTH || String(lastName).trim().length > NAME_MAX_LENGTH) {
       return NextResponse.json({ ok: false, error: 'One or more fields exceed the maximum length.' }, { status: 400 })
     }
 
@@ -59,14 +63,30 @@ export async function POST(request) {
     }
 
     const db = getAdminDb()
-    const memberId = String(mhspNumber).trim()
-    const memberSnap = await db.collection('members').doc(memberId).get()
+    const trimmedMhspNumber = String(mhspNumber || '').trim()
 
-    if (!memberSnap.exists) {
-      return NextResponse.json({ ok: false, error: MISMATCH_ERROR }, { status: 400 })
+    let memberSnap
+    if (trimmedMhspNumber) {
+      memberSnap = await db.collection('members').doc(trimmedMhspNumber).get()
+      if (!memberSnap.exists) {
+        return NextResponse.json({ ok: false, error: MISMATCH_ERROR }, { status: 400 })
+      }
+    } else {
+      // No MHSP # given — for orgs like Armadillo Mountain the member doc is
+      // keyed by normalized email (see lib/rosterDiff.js), so look it up directly.
+      const direct = await db.collection('members').doc(normalizedEmail).get()
+      memberSnap = direct.exists ? direct : null
+      if (!memberSnap) {
+        const query = await db.collection('members').where('email', '==', normalizedEmail).limit(1).get()
+        memberSnap = query.empty ? null : query.docs[0]
+      }
+      if (!memberSnap) {
+        return NextResponse.json({ ok: false, error: MISMATCH_ERROR }, { status: 400 })
+      }
     }
 
     const memberData = memberSnap.data()
+    const memberId = memberSnap.id
 
     if (norm(memberData.lastName) !== norm(lastName) || norm(memberData.email) !== normalizedEmail) {
       return NextResponse.json({ ok: false, error: MISMATCH_ERROR }, { status: 400 })
@@ -80,7 +100,8 @@ export async function POST(request) {
     const token = randomUUID()
 
     await db.collection('registration_verifications').doc(token).set({
-      mhspNumber: memberId,
+      memberId,
+      mhspNumber: memberData.mhspNumber || '',
       lastName: memberData.lastName,
       email: memberData.email,
       codeHash: hashCode(code),

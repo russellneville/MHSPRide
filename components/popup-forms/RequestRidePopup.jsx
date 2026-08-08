@@ -1,10 +1,12 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Label } from "../ui/label"
+import { Input } from "../ui/input"
 import TimeInput from "../ui/time-input"
 import DatePicker from "../ui/date-picker"
 import { usePopup } from "@/context/PopupContext"
 import { useNetwork } from "@/context/NetworksContext"
 import { useLocations } from "@/context/LocationsContext"
+import { useSkin } from "@/context/SkinContext"
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
@@ -13,16 +15,23 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "../ui/alert-dialog"
 import { LocationPicker } from "./LocationPicker"
+import { useEstimatedArrival } from "@/hooks/use-estimated-arrival"
+import { addMinutesToTime } from "@/lib/drive-times"
 import { toLocalDateStr, TEXTAREA_MAX_LENGTH } from "@/lib/utils"
 import { EQUIPMENT_OPTIONS, hasOpenRideRequest } from "@/lib/rideRequests"
 
 // Deliberately simpler than OfferRidePopup — a request has no vehicle,
 // network, one-way/return trip, or arrival time, since none of that is known
-// until a driver claims it.
-export default function RequestRidePopup({ onSaved }) {
+// until a driver claims it. `shift` (issue #199): when opened from a
+// shift-scoped dashboard button, prefills the destination/date and
+// back-calculates the requested pickup time from the shift's start time,
+// same as OfferRidePopup's departure time.
+export default function RequestRidePopup({ onSaved, shift }) {
   const { closePopup } = usePopup()
   const { requestRide, getMyRideRequests } = useNetwork()
   const { origins, destinations, getLocationCoords } = useLocations()
+  const { skin } = useSkin()
+  const isTroopiter = skin === 'troopiter'
   const [showAlreadyOpen, setShowAlreadyOpen] = useState(false)
   // Local, not the shared NetworksContext isLoading — that flag defaults to
   // true and only flips once some other useNetwork() call resolves, so a
@@ -30,18 +39,38 @@ export default function RequestRidePopup({ onSaved }) {
   // "Submitting..." from first render.
   const [submitting, setSubmitting] = useState(false)
 
+  const [shiftName, setShiftName] = useState(shift?.title || '')
   const [departureSelect, setDepartureSelect] = useState('')
   const [departureOther, setDepartureOther] = useState('')
   const [arrivalSelect, setArrivalSelect] = useState('')
-  const [arrivalOther, setArrivalOther] = useState('')
+  const [arrivalOther, setArrivalOther] = useState(shift?.location?.address || '')
   const [departureCoords, setDepartureCoords] = useState(null)
-  const [arrivalCoords, setArrivalCoords] = useState(null)
-  const [date, setDate] = useState(undefined)
+  const initArrCoords = shift?.location?.lat != null && shift?.location?.lng != null
+    ? { latitude: shift.location.lat, longitude: shift.location.lng, formattedAddress: shift.location.address }
+    : null
+  const [arrivalCoords, setArrivalCoords] = useState(initArrCoords)
+  const [date, setDate] = useState(shift?.date ? new Date(shift.date + 'T12:00:00') : undefined)
   const [departureTime, setDepartureTime] = useState('')
   const [seatsRequested, setSeatsRequested] = useState('')
   const [equipment, setEquipment] = useState('no_equipment')
   const [notes, setNotes] = useState('')
   const [validationError, setValidationErrors] = useState({})
+
+  // Drive time between the (once validated) pickup point and the shift's
+  // destination — used only to back-calculate departureTime below, no
+  // rendered arrival time to keep in sync the way OfferRidePopup does.
+  const { driveMinutes } = useEstimatedArrival(
+    null,
+    { locationId: departureSelect || null, coords: departureCoords ? { lat: departureCoords.latitude, lng: departureCoords.longitude } : null },
+    { locationId: arrivalSelect || null, coords: arrivalCoords ? { lat: arrivalCoords.latitude, lng: arrivalCoords.longitude } : null }
+  )
+  useEffect(() => {
+    if (!shift || departureTime || driveMinutes == null) return
+    const target = addMinutesToTime(shift.time, -15)
+    if (!target) return
+    const seeded = addMinutesToTime(target, -(driveMinutes + 5))
+    if (seeded) setDepartureTime(seeded)
+  }, [shift, driveMinutes, departureTime])
 
   const effectiveDeparture = departureOther.trim() || departureSelect
   const effectiveArrival = arrivalOther.trim() || arrivalSelect
@@ -55,6 +84,7 @@ export default function RequestRidePopup({ onSaved }) {
     if (!date) newErrors.date = "Date is required"
     if (!departureTime) newErrors.departure_time = "Requested pickup time is required"
     if (!seatsRequested || Number(seatsRequested) < 1) newErrors.seats_requested = "Number of seats is required"
+    if (isTroopiter && !shift && !shiftName.trim()) newErrors.shift_name = "Shift / event name is required"
     setValidationErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -84,7 +114,8 @@ export default function RequestRidePopup({ onSaved }) {
       seats_requested: Number(seatsRequested),
       equipment,
       notes,
-    })
+      ...(isTroopiter && { shift_name: shiftName.trim(), shift_id: shift?.id || null }),
+    }, isTroopiter)
     setSubmitting(false)
     onSaved?.()
     closePopup()
@@ -92,6 +123,25 @@ export default function RequestRidePopup({ onSaved }) {
 
   return (
     <div className="space-y-5">
+      {isTroopiter && (
+        <div className="space-y-1">
+          <Label htmlFor="shift_name">Shift / event</Label>
+          {shift ? (
+            <p className="text-sm font-medium px-3 py-2 rounded-md border border-border bg-muted/40">{shift.title}</p>
+          ) : (
+            <>
+              <Input
+                id="shift_name"
+                placeholder="e.g. Timberline - Mountain Host"
+                value={shiftName}
+                onChange={e => setShiftName(e.target.value)}
+              />
+              {validationError.shift_name && <p className="text-red-500 text-sm">{validationError.shift_name}</p>}
+            </>
+          )}
+        </div>
+      )}
+
       <div className="space-y-3">
         <div className="space-y-1">
           <Label>Departure</Label>
@@ -115,6 +165,7 @@ export default function RequestRidePopup({ onSaved }) {
             otherValue={arrivalOther}
             onOtherChange={setArrivalOther}
             onValidated={setArrivalCoords}
+            trustedValue={arrivalOther ? initArrCoords : null}
             locations={destinations}
             selectPlaceholder="Select arrival location"
           />
@@ -129,7 +180,7 @@ export default function RequestRidePopup({ onSaved }) {
           </div>
           <div className="flex-1 min-w-[220px] space-y-1">
             <Label htmlFor="departure_time">Requested pickup time</Label>
-            <TimeInput id="departure_time" onChange={e => setDepartureTime(e.target.value)} value={departureTime} />
+            <TimeInput id="departure_time" onChange={e => setDepartureTime(e.target.value)} value={departureTime} emptyOk={isTroopiter} />
             {validationError.departure_time && <p className="text-red-500 text-sm">{validationError.departure_time}</p>}
           </div>
         </div>

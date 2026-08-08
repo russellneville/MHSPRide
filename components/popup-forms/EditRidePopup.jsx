@@ -47,18 +47,16 @@ function EditRidePopupForm({ ride, onSaved, origins, destinations, getLocationCo
   // this validation flow) rather than forcing re-confirmation on every edit
   // that doesn't touch location — null only for free text saved before this
   // feature existed, which correctly requires one re-confirmation to migrate.
-  const [departureCoords, setDepartureCoords] = useState(
-    initDepSelect ? getLocationCoords(initDepSelect)
-      : (initDepOther && ride.departure_lat != null && ride.departure_lng != null)
-        ? { latitude: ride.departure_lat, longitude: ride.departure_lng, formattedAddress: ride.departure }
-        : null
-  )
-  const [arrivalCoords, setArrivalCoords] = useState(
-    initArrSelect ? getLocationCoords(initArrSelect)
-      : (initArrOther && ride.arrival_lat != null && ride.arrival_lng != null)
-        ? { latitude: ride.arrival_lat, longitude: ride.arrival_lng, formattedAddress: ride.arrival }
-        : null
-  )
+  const initDepCoords = initDepSelect ? getLocationCoords(initDepSelect)
+    : (initDepOther && ride.departure_lat != null && ride.departure_lng != null)
+      ? { latitude: ride.departure_lat, longitude: ride.departure_lng, formattedAddress: ride.departure }
+      : null
+  const initArrCoords = initArrSelect ? getLocationCoords(initArrSelect)
+    : (initArrOther && ride.arrival_lat != null && ride.arrival_lng != null)
+      ? { latitude: ride.arrival_lat, longitude: ride.arrival_lng, formattedAddress: ride.arrival }
+      : null
+  const [departureCoords, setDepartureCoords] = useState(initDepCoords)
+  const [arrivalCoords, setArrivalCoords] = useState(initArrCoords)
   const [date, setDate] = useState(ride.departure_date ? new Date(ride.departure_date + 'T12:00:00') : undefined)
   const [oneWay, setOneWay] = useState(ride.one_way || false)
   const [rideData, setRideData] = useState({
@@ -162,6 +160,7 @@ function EditRidePopupForm({ ride, onSaved, origins, destinations, getLocationCo
             otherValue={departureOther}
             onOtherChange={setDepartureOther}
             onValidated={setDepartureCoords}
+            trustedValue={initDepOther ? initDepCoords : null}
             locations={origins}
             selectPlaceholder="Select pickup location"
           />
@@ -176,6 +175,7 @@ function EditRidePopupForm({ ride, onSaved, origins, destinations, getLocationCo
             otherValue={arrivalOther}
             onOtherChange={setArrivalOther}
             onValidated={setArrivalCoords}
+            trustedValue={initArrOther ? initArrCoords : null}
             locations={destinations}
             selectPlaceholder="Select arrival location"
           />

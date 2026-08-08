@@ -1,5 +1,6 @@
 import Script from "next/script";
-import { Geist, Geist_Mono, Poppins } from "next/font/google";
+import { headers } from "next/headers";
+import { Geist, Geist_Mono, Poppins, Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { Toaster } from "@/components/ui/sonner";
@@ -8,9 +9,12 @@ import { Popup } from "@/components/Popup";
 import { NetworkProvider } from "@/context/NetworksContext";
 import { LocationsProvider } from "@/context/LocationsContext";
 import { ThemeProvider } from "@/context/ThemeContext";
+import { SkinProvider } from "@/context/SkinContext";
 import CookieConsent from "@/components/CookieConsent";
 import Analytics from "@/components/Analytics";
 import { COOKIE_CONSENT_STORAGE_KEY } from "@/lib/cookieConsent";
+import { resolveSkin, TROOPITER_ORG_ID } from "@/lib/skin";
+import { getAdminDb } from "@/lib/firebaseAdmin";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,23 +32,45 @@ const poppins = Poppins({
   weight: ["400", "500", "600", "700"],
 });
 
+// Troopiter's own design language uses Inter (resources/troopiter/integration-proposal.md,
+// "Look and feel") — loaded unconditionally since next/font can't be called
+// conditionally, applied only under [data-skin="troopiter"] in globals.css.
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+});
+
 export const metadata = {
   title: "MHSP Ride",
   description: "Carpooling and rideshare for the Mount Hood Ski Patrol community.",
 };
 
-export default function RootLayout({ children }) {
+// Org config is a single hardcoded doc for this rehearsal prototype (see
+// lib/skin.js) — real multi-tenant org resolution from the launch session
+// is out of scope until a second patrol onboards.
+async function getOrgForSkin(skin) {
+  if (skin !== 'troopiter') return null
+  const snap = await getAdminDb().collection('organizations').doc(TROOPITER_ORG_ID).get()
+  return snap.exists ? { id: snap.id, ...snap.data() } : null
+}
+
+export default async function RootLayout({ children }) {
+  const host = (await headers()).get('host')
+  const skin = resolveSkin(host)
+  const org = await getOrgForSkin(skin)
+
   return (
-    
-          <html lang="en" suppressHydrationWarning>
+
+          <html lang="en" suppressHydrationWarning data-skin={skin}>
             <body
-              className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} font-poppins antialiased`}
+              className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} ${inter.variable} font-poppins antialiased`}
             >
               <ThemeProvider
-                  attribute="class"  
+                  attribute="class"
                   defaultTheme="system"
                   enableSystem
                   disableTransitionOnChange>
+                <SkinProvider skin={skin} org={org}>
                 <AuthProvider>
                   <NetworkProvider>
                   <LocationsProvider>
@@ -77,9 +103,10 @@ export default function RootLayout({ children }) {
                   </LocationsProvider>
                   </NetworkProvider>
                 </AuthProvider>
+                </SkinProvider>
               </ThemeProvider>
             </body>
           </html>
-        
+
   );
 }

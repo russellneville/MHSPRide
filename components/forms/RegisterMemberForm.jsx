@@ -9,8 +9,8 @@ export default function RegisterMemberForm({ setRegisterForm, registerForm, erro
 
   return <>
     <div className="space-y-2">
-      <Label htmlFor="mhspNumber">MHSP Member Number</Label>
-      <Input id="mhspNumber" type="text" placeholder="e.g. 1636" maxLength={MHSP_NUMBER_MAX_LENGTH} onChange={handleChange} value={registerForm.mhspNumber} />
+      <Label htmlFor="mhspNumber">MHSP Member Number (if your patrol uses one)</Label>
+      <Input id="mhspNumber" type="text" placeholder="e.g. 1636 — leave blank if not applicable" maxLength={MHSP_NUMBER_MAX_LENGTH} onChange={handleChange} value={registerForm.mhspNumber} />
       {errors.mhspNumber && <p className="text-red-500 text-sm">{errors.mhspNumber}</p>}
     </div>
 

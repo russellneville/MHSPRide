@@ -5,10 +5,11 @@ import { toast } from "sonner";
 import { createContext, useContext, useState } from 'react'
 import { logEvent } from '@/lib/activityLog'
 import { canBookRide, isCanceledStatus } from '@/lib/rides'
-import { networkName } from '@/lib/networks'
+import { networkName, TROOPITER_NETWORK_ID } from '@/lib/networks'
 import { flattenVehicleForSnapshot } from '@/lib/vehicles'
 import { fireBadgeEvent } from '@/lib/badges/client'
 import { computeRequestExpiresAt } from '@/lib/rideRequests'
+import { saveRecentLocation } from '@/lib/savedLocations'
 const NetworkContext = createContext()
 
 export const NetworkProvider = ({children})=>{
@@ -152,6 +153,14 @@ export const NetworkProvider = ({children})=>{
           mhspNumber: userData.mhspNumber,
           metadata: { networkId, departure: rideData.departure, arrival: rideData.arrival, departure_date: rideData.departure_date },
         }).catch(() => {})
+
+        // Troopiter tenants have no canned Locations to pick from (issue
+        // #199) — every address here is a validated free-text one, worth
+        // remembering as a quick-pick for next time.
+        if (networkId === TROOPITER_NETWORK_ID) {
+          saveRecentLocation(auth.currentUser.uid, { address: rideData.departure, lat: rideData.departure_lat, lng: rideData.departure_lng })
+          saveRecentLocation(auth.currentUser.uid, { address: rideData.arrival, lat: rideData.arrival_lat, lng: rideData.arrival_lng })
+        }
       }
 
     }
@@ -168,13 +177,18 @@ export const NetworkProvider = ({children})=>{
   // creates its own request directly (firestore.rules allows self-owned create),
   // but every status transition after that goes through an API route (see
   // app/api/ride-requests/cancel and .../fulfill), not a client updateDoc.
-  const requestRide = async (requestData) => {
+  const requestRide = async (requestData, isTroopiter = false) => {
     try {
       setIsLoading(true)
       const inviteCode = generateInviteCode()
 
       const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
       const userData = userDoc.data();
+
+      if (isTroopiter) {
+        saveRecentLocation(auth.currentUser.uid, { address: requestData.departure, lat: requestData.departure_lat, lng: requestData.departure_lng })
+        saveRecentLocation(auth.currentUser.uid, { address: requestData.arrival, lat: requestData.arrival_lat, lng: requestData.arrival_lng })
+      }
 
       await setDoc(doc(db, 'ride_requests', `req-${inviteCode}`), {
         ...requestData,
@@ -331,6 +345,39 @@ export const NetworkProvider = ({children})=>{
     }
     finally{
       setIsLoading(false)
+    }
+  }
+
+  // Rides tied to a specific Troopiter shift (issue #199) — grouping key for
+  // the dashboard's per-shift Available Rides sections, independent of
+  // network_id (which stays a single fixed value for every Armadillo ride).
+  const getRidesByShiftId = async (shiftId) => {
+    try {
+      const q = query(collection(db, 'rides'), where('shift_id', '==', shiftId))
+      const snapshot = await getDocs(q)
+      return snapshot.docs.map(d => ({ id: d.id, ...d.data() }))
+    } catch (error) {
+      toast.error(error.message)
+      return []
+    }
+  }
+
+  // Upcoming shifts posted for an org (issue #199) — filters/sorts by date
+  // client-side rather than a range filter + orderBy server-side, so this
+  // doesn't need a composite Firestore index; the org's shift count is small
+  // enough that fetching all of them is cheap.
+  const getShiftsForOrg = async (orgId) => {
+    if (!orgId) return []
+    try {
+      const today = new Date().toISOString().slice(0, 10)
+      const snapshot = await getDocs(query(collection(db, 'shifts'), where('orgId', '==', orgId)))
+      return snapshot.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(s => s.date >= today)
+        .sort((a, b) => a.date.localeCompare(b.date))
+    } catch (error) {
+      toast.error(error.message)
+      return []
     }
   }
 
@@ -868,7 +915,7 @@ const cancelBooking = async (bookingId, reason = '') => {
   }
 }
 
-    return <NetworkContext.Provider value={{getRidesByNetworkId , changeBookingStatus , offerRide , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , cancelBooking , finalizeRide , startRide , isLoading , saveFavorites , toggleFavoriteDriver , toggleFavoriteRider , updateRide , dismissRideUpdate , requestRide , getRideRequests , getMyRideRequests , cancelRideRequest , updateRideRequest , fulfillRideRequest}}>
+    return <NetworkContext.Provider value={{getRidesByNetworkId , getRidesByShiftId , getShiftsForOrg , changeBookingStatus , offerRide , getRide , bookRide , getBookings , getBooking, getRides , cancelRide , cancelBooking , finalizeRide , startRide , isLoading , saveFavorites , toggleFavoriteDriver , toggleFavoriteRider , updateRide , dismissRideUpdate , requestRide , getRideRequests , getMyRideRequests , cancelRideRequest , updateRideRequest , fulfillRideRequest}}>
         {children}
     </NetworkContext.Provider>
 }

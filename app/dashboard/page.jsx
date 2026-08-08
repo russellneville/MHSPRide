@@ -1,5 +1,6 @@
 'use client'
 import { useNetwork } from "@/context/NetworksContext"
+import { useSkin } from "@/context/SkinContext"
 import DashboardLayout from "./dashboardLayout"
 import { useAuth } from "@/context/AuthContext"
 import { usePopup } from "@/context/PopupContext"
@@ -28,7 +29,8 @@ import NetworkRideCard from "@/components/cards/network-ride-card"
 import { useLocations } from "@/context/LocationsContext"
 import { computeRideStatus } from "@/lib/rides"
 import { equipmentLabel } from "@/lib/rideRequests"
-import { NETWORKS, NETWORK_IDS, networkName, defaultFavoritesFor } from "@/lib/networks"
+import { NETWORKS, NETWORK_IDS, TROOPITER_NETWORK_ID, networkName, defaultFavoritesFor } from "@/lib/networks"
+import { normalizeEmail } from "@/lib/rosterDiff"
 import { useTheme } from "next-themes"
 import AchievementBadge from "@/components/AchievementBadge"
 import { badgeById } from "@/lib/badges/catalog"
@@ -42,6 +44,30 @@ function normalizeStatus(s) {
 
 function rideNetworkId(r) {
   return r.network_id || r.networkId
+}
+
+// Troopiter tenants have no network concept — the shift/event name Troopiter
+// dispatched the ride under (issue #199) stands in for it wherever a network
+// name would otherwise show. Only ever set on troopiter-originated rides, so
+// this is a no-op for MHSP's own networks.
+function rideGroupLabel(r) {
+  return r.shift_name || networkName(rideNetworkId(r))
+}
+
+// Buckets already-sorted (by date/time) available rides by shift/event name,
+// groups ordered by their earliest ride's date — mirrors how a real Troopiter
+// month view lists dispatches chronologically (resources/troopiter screenshot,
+// December 2025).
+function groupByShift(rides) {
+  const groups = new Map()
+  for (const r of rides) {
+    const key = r.shift_name || 'Unscheduled'
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(r)
+  }
+  return [...groups.entries()]
+    .map(([name, rides]) => ({ name, rides }))
+    .sort((a, b) => (a.rides[0]?.departure_date || '9999').localeCompare(b.rides[0]?.departure_date || '9999'))
 }
 
 function rideHref(r) {
@@ -87,10 +113,13 @@ function Pager({ page, pageCount, onPrev, onNext }) {
 }
 
 export default function Dashboard() {
-  const { getRides, getBookings, getRidesByNetworkId, saveFavorites, dismissRideUpdate, getRideRequests, cancelRideRequest } = useNetwork()
+  const { getRides, getBookings, getRidesByNetworkId, getShiftsForOrg, getRidesByShiftId, saveFavorites, dismissRideUpdate, getRideRequests, cancelRideRequest } = useNetwork()
   const { resolveLocation } = useLocations()
   const router = useRouter()
   const { user } = useAuth()
+  const { skin, org } = useSkin()
+  const isTroopiter = skin === 'troopiter'
+  const orgName = org?.displayName || 'Mount Hood Ski Patrol'
   const { openPopup, isOpen } = usePopup()
   const [rideRequests, setRideRequests] = useState([])
   const [cancelingRequestId, setCancelingRequestId] = useState(null)
@@ -110,7 +139,20 @@ export default function Dashboard() {
   const [scheduledPage, setScheduledPage] = useState(0)
   const [availablePages, setAvailablePages] = useState({})
   const fetchDataRef = useRef(null)
+  const fetchShiftsRef = useRef(null)
   const migratedRef = useRef(false)
+
+  // Troopiter-only: real shift records (issue #199) + the rides posted under
+  // each, plus rides created via the top-level Offer button that have no
+  // shift record behind them at all (shift_id null — still worth surfacing,
+  // just not attributable to a specific shift). Parallel to
+  // favorites/networkRides below rather than reusing that machinery, since a
+  // shift isn't a network id and needs its own fetch shape.
+  const [shifts, setShifts] = useState([])
+  const [shiftRides, setShiftRides] = useState({})
+  const [manualRides, setManualRides] = useState([])
+  const [shiftsLoaded, setShiftsLoaded] = useState(false)
+  const [otherShiftsOpen, setOtherShiftsOpen] = useState(false)
 
   // Available Rides filters — shared across every favorited network's list (issue #84)
   const [filterDate, setFilterDate] = useState('')
@@ -129,18 +171,21 @@ export default function Dashboard() {
   const [favoriteRidersOnly, setFavoriteRidersOnly] = useState(false)
   const hasRequestFilters = requestFilterDate || requestFilterOrigin || requestFilterDestination || requestSearchTerm || favoriteRidersOnly
 
-  // Ordered favorites from the live user doc, restricted to known networks
+  // Ordered favorites from the live user doc, restricted to known networks —
+  // meaningless for troopiter tenants (no network-favoriting concept there;
+  // see the shifts state above instead).
   const favorites = (Array.isArray(user?.favorite_networks) ? user.favorite_networks : [])
     .filter(id => NETWORK_IDS.includes(id))
 
   // Lazy migration: users from before favorites existed (or who somehow have
   // none) get defaults from their roster classifications, else all networks.
+  // Troopiter tenants skip this entirely — there's nothing to favorite.
   useEffect(() => {
-    if (!user || favorites.length > 0 || migratedRef.current) return
+    if (isTroopiter || !user || favorites.length > 0 || migratedRef.current) return
     migratedRef.current = true
     const defaults = defaultFavoritesFor(user.classifications)
     saveFavorites(defaults.length > 0 ? defaults : NETWORK_IDS)
-  }, [user, favorites.length])
+  }, [user, favorites.length, isTroopiter])
 
   // Badge evaluation (resources/badging.md): runs once per dashboard mount for
   // the signed-in user. The server throttles repeat calls to every 10 minutes
@@ -201,9 +246,32 @@ export default function Dashboard() {
     return () => { cancelled = true }
   }, [user, isOpen, favorites.join(',')])
 
+  // Troopiter-only: shifts posted for this org + their rides, fetched
+  // separately since shift ids aren't network ids (issue #199).
+  useEffect(() => {
+    if (!isTroopiter || !user || !org?.id) return
+    let cancelled = false
+    const fetchShifts = async () => {
+      const [shiftsData, allTroopiterRides] = await Promise.all([
+        getShiftsForOrg(org.id),
+        getRidesByNetworkId(TROOPITER_NETWORK_ID),
+      ])
+      if (cancelled) return
+      const rideLists = await Promise.all(shiftsData.map(s => getRidesByShiftId(s.id)))
+      if (cancelled) return
+      setShifts(shiftsData)
+      setShiftRides(Object.fromEntries(shiftsData.map((s, i) => [s.id, rideLists[i] || []])))
+      setManualRides((allTroopiterRides || []).filter(r => !r.shift_id))
+      setShiftsLoaded(true)
+    }
+    fetchShiftsRef.current = fetchShifts
+    fetchShifts()
+    return () => { cancelled = true }
+  }, [isTroopiter, user, org?.id, isOpen])
+
   // Refresh when the tab regains focus (e.g. after booking a ride on the detail page)
   useEffect(() => {
-    const onFocus = () => fetchDataRef.current?.()
+    const onFocus = () => { fetchDataRef.current?.(); fetchShiftsRef.current?.() }
     window.addEventListener('focus', onFocus)
     return () => window.removeEventListener('focus', onFocus)
   }, [])
@@ -284,33 +352,70 @@ export default function Dashboard() {
       ),
   ]))
 
-  const allRawAvailable = Object.values(rawAvailableByNetwork).flat()
+  // Same shape as rawAvailableByNetwork/availableByNetwork above, keyed by
+  // shift id instead of network id (issue #199) — filters (below) are
+  // shared across both skins' available-rides lists.
+  const rawAvailableByShift = Object.fromEntries(shifts.map(s => [
+    s.id,
+    (shiftRides[s.id] || [])
+      .map(r => ({ ...r, _status: computeRideStatus(r) }))
+      .filter(r =>
+        (r._status === 'open' || r._status === 'full') &&
+        r.driverId !== user?.uid &&
+        !activeBookedRideIds.has(r.id)
+      )
+      .sort((a, b) =>
+        `${a.departure_date}${a.departure_time}`.localeCompare(`${b.departure_date}${b.departure_time}`)
+      ),
+  ]))
+  const rawManualAvailable = manualRides
+    .map(r => ({ ...r, _status: computeRideStatus(r) }))
+    .filter(r => (r._status === 'open' || r._status === 'full') && r.driverId !== user?.uid && !activeBookedRideIds.has(r.id))
+    .sort((a, b) => `${a.departure_date}${a.departure_time}`.localeCompare(`${b.departure_date}${b.departure_time}`))
 
-  // Distinct origin/destination options across every favorited network's
-  // available rides — mirrors the pattern in dashboard/network/[networkId]/page.jsx
+  const allRawAvailable = isTroopiter
+    ? [...Object.values(rawAvailableByShift).flat(), ...rawManualAvailable]
+    : Object.values(rawAvailableByNetwork).flat()
+
+  // Distinct origin/destination options across every favorited network's (or,
+  // for troopiter, every shift's) available rides — mirrors the pattern in
+  // dashboard/network/[networkId]/page.jsx
   const originOptions = [...new Set(allRawAvailable.map(r => r.departure).filter(Boolean))]
     .sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)))
   const destinationOptions = [...new Set(allRawAvailable.map(r => r.arrival).filter(Boolean))]
     .sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)))
 
-  // Filters apply uniformly across every network's list (issue #84)
+  // Filters apply uniformly across every network's (or shift's) list (issue #84)
   const searchLower = searchTerm.trim().toLowerCase()
   const favoriteDriverIds = new Set((user?.favorite_drivers || []).map(d => d.id))
-  const availableByNetwork = Object.fromEntries(favorites.map(id => [
-    id,
-    rawAvailableByNetwork[id].filter(r => {
-      if (filterDate && r.departure_date !== filterDate) return false
-      if (filterOrigin && r.departure !== filterOrigin) return false
-      if (filterDestination && r.arrival !== filterDestination) return false
-      if (favoriteDriversOnly && !favoriteDriverIds.has(r.driverId || r.driver?.id)) return false
-      if (searchLower) {
-        const haystack = [r.driver?.fullname, resolveLocation(r.departure), resolveLocation(r.arrival)]
-          .filter(Boolean).join(' ').toLowerCase()
-        if (!haystack.includes(searchLower)) return false
-      }
-      return true
-    }),
-  ]))
+  const passesAvailableFilters = (r) => {
+    if (filterDate && r.departure_date !== filterDate) return false
+    if (filterOrigin && r.departure !== filterOrigin) return false
+    if (filterDestination && r.arrival !== filterDestination) return false
+    if (favoriteDriversOnly && !favoriteDriverIds.has(r.driverId || r.driver?.id)) return false
+    if (searchLower) {
+      const haystack = [r.driver?.fullname, resolveLocation(r.departure), resolveLocation(r.arrival)]
+        .filter(Boolean).join(' ').toLowerCase()
+      if (!haystack.includes(searchLower)) return false
+    }
+    return true
+  }
+  const availableByNetwork = Object.fromEntries(favorites.map(id => [id, rawAvailableByNetwork[id].filter(passesAvailableFilters)]))
+  const availableByShift = Object.fromEntries(shifts.map(s => [s.id, rawAvailableByShift[s.id].filter(passesAvailableFilters)]))
+  const availableManual = rawManualAvailable.filter(passesAvailableFilters)
+
+  // Shifts this user is rostered on show expanded; everything else (posted
+  // for the org, but not this user's own shift) collapses under "Other
+  // shifts/events" by default, same treatment as Past Rides.
+  const normalizedUserEmail = normalizeEmail(user?.email)
+  const myShifts = shifts.filter(s => (s.rosterEmails || []).includes(normalizedUserEmail))
+  const otherShifts = shifts.filter(s => !(s.rosterEmails || []).includes(normalizedUserEmail))
+  // Manually-offered rides (top-level Offer button, no real shift record)
+  // grouped by their own typed shift/event name — still discoverable by
+  // other riders, just bucketed under "Other shifts/events" alongside
+  // shifts this user isn't part of, since there's no roster to place them
+  // under otherwise.
+  const manualGroups = groupByShift(availableManual)
 
   const requestOriginOptions = [...new Set(rideRequests.map(r => r.departure).filter(Boolean))]
     .sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)))
@@ -351,11 +456,106 @@ export default function Dashboard() {
   const openAddFavorite = () => openPopup('Add favorite network', <AddFavoritePopup favorites={favorites} />)
   const openRequestRide = () => openPopup('Request a ride', <RequestRidePopup onSaved={() => fetchDataRef.current?.()} />)
 
+  // Shift-scoped variants (issue #199) — the shift doc itself already has
+  // everything OfferRidePopup/RequestRidePopup need to prefill, so it's
+  // passed straight through rather than remapped.
+  const refreshAfterShiftRide = () => { fetchDataRef.current?.(); fetchShiftsRef.current?.() }
+  const openOfferForShift = (s) => openPopup(<OfferRideTitle />, <OfferRidePopup networkId={TROOPITER_NETWORK_ID} shift={s} onSaved={refreshAfterShiftRide} />)
+  const openRequestForShift = (s) => openPopup('Request a ride', <RequestRidePopup shift={s} onSaved={refreshAfterShiftRide} />)
+
   const handleCancelRequest = async (reason) => {
     const id = cancelingRequestId
     setCancelingRequestId(null)
     const ok = await cancelRideRequest(id, reason)
     if (ok) setRideRequests(prev => prev.filter(r => r.id !== id))
+  }
+
+  // One card per shift in Available Rides (issue #199) — title/date + inline
+  // Offer/Request buttons scoped to that shift, no network picker needed.
+  const renderShiftSection = (s) => {
+    const available = availableByShift[s.id] || []
+    const raw = rawAvailableByShift[s.id] || []
+    const { page: availPage, pageCount: availPageCount, paged: pagedAvailable } = paginate(available, availablePages[s.id] || 0)
+    const setAvailPage = (updater) => setAvailablePages(prev => ({ ...prev, [s.id]: updater(prev[s.id] || 0) }))
+    return (
+      <div key={s.id} className="space-y-2 rounded-lg border border-border bg-muted/45 dark:bg-[oklch(0.39_0_0)] p-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            className="flex items-center gap-2 font-semibold hover:text-primary transition-colors"
+            onClick={() => toggleSection(s.id)}
+          >
+            {collapsed[s.id] ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+            {s.title}
+            <span className="text-muted-foreground font-normal">
+              {formatDate(s.date)}{available.length > 0 && ` · ${available.length}`}
+            </span>
+          </button>
+          <div className="flex items-center gap-2 ml-auto">
+            <Button size="sm" variant="outline" onClick={() => openRequestForShift(s)}>
+              <Plus className="size-3.5 mr-1" /> Request Ride
+            </Button>
+            <Button size="sm" onClick={() => openOfferForShift(s)}>
+              <Plus className="size-3.5 mr-1" /> Offer Ride
+            </Button>
+          </div>
+        </div>
+        {!collapsed[s.id] && (
+          available.length === 0 ? (
+            <Card>
+              <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                {hasAvailableFilters && raw.length > 0
+                  ? 'No rides match your filters.'
+                  : 'No rides available. Click on Offer or Request ride above.'}
+              </CardContent>
+            </Card>
+          ) : (<>
+            {pagedAvailable.map(ride => (
+              <NetworkRideCard key={ride.id} ride={ride} networkId={TROOPITER_NETWORK_ID} />
+            ))}
+            <Pager
+              page={availPage}
+              pageCount={availPageCount}
+              onPrev={() => setAvailPage(p => p - 1)}
+              onNext={() => setAvailPage(p => p + 1)}
+            />
+          </>)
+        )}
+      </div>
+    )
+  }
+
+  // Rides offered via the top-level Offer button (no real shift record),
+  // grouped by their own typed shift/event name — no inline Offer/Request
+  // buttons, since there's no shift record to scope them to.
+  const renderManualGroup = ({ name, rides: groupRides }) => {
+    const key = `manual-${name}`
+    const { page: availPage, pageCount: availPageCount, paged: pagedAvailable } = paginate(groupRides, availablePages[key] || 0)
+    const setAvailPage = (updater) => setAvailablePages(prev => ({ ...prev, [key]: updater(prev[key] || 0) }))
+    return (
+      <div key={key} className="space-y-2 rounded-lg border border-border bg-muted/45 dark:bg-[oklch(0.39_0_0)] p-3">
+        <button
+          className="flex items-center gap-2 font-semibold hover:text-primary transition-colors"
+          onClick={() => toggleSection(key)}
+        >
+          {collapsed[key] ? <ChevronRight className="size-4" /> : <ChevronDown className="size-4" />}
+          {name}
+          <span className="text-muted-foreground font-normal">
+            {formatDate(groupRides[0]?.departure_date)} · {groupRides.length}
+          </span>
+        </button>
+        {!collapsed[key] && (<>
+          {pagedAvailable.map(ride => (
+            <NetworkRideCard key={ride.id} ride={ride} networkId={TROOPITER_NETWORK_ID} />
+          ))}
+          <Pager
+            page={availPage}
+            pageCount={availPageCount}
+            onPrev={() => setAvailPage(p => p - 1)}
+            onNext={() => setAvailPage(p => p + 1)}
+          />
+        </>)}
+      </div>
+    )
   }
 
   const banner = (
@@ -367,7 +567,7 @@ export default function Dashboard() {
         <UserAvatar user={user} size="lg" />
         <div>
           <p className="text-white text-2xl font-bold leading-tight">{user?.fullname}</p>
-          <p className="text-white/70 text-sm">Mount Hood Ski Patrol</p>
+          <p className="text-white/70 text-sm">{orgName}</p>
         </div>
       </div>
     </div>
@@ -378,24 +578,30 @@ export default function Dashboard() {
       <Button size="sm" variant="outline" onClick={openRequestRide}>
         <Plus className="size-4 mr-1" /> Request Ride
       </Button>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button size="sm">
-            <Plus className="size-4 mr-1" /> Offer Ride <ChevronDown className="size-3.5 ml-1" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-48 p-1" align="end">
-          {NETWORKS.map(net => (
-            <button
-              key={net.id}
-              className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
-              onClick={() => openOffer(net.id)}
-            >
-              {net.name}
-            </button>
-          ))}
-        </PopoverContent>
-      </Popover>
+      {isTroopiter ? (
+        <Button size="sm" onClick={() => openOffer(TROOPITER_NETWORK_ID)}>
+          <Plus className="size-4 mr-1" /> Offer Ride
+        </Button>
+      ) : (
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button size="sm">
+              <Plus className="size-4 mr-1" /> Offer Ride <ChevronDown className="size-3.5 ml-1" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-1" align="end">
+            {NETWORKS.map(net => (
+              <button
+                key={net.id}
+                className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
+                onClick={() => openOffer(net.id)}
+              >
+                {net.name}
+              </button>
+            ))}
+          </PopoverContent>
+        </Popover>
+      )}
     </div>
   )
 
@@ -453,7 +659,7 @@ export default function Dashboard() {
                   )}
                   badges={<>
                     {typeBadge(r)}
-                    <Badge variant="outline">{networkName(rideNetworkId(r))}</Badge>
+                    <Badge variant="outline">{rideGroupLabel(r)}</Badge>
                     <Badge variant="outline">{seatsText(r)}</Badge>
                   </>}
                   onClick={rideHref(r) ? () => router.push(rideHref(r)) : undefined}
@@ -468,7 +674,7 @@ export default function Dashboard() {
                     <TableHead>Type</TableHead>
                     <TableHead>Date &amp; Time</TableHead>
                     <TableHead>Route</TableHead>
-                    <TableHead>Network</TableHead>
+                    <TableHead>{isTroopiter ? 'Shift' : 'Network'}</TableHead>
                     <TableHead>Return</TableHead>
                     <TableHead>Seats</TableHead>
                   </TableRow>
@@ -485,7 +691,7 @@ export default function Dashboard() {
                         <TableCell>{typeBadge(r)}</TableCell>
                         <TableCell className="whitespace-nowrap">{formatDate(r.departure_date)} at {formatTime(r.departure_time)}</TableCell>
                         <TableCell>{resolveLocation(r.departure)} → {resolveLocation(r.arrival)}</TableCell>
-                        <TableCell className="whitespace-nowrap">{networkName(rideNetworkId(r))}</TableCell>
+                        <TableCell className="whitespace-nowrap">{rideGroupLabel(r)}</TableCell>
                         <TableCell>{formatTime(r.return_departure_time)}</TableCell>
                         <TableCell className="whitespace-nowrap">{seatsText(r)}</TableCell>
                       </TableRow>
@@ -690,11 +896,42 @@ export default function Dashboard() {
             )}
           </div>
 
-          {networkRides === null ? (
+          {(isTroopiter ? !shiftsLoaded : networkRides === null) ? (
             <div className="space-y-2">
               <Skeleton className="h-9 w-full" />
               <Skeleton className="h-9 w-full" />
             </div>
+          ) : isTroopiter ? (
+            myShifts.length === 0 && otherShifts.length === 0 && manualGroups.length === 0 ? (
+              <Card>
+                <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                  No shifts posted yet.
+                </CardContent>
+              </Card>
+            ) : (<>
+              {myShifts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No shifts posted for you yet — check "Other shifts/events" below, or offer/request a ride directly.</p>
+              ) : (
+                myShifts.map(renderShiftSection)
+              )}
+              {(otherShifts.length > 0 || manualGroups.length > 0) && (
+                <div className="space-y-2">
+                  <button
+                    className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={() => setOtherShiftsOpen(o => !o)}
+                  >
+                    {otherShiftsOpen ? <ChevronDown className="size-4" /> : <ChevronRight className="size-4" />}
+                    Other Shifts / Events <span className="normal-case font-normal ml-1">({otherShifts.length + manualGroups.length})</span>
+                  </button>
+                  {otherShiftsOpen && (
+                    <div className="space-y-2">
+                      {otherShifts.map(renderShiftSection)}
+                      {manualGroups.map(renderManualGroup)}
+                    </div>
+                  )}
+                </div>
+              )}
+            </>)
           ) : (
             favorites.map((id, idx) => {
               const available = availableByNetwork[id] || []
@@ -770,7 +1007,7 @@ export default function Dashboard() {
             })
           )}
 
-          {favorites.length > 0 && favorites.length < NETWORKS.length && (
+          {!isTroopiter && favorites.length > 0 && favorites.length < NETWORKS.length && (
             <Button variant="outline" size="sm" onClick={openAddFavorite}>
               <Plus className="size-4 mr-1" /> Add favorite
             </Button>

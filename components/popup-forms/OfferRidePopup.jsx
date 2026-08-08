@@ -6,6 +6,7 @@ import DatePicker from "../ui/date-picker"
 import { usePopup } from "@/context/PopupContext"
 import { useNetwork } from "@/context/NetworksContext"
 import { useAuth } from "@/context/AuthContext"
+import { useSkin } from "@/context/SkinContext"
 import { useLocations } from "@/context/LocationsContext"
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
@@ -18,6 +19,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "../ui/alert-dialog"
 import { useEstimatedArrival } from "@/hooks/use-estimated-arrival"
+import { addMinutesToTime } from "@/lib/drive-times"
 import { LocationPicker } from "./LocationPicker"
 import { formatDate, toLocalDateStr, TEXTAREA_MAX_LENGTH, LOCATION_NAME_MAX_LENGTH } from "@/lib/utils"
 import { hasActiveSameDayBooking, hasActiveSameDayRide } from "@/lib/rides"
@@ -132,7 +134,7 @@ function SuggestLocationPopover({ context }) {
 // state from the known location ids on first render only (useState
 // initializers run once), so it must not mount until that lookup is real.
 // Mirrors EditRidePopup's loading gate.
-export default function OfferRidePopup({ networkId, onSaved, prefill }) {
+export default function OfferRidePopup({ networkId, onSaved, prefill, shift }) {
   const { origins, destinations, isLoading: locationsLoading, getLocationCoords } = useLocations()
   if (locationsLoading) return <p className="text-sm text-muted-foreground">Loading…</p>
   return (
@@ -140,6 +142,7 @@ export default function OfferRidePopup({ networkId, onSaved, prefill }) {
       networkId={networkId}
       onSaved={onSaved}
       prefill={prefill}
+      shift={shift}
       origins={origins}
       destinations={destinations}
       getLocationCoords={getLocationCoords}
@@ -147,10 +150,18 @@ export default function OfferRidePopup({ networkId, onSaved, prefill }) {
   )
 }
 
-function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations, getLocationCoords }) {
+function OfferRidePopupForm({ networkId, onSaved, prefill, shift, origins, destinations, getLocationCoords }) {
   const { closePopup, popupState, setPopupState } = usePopup()
   const { isLoading, offerRide, fulfillRideRequest, getRides, getBookings } = useNetwork()
   const { user } = useAuth()
+  const { skin } = useSkin()
+  const isTroopiter = skin === 'troopiter'
+  // Troopiter has no network to pick — the shift/event name Troopiter dispatched
+  // this driver under is the organizing concept instead (issue #199). When
+  // opened from a shift-scoped dashboard button, this is the real shift's
+  // title (shown read-only, below); the top-level Offer Ride button has no
+  // shift record behind it, so the driver types it themselves.
+  const [shiftName, setShiftName] = useState(prefill?.shift_name || shift?.title || '')
   const [showDayConflict, setShowDayConflict] = useState(false)
   const [showEquipmentWarning, setShowEquipmentWarning] = useState(false)
   const [pendingSubmit, setPendingSubmit] = useState(null)
@@ -160,7 +171,8 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
   const initDepSelect = prefill && knownDepIds.has(prefill.departure) ? prefill.departure : ''
   const initDepOther  = prefill && !knownDepIds.has(prefill.departure) ? (prefill.departure || '') : ''
   const initArrSelect = prefill && knownArrIds.has(prefill.arrival) ? prefill.arrival : ''
-  const initArrOther  = prefill && !knownArrIds.has(prefill.arrival) ? (prefill.arrival || '') : ''
+  const initArrOther  = prefill && !knownArrIds.has(prefill.arrival) ? (prefill.arrival || '')
+                       : (!prefill && shift?.location?.address) ? shift.location.address : ''
 
   const [departureSelect, setDepartureSelect] = useState(initDepSelect)
   const [departureOther, setDepartureOther] = useState(initDepOther)
@@ -173,19 +185,23 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
   // regardless (see validateForm). A free-text prefill (fulfilling a request
   // that was already validated when submitted) trusts its stored coords
   // rather than forcing re-confirmation — mirrors EditRidePopup.
-  const [departureCoords, setDepartureCoords] = useState(
-    initDepSelect ? getLocationCoords(initDepSelect)
-      : (initDepOther && prefill?.departure_lat != null && prefill?.departure_lng != null)
-        ? { latitude: prefill.departure_lat, longitude: prefill.departure_lng, formattedAddress: prefill.departure }
+  const initDepCoords = initDepSelect ? getLocationCoords(initDepSelect)
+    : (initDepOther && prefill?.departure_lat != null && prefill?.departure_lng != null)
+      ? { latitude: prefill.departure_lat, longitude: prefill.departure_lng, formattedAddress: prefill.departure }
+      : null
+  const initArrCoords = initArrSelect ? getLocationCoords(initArrSelect)
+    : (initArrOther && prefill?.arrival_lat != null && prefill?.arrival_lng != null)
+      ? { latitude: prefill.arrival_lat, longitude: prefill.arrival_lng, formattedAddress: prefill.arrival }
+      : (!prefill && shift?.location?.lat != null && shift?.location?.lng != null)
+        ? { latitude: shift.location.lat, longitude: shift.location.lng, formattedAddress: shift.location.address }
         : null
+  const [departureCoords, setDepartureCoords] = useState(initDepCoords)
+  const [arrivalCoords, setArrivalCoords] = useState(initArrCoords)
+  const [date, setDate] = useState(
+    prefill?.departure_date ? new Date(prefill.departure_date + 'T12:00:00')
+      : shift?.date ? new Date(shift.date + 'T12:00:00')
+      : undefined
   )
-  const [arrivalCoords, setArrivalCoords] = useState(
-    initArrSelect ? getLocationCoords(initArrSelect)
-      : (initArrOther && prefill?.arrival_lat != null && prefill?.arrival_lng != null)
-        ? { latitude: prefill.arrival_lat, longitude: prefill.arrival_lng, formattedAddress: prefill.arrival }
-        : null
-  )
-  const [date, setDate] = useState(prefill?.departure_date ? new Date(prefill.departure_date + 'T12:00:00') : undefined)
   const [oneWay, setOneWay] = useState(false)
   const [takenDates, setTakenDates] = useState([])
   const vehicles = getVehicles(user)
@@ -194,8 +210,14 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
   const selectedVehicleId = popupState?.selectedVehicleId || getDefaultVehicle(vehicles)?.id || ''
   const selectedVehicle = vehicles.find(v => v.id === selectedVehicleId) || null
   const [rideData, setRideData] = useState({
+    // Left unset for a shift-scoped offer (issue #199) — back-calculated
+    // below once a departure location validates, from the shift's start
+    // time minus a drive-time + 5min buffer. TimeInput shows "--" instead
+    // of a misleading default until then.
     departure_time: prefill?.departure_time || '',
-    arrival_time: '',
+    // A shift's own start time minus a 15min buffer, so the driver's plan
+    // is to arrive before the shift starts, not exactly on the dot.
+    arrival_time: (!prefill && shift?.time) ? addMinutesToTime(shift.time, -15) : '',
     return_departure_time: '16:00',
     ride_description: '',
     total_seats: '',
@@ -217,14 +239,14 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
   // field is still untouched, so it never overrides a choice the user already made.
   // Skipped when fulfilling a request — the request's own arrival already won.
   useEffect(() => {
-    if (prefill) return
+    if (prefill || isTroopiter) return
     if (arrivalSelect || arrivalOther) return
     const defaultDest = destinations.find(d => d.defaultForNetworkId === networkId)
     if (defaultDest) {
       setArrivalSelect(defaultDest.id)
       setArrivalCoords(getLocationCoords(defaultDest.id))
     }
-  }, [networkId, destinations])
+  }, [networkId, destinations, isTroopiter])
 
   // Days the user already offers or has booked a ride get disabled in the date picker
   useEffect(() => {
@@ -248,15 +270,28 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
   // after a time is already set keeps the estimate in sync. Predefined-to-predefined
   // pairs use the free precomputed lookup; a free-text side falls to a live
   // Directions estimate once its address is confirmed (departureCoords/arrivalCoords).
-  const { arrivalTime: estimatedArrival, estimating: estimatingArrival } = useEstimatedArrival(
+  const { arrivalTime: estimatedArrival, driveMinutes, estimating: estimatingArrival } = useEstimatedArrival(
     rideData.departure_time,
     { locationId: departureSelect || null, coords: departureCoords ? { lat: departureCoords.latitude, lng: departureCoords.longitude } : null },
-    { locationId: arrivalSelect || null, coords: arrivalCoords ? { lat: arrivalCoords.latitude, lng: arrivalCoords.longitude } : null }
+    { locationId: arrivalSelect || null, coords: arrivalCoords ? { lat: arrivalCoords.latitude, lng: arrivalCoords.longitude } : null },
+    isTroopiter ? 5 : 0
   )
   useEffect(() => {
     if (!estimatedArrival) return
     setRideData(prev => (prev.arrival_time === estimatedArrival ? prev : { ...prev, arrival_time: estimatedArrival }))
   }, [estimatedArrival])
+
+  // Shift-scoped Offer Ride (issue #199): arrival time is fixed to the
+  // shift's start minus 15min, so once a departure location validates and a
+  // drive time is known, back-calculate departure time from that fixed
+  // target instead of asking the driver to guess. Only seeds once — after
+  // departure_time has any value (this seed, or the driver's own edit), the
+  // effect above takes over and drives arrival_time forward from it instead.
+  useEffect(() => {
+    if (!shift || prefill || rideData.departure_time || driveMinutes == null || !rideData.arrival_time) return
+    const seeded = addMinutesToTime(rideData.arrival_time, -(driveMinutes + 5))
+    if (seeded) setRideData(prev => (prev.departure_time ? prev : { ...prev, departure_time: seeded }))
+  }, [shift, prefill, driveMinutes, rideData.arrival_time, rideData.departure_time])
 
   const handleChange = (e) => {
     setRideData(prev => ({ ...prev, [e.target.id]: e.target.value }))
@@ -288,6 +323,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
     if (!rideData.departure_time) newErrors.departure_time = "Departure time is required"
     if (!oneWay && !rideData.return_departure_time) newErrors.return_departure_time = "Return time is required — or mark the trip one way"
     if (!rideData.total_seats || Number(rideData.total_seats) < 1) newErrors.total_seats = "Number of seats is required"
+    if (isTroopiter && !shiftName.trim()) newErrors.shift_name = "Shift / event name is required"
     if (notesRequired && !rideData.ride_description.trim()) newErrors.ride_description = NOTES_REQUIRED_MESSAGE
     setValidationErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -314,6 +350,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
     return_departure_time: oneWay ? '' : rideData.return_departure_time,
     ride_description: rideData.ride_description,
     total_seats: Number(rideData.total_seats),
+    ...(isTroopiter && { shift_name: shiftName.trim(), shift_id: shift?.id || null }),
   })
 
   const doFulfill = async (submittedRideData) => {
@@ -360,6 +397,26 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
   return (
     <div className="space-y-5">
 
+      {/* ── Shift / event (troopiter tenants only) ───────── */}
+      {isTroopiter && (
+        <div className="space-y-1">
+          <Label htmlFor="shift_name">Shift / event</Label>
+          {shift ? (
+            <p className="text-sm font-medium px-3 py-2 rounded-md border border-border bg-muted/40">{shift.title}</p>
+          ) : (
+            <>
+              <Input
+                id="shift_name"
+                placeholder="e.g. Timberline - Mountain Host"
+                value={shiftName}
+                onChange={e => setShiftName(e.target.value)}
+              />
+              {validationError.shift_name && <p className="text-red-500 text-sm">{validationError.shift_name}</p>}
+            </>
+          )}
+        </div>
+      )}
+
       {/* ── To Destination ─────────────────────────────── */}
       <div className="space-y-3">
         <h4 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">To Destination</h4>
@@ -367,7 +424,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <Label>Departure</Label>
-            <SuggestLocationPopover context="Departure" />
+            {!isTroopiter && <SuggestLocationPopover context="Departure" />}
           </div>
           <LocationPicker
             value={departureSelect}
@@ -375,6 +432,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
             otherValue={departureOther}
             onOtherChange={setDepartureOther}
             onValidated={setDepartureCoords}
+            trustedValue={initDepOther ? initDepCoords : null}
             locations={origins}
             selectPlaceholder="Select pickup location"
           />
@@ -384,7 +442,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <Label>Arrival</Label>
-            <SuggestLocationPopover context="Arrival" />
+            {!isTroopiter && <SuggestLocationPopover context="Arrival" />}
           </div>
           <LocationPicker
             value={arrivalSelect}
@@ -392,6 +450,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
             otherValue={arrivalOther}
             onOtherChange={setArrivalOther}
             onValidated={setArrivalCoords}
+            trustedValue={initArrOther ? initArrCoords : null}
             locations={destinations}
             selectPlaceholder="Select arrival location"
           />
@@ -413,7 +472,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, origins, destinations
           </div>
           <div className="flex-1 min-w-[220px] space-y-1">
             <Label htmlFor="departure_time">Departure time</Label>
-            <TimeInput id="departure_time" onChange={handleChange} value={rideData.departure_time} />
+            <TimeInput id="departure_time" onChange={handleChange} value={rideData.departure_time} emptyOk={isTroopiter} />
             {validationError.departure_time && <p className="text-red-500 text-sm">{validationError.departure_time}</p>}
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { verifyAuthRequest } from '@/lib/adminAuth'
-import { validateAddress } from '@/lib/addressValidation'
+import { resolveAddress } from '@/lib/addressValidation'
 
 export async function POST(request) {
   const auth = await verifyAuthRequest(request)
@@ -12,7 +12,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Address is required' }, { status: 400 })
     }
 
-    const result = await validateAddress(address.trim())
+    const result = await resolveAddress(address.trim())
     return NextResponse.json(result)
   } catch (error) {
     // Full detail (Google's raw error, which can include our Cloud project

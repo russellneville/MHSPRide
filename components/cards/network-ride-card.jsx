@@ -48,12 +48,16 @@ export default function NetworkRideCard({ ride, networkId, muted }) {
               height={112}
               className="w-20 h-14"
             />
-            <div className="space-y-1">
-              <div className="font-semibold flex items-center gap-2">
-                <MapPin className="size-4 text-muted-foreground shrink-0" />
-                {resolveLocation(ride.departure)}
-                <MoveRight className="size-4 text-muted-foreground" />
-                {resolveLocation(ride.arrival)}
+            <div className="space-y-1 min-w-0">
+              <div className="font-semibold flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span className="flex items-center gap-2 min-w-0">
+                  <MapPin className="size-4 text-muted-foreground shrink-0" />
+                  <span className="break-words">{resolveLocation(ride.departure)}</span>
+                </span>
+                <span className="flex items-center gap-2 min-w-0">
+                  <MoveRight className="size-4 text-muted-foreground shrink-0" />
+                  <span className="break-words">{resolveLocation(ride.arrival)}</span>
+                </span>
               </div>
               <div className="text-sm text-muted-foreground flex items-center gap-1">
                 <Clock className="size-3.5" />

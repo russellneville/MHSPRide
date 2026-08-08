@@ -110,23 +110,23 @@ function UsersContent() {
     if (!resetTarget) return
     setResetting(true)
     try {
-      const { uid, mhspNumber, fullname } = resetTarget
+      const { uid, mhspNumber, memberId, fullname } = resetTarget
       const token = await auth.currentUser.getIdToken()
       const res = await fetch('/api/admin/reset-membership', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ uid, mhspNumber }),
+        body: JSON.stringify({ uid, mhspNumber, memberId }),
       })
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Could not reset membership')
 
       setUsers(prev => prev.filter(u => u.uid !== uid))
       logEvent({
         type: 'membership.unclaimed',
-        message: `Membership reset for ${fullname} (MHSP #${mhspNumber})`,
+        message: `Membership reset for ${fullname} (${mhspNumber ? `MHSP #${mhspNumber}` : memberId})`,
         userId: auth.currentUser?.uid,
         userName: currentUser?.fullname,
         mhspNumber: currentUser?.mhspNumber,
-        metadata: { targetUserId: uid, targetMhspNumber: mhspNumber },
+        metadata: { targetUserId: uid, targetMhspNumber: mhspNumber, targetMemberId: memberId },
       }).catch(() => {})
     } catch (e) {
       toast.error(e.message)
@@ -281,7 +281,7 @@ function UsersContent() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => setResetTarget({ uid: u.uid, mhspNumber: u.mhspNumber, fullname: u.fullname })}
+                            onClick={() => setResetTarget({ uid: u.uid, mhspNumber: u.mhspNumber, memberId: u.memberId, fullname: u.fullname })}
                           >
                             Reset Membership
                           </Button>
@@ -347,7 +347,7 @@ function UsersContent() {
           <AlertDialogHeader>
             <AlertDialogTitle>Reset membership for {resetTarget?.fullname}?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently delete {resetTarget?.fullname}'s account and mark MHSP #{resetTarget?.mhspNumber} as unclaimed, allowing them (or anyone else) to re-register for it, including with the same email. This action cannot be undone.
+              This will permanently delete {resetTarget?.fullname}'s account and mark {resetTarget?.mhspNumber ? `MHSP #${resetTarget.mhspNumber}` : 'their roster record'} as unclaimed, allowing them (or anyone else) to re-register for it, including with the same email. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

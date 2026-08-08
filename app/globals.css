@@ -114,6 +114,46 @@
   --sidebar-ring: oklch(0.51 0.13 240);
 }
 
+/* Troopiter skin (issue #199): applied via data-skin="troopiter" on <html>,
+ * set server-side in app/layout.jsx from the request host (lib/skin.js).
+ * Ported design tokens from Troopiter's production CSS audit — Inter as the
+ * typeface, #126D41 as the brand green — applied globally to every patrol's
+ * view of the app, not per-org (resources/troopiter/integration-proposal.md,
+ * "Look and feel: one skin, many logos"). The per-org variable is the logo,
+ * handled separately via SkinContext/organizations/{orgId}, not color.
+ */
+[data-skin="troopiter"] {
+  --primary: #126d41;
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: #0e5533;
+  --secondary-foreground: oklch(0.985 0 0);
+  --ring: #126d41;
+  /* White nav with a thin gray separator, matching Troopiter's own look
+   * (as opposed to MHSP Ride's dark sidebar) — fixed regardless of the
+   * viewer's light/dark preference, same "one skin" reasoning as the rest
+   * of this block. */
+  --sidebar: oklch(1 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #126d41;
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.96 0 0);
+  --sidebar-accent-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.9 0 0);
+  --sidebar-ring: #126d41;
+}
+
+[data-skin="troopiter"] body {
+  font-family: var(--font-inter), sans-serif;
+}
+
+/* The sidebar/body separator (components/ui/sidebar.jsx's border-r) draws
+ * from the shared --border token, not --sidebar-border — overriding it
+ * scoped to just the sidebar container avoids recoloring every bordered
+ * element (cards, inputs, tables) app-wide for this skin. */
+[data-skin="troopiter"] [data-slot="sidebar-container"] {
+  border-color: oklch(0.9 0 0);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

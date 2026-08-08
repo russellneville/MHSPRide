@@ -7,7 +7,7 @@
  * lib/addressValidation.js call behind an IP rate limit instead of auth.
  */
 import { NextResponse } from 'next/server'
-import { validateAddress } from '@/lib/addressValidation'
+import { resolveAddress } from '@/lib/addressValidation'
 import { recordAttempt, getClientIp } from '@/lib/rateLimit'
 
 const VALIDATE_IP_LIMIT = { limit: 40, windowMs: 60 * 60 * 1000 }
@@ -25,7 +25,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Address is required' }, { status: 400 })
     }
 
-    const result = await validateAddress(address.trim())
+    const result = await resolveAddress(address.trim())
     return NextResponse.json(result)
   } catch (error) {
     console.error('[troopiter-demo/validate-address]', error)

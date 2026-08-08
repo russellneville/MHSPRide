@@ -426,7 +426,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, shift, origins, desti
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <Label>Departure</Label>
-            <SuggestLocationPopover context="Departure" />
+            {!isTroopiter && <SuggestLocationPopover context="Departure" />}
           </div>
           <LocationPicker
             value={departureSelect}
@@ -443,7 +443,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, shift, origins, desti
         <div className="space-y-1">
           <div className="flex items-center justify-between">
             <Label>Arrival</Label>
-            <SuggestLocationPopover context="Arrival" />
+            {!isTroopiter && <SuggestLocationPopover context="Arrival" />}
           </div>
           <LocationPicker
             value={arrivalSelect}

@@ -92,15 +92,13 @@ export function AppSidebar({ user, ...props }) {
       <SidebarHeader className="p-0">
         {skin === 'troopiter' ? (
           <>
-            {/* Expanded: org logo (falls back to a text wordmark if the org hasn't uploaded one) + org name */}
+            {/* Expanded: org logo (falls back to the troopiter wordmark if the org hasn't uploaded one) —
+                no org name here, it already appears next to this same logo in the page header (TroopiterHeader) */}
             <div className="group-data-[collapsible=icon]:hidden w-full px-3 py-3 flex items-center gap-2">
               {org?.logoUrl ? (
                 <img src={org.logoUrl} alt={org?.displayName || 'Troopiter'} className="h-8 w-8 rounded object-contain bg-white" />
               ) : (
-                <span className="font-[family-name:var(--font-inter)] font-bold text-lg text-[#126D41]">Troopiter</span>
-              )}
-              {org?.displayName && (
-                <span className="text-sm text-sidebar-foreground/80 truncate">{org.displayName}</span>
+                <Image src="/assets/troopiter-ride.png" alt="troopiter" width={98} height={21} className="h-5 w-auto" />
               )}
             </div>
             {/* Collapsed: just the org logo or initial */}

@@ -90,16 +90,16 @@ service cloud.firestore {
       allow create: if request.auth != null
         && !isSuspended()
         && request.resource.data.driverId == request.auth.uid
-        && request.resource.data.departure.size() <= 60
-        && request.resource.data.arrival.size() <= 60;
+        && request.resource.data.departure.size() <= 120
+        && request.resource.data.arrival.size() <= 120;
       allow update: if request.auth != null
         && !isSuspended()
         && (
           (resource.data.driverId == request.auth.uid
             && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['departure'])
-                || request.resource.data.departure.size() <= 60)
+                || request.resource.data.departure.size() <= 120)
             && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['arrival'])
-                || request.resource.data.arrival.size() <= 60))
+                || request.resource.data.arrival.size() <= 120))
           || isAdmin()
           || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['available_seats', 'passengers'])
         );
@@ -138,8 +138,8 @@ service cloud.firestore {
       allow create: if request.auth != null
         && !isSuspended()
         && request.resource.data.requesterId == request.auth.uid
-        && request.resource.data.departure.size() <= 60
-        && request.resource.data.arrival.size() <= 60;
+        && request.resource.data.departure.size() <= 120
+        && request.resource.data.arrival.size() <= 120;
       allow update: if false;
       // Delete is a hard removal (admin housekeeping), not a status
       // transition, so it's gated directly here rather than via an API
@@ -243,6 +243,16 @@ service cloud.firestore {
     // here. Writes go through /api/admin/organizations/* (Admin SDK).
     match /organizations/{orgId} {
       allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Troopiter shifts (issue #199): created/refreshed by app/api/launch on
+    // every launch, via the Admin SDK (bypasses these rules entirely, same
+    // as launch_tokens_consumed). Read allowed for any authenticated,
+    // non-suspended user — the dashboard shows shifts the viewer isn't
+    // rostered on too, collapsed under "Other shifts/events".
+    match /shifts/{id} {
+      allow read: if request.auth != null && !isSuspended();
       allow write: if false;
     }
   }

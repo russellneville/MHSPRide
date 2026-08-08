@@ -45,11 +45,10 @@ export default function RequestRidePopup({ onSaved, shift }) {
   const [arrivalSelect, setArrivalSelect] = useState('')
   const [arrivalOther, setArrivalOther] = useState(shift?.location?.address || '')
   const [departureCoords, setDepartureCoords] = useState(null)
-  const [arrivalCoords, setArrivalCoords] = useState(
-    shift?.location?.lat != null && shift?.location?.lng != null
-      ? { latitude: shift.location.lat, longitude: shift.location.lng, formattedAddress: shift.location.address }
-      : null
-  )
+  const initArrCoords = shift?.location?.lat != null && shift?.location?.lng != null
+    ? { latitude: shift.location.lat, longitude: shift.location.lng, formattedAddress: shift.location.address }
+    : null
+  const [arrivalCoords, setArrivalCoords] = useState(initArrCoords)
   const [date, setDate] = useState(shift?.date ? new Date(shift.date + 'T12:00:00') : undefined)
   const [departureTime, setDepartureTime] = useState('')
   const [seatsRequested, setSeatsRequested] = useState('')
@@ -166,6 +165,7 @@ export default function RequestRidePopup({ onSaved, shift }) {
             otherValue={arrivalOther}
             onOtherChange={setArrivalOther}
             onValidated={setArrivalCoords}
+            trustedValue={arrivalOther ? initArrCoords : null}
             locations={destinations}
             selectPlaceholder="Select arrival location"
           />

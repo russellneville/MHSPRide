@@ -18,7 +18,17 @@ import { CheckCircle2, Loader2, MapPin, TriangleAlert } from "lucide-react"
 // or confirmed via explicit click) or leaves that state (edited, or a
 // predefined location is selected — the parent already has that location's
 // lat/lon from the locations list in that case).
-export function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, locations, selectPlaceholder, onValidated }) {
+//
+// trustedValue: pass the {latitude, longitude, formattedAddress} the parent
+// already seeded `otherValue` with (a shift's location, a fulfilled
+// request's stored coords, an edited ride's stored coords) — anything the
+// parent trusts *without* a round trip through this component. Without it,
+// merely tabbing through an already-good prefilled field re-validates
+// against Google, which can come back 'invalid' for perfectly fine
+// landmark-style addresses ("Timberline Lodge, Government Camp, OR" has
+// unconfirmed components by Address Validation's standards) and shows a
+// false "couldn't confirm" error despite the ride still being submittable.
+export function LocationPicker({ value, onSelectChange, otherValue, onOtherChange, locations, selectPlaceholder, onValidated, trustedValue }) {
   const { skin } = useSkin()
   const { user } = useAuth()
   const isTroopiter = skin === 'troopiter'
@@ -34,11 +44,17 @@ export function LocationPicker({ value, onSelectChange, otherValue, onOtherChang
   // validation hook — its own "confirmed" branch doesn't apply since there's
   // no hook `result` behind it.
   const [pickedFromRecent, setPickedFromRecent] = useState(false)
+  // Set once, from the initial trustedValue prop — deliberately not synced
+  // on every re-render (only handleOtherChange below clears it), so a value
+  // the parent already trusted at mount stays trusted until the user
+  // actually edits it, regardless of what blur does.
+  const [prefillTrusted, setPrefillTrusted] = useState(!!trustedValue)
 
   const handleOtherChange = (newValue) => {
     onOtherChange(newValue)
     if (newValue) onSelectChange('')
     setPickedFromRecent(false)
+    setPrefillTrusted(false)
     // Any edit after a previous validation completed invalidates it — the
     // hook's own state no longer matches what's currently in the field.
     if (status !== 'idle') {
@@ -59,6 +75,7 @@ export function LocationPicker({ value, onSelectChange, otherValue, onOtherChang
 
   const handleBlur = () => {
     if (!otherValue.trim()) return
+    if (pickedFromRecent || prefillTrusted) return
     if (status === 'confirmed' || status === 'needs-confirmation') return
     validate(otherValue.trim())
   }
@@ -140,6 +157,11 @@ export function LocationPicker({ value, onSelectChange, otherValue, onOtherChang
       {pickedFromRecent && (
         <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
           <CheckCircle2 className="size-3" /> Using saved address
+        </p>
+      )}
+      {prefillTrusted && (
+        <p className="text-xs text-green-700 dark:text-green-400 flex items-center gap-1">
+          <CheckCircle2 className="size-3" /> Address confirmed
         </p>
       )}
       {(status === 'confirmed' || (status === 'needs-confirmation' && accepted)) && result && (

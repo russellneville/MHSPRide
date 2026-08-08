@@ -185,20 +185,18 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, shift, origins, desti
   // regardless (see validateForm). A free-text prefill (fulfilling a request
   // that was already validated when submitted) trusts its stored coords
   // rather than forcing re-confirmation — mirrors EditRidePopup.
-  const [departureCoords, setDepartureCoords] = useState(
-    initDepSelect ? getLocationCoords(initDepSelect)
-      : (initDepOther && prefill?.departure_lat != null && prefill?.departure_lng != null)
-        ? { latitude: prefill.departure_lat, longitude: prefill.departure_lng, formattedAddress: prefill.departure }
+  const initDepCoords = initDepSelect ? getLocationCoords(initDepSelect)
+    : (initDepOther && prefill?.departure_lat != null && prefill?.departure_lng != null)
+      ? { latitude: prefill.departure_lat, longitude: prefill.departure_lng, formattedAddress: prefill.departure }
+      : null
+  const initArrCoords = initArrSelect ? getLocationCoords(initArrSelect)
+    : (initArrOther && prefill?.arrival_lat != null && prefill?.arrival_lng != null)
+      ? { latitude: prefill.arrival_lat, longitude: prefill.arrival_lng, formattedAddress: prefill.arrival }
+      : (!prefill && shift?.location?.lat != null && shift?.location?.lng != null)
+        ? { latitude: shift.location.lat, longitude: shift.location.lng, formattedAddress: shift.location.address }
         : null
-  )
-  const [arrivalCoords, setArrivalCoords] = useState(
-    initArrSelect ? getLocationCoords(initArrSelect)
-      : (initArrOther && prefill?.arrival_lat != null && prefill?.arrival_lng != null)
-        ? { latitude: prefill.arrival_lat, longitude: prefill.arrival_lng, formattedAddress: prefill.arrival }
-        : (!prefill && shift?.location?.lat != null && shift?.location?.lng != null)
-          ? { latitude: shift.location.lat, longitude: shift.location.lng, formattedAddress: shift.location.address }
-          : null
-  )
+  const [departureCoords, setDepartureCoords] = useState(initDepCoords)
+  const [arrivalCoords, setArrivalCoords] = useState(initArrCoords)
   const [date, setDate] = useState(
     prefill?.departure_date ? new Date(prefill.departure_date + 'T12:00:00')
       : shift?.date ? new Date(shift.date + 'T12:00:00')
@@ -434,6 +432,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, shift, origins, desti
             otherValue={departureOther}
             onOtherChange={setDepartureOther}
             onValidated={setDepartureCoords}
+            trustedValue={initDepOther ? initDepCoords : null}
             locations={origins}
             selectPlaceholder="Select pickup location"
           />
@@ -451,6 +450,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, shift, origins, desti
             otherValue={arrivalOther}
             onOtherChange={setArrivalOther}
             onValidated={setArrivalCoords}
+            trustedValue={initArrOther ? initArrCoords : null}
             locations={destinations}
             selectPlaceholder="Select arrival location"
           />

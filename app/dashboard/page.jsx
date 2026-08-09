@@ -284,6 +284,21 @@ export default function Dashboard() {
       ),
   ]))
 
+  // The user's own offered ride(s) for a given network — previously invisible
+  // outside Scheduled Rides because rawAvailableByNetwork above deliberately
+  // excludes `driverId === user.uid` (that list means "rides you could book
+  // from someone else"). This is the opposite: an always-on reminder,
+  // unaffected by the Available Rides filters below, that surfaces in the
+  // same card the ride was posted from (issue #228).
+  const myOfferedByNetwork = Object.fromEntries(favorites.map(id => [
+    id,
+    (networkRides?.[id] || [])
+      .filter(r => r.driverId === user?.uid)
+      .map(r => ({ ...r, _status: computeRideStatus(r) }))
+      .filter(r => r._status !== 'canceled' && r._status !== 'completed')
+      .sort((a, b) => `${a.departure_date}${a.departure_time}`.localeCompare(`${b.departure_date}${b.departure_time}`)),
+  ]))
+
   const allRawAvailable = Object.values(rawAvailableByNetwork).flat()
 
   // Distinct origin/destination options across every favorited network's
@@ -698,6 +713,7 @@ export default function Dashboard() {
           ) : (
             favorites.map((id, idx) => {
               const available = availableByNetwork[id] || []
+              const myOfferedForNetwork = myOfferedByNetwork[id] || []
               const { page: availPage, pageCount: availPageCount, paged: pagedAvailable } = paginate(available, availablePages[id] || 0)
               const setAvailPage = (updater) => setAvailablePages(prev => ({ ...prev, [id]: updater(prev[id] || 0) }))
               return (
@@ -738,21 +754,30 @@ export default function Dashboard() {
                       </Button>
                     </div>
                   </div>
-                  {!collapsed[id] && (
-                    available.length === 0 ? (
-                      <Card>
-                        <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                          {hasAvailableFilters && rawAvailableByNetwork[id].length > 0 ? (
-                            'No rides match your filters.'
-                          ) : (
-                            <>No rides available. Be the first to{' '}
-                              <button className="text-primary underline" onClick={() => openOffer(id)}>
-                                offer one
-                              </button>.
-                            </>
-                          )}
-                        </CardContent>
-                      </Card>
+                  {!collapsed[id] && (<>
+                    {myOfferedForNetwork.length > 0 && (
+                      <div className="space-y-2">
+                        {myOfferedForNetwork.map(ride => (
+                          <NetworkRideCard key={ride.id} ride={ride} networkId={id} />
+                        ))}
+                      </div>
+                    )}
+                    {available.length === 0 ? (
+                      myOfferedForNetwork.length > 0 && !hasAvailableFilters ? null : (
+                        <Card>
+                          <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                            {hasAvailableFilters && rawAvailableByNetwork[id].length > 0 ? (
+                              'No rides match your filters.'
+                            ) : (
+                              <>No rides available. Be the first to{' '}
+                                <button className="text-primary underline" onClick={() => openOffer(id)}>
+                                  offer one
+                                </button>.
+                              </>
+                            )}
+                          </CardContent>
+                        </Card>
+                      )
                     ) : (<>
                       {pagedAvailable.map(ride => (
                         <NetworkRideCard key={ride.id} ride={ride} networkId={id} />
@@ -763,8 +788,8 @@ export default function Dashboard() {
                         onPrev={() => setAvailPage(p => p - 1)}
                         onNext={() => setAvailPage(p => p + 1)}
                       />
-                    </>)
-                  )}
+                    </>)}
+                  </>)}
                 </div>
               )
             })

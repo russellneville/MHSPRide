@@ -77,6 +77,11 @@ export default function NetworkRideCard({ ride, networkId, muted }) {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {isDriver && (
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full border bg-green-100 text-green-800 border-green-300 dark:bg-green-900 dark:text-green-200">
+                You&apos;re driving
+              </span>
+            )}
             {(ride._status === 'open' || ride._status === 'full') && (
               <div className="text-sm text-muted-foreground flex items-center gap-1">
                 <Users className="size-4" />

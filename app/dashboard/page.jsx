@@ -368,6 +368,38 @@ export default function Dashboard() {
         `${a.departure_date}${a.departure_time}`.localeCompare(`${b.departure_date}${b.departure_time}`)
       ),
   ]))
+
+  // The user's own offered ride(s) for a given network/shift — previously
+  // invisible outside Scheduled Rides because rawAvailableBy* above
+  // deliberately excludes `driverId === user.uid` (that list means "rides
+  // you could book from someone else"). This is the opposite: an always-on
+  // reminder, unaffected by the Available Rides filters below, that surfaces
+  // in the same card the ride was posted from (issue #228). Not gated on
+  // seats — a full ride you're driving is still yours to see.
+  const myOffered = (r) => r.driverId === user?.uid
+  const stillRelevant = (r) => r._status !== 'canceled' && r._status !== 'completed'
+  const myOfferedByNetwork = Object.fromEntries(favorites.map(id => [
+    id,
+    (networkRides?.[id] || [])
+      .filter(myOffered)
+      .map(r => ({ ...r, _status: computeRideStatus(r) }))
+      .filter(stillRelevant)
+      .sort((a, b) => `${a.departure_date}${a.departure_time}`.localeCompare(`${b.departure_date}${b.departure_time}`)),
+  ]))
+  const myOfferedByShift = Object.fromEntries(shifts.map(s => [
+    s.id,
+    (shiftRides[s.id] || [])
+      .filter(myOffered)
+      .map(r => ({ ...r, _status: computeRideStatus(r) }))
+      .filter(stillRelevant)
+      .sort((a, b) => `${a.departure_date}${a.departure_time}`.localeCompare(`${b.departure_date}${b.departure_time}`)),
+  ]))
+  // Ride requests carry no network_id (they're never network-scoped — see
+  // getRideRequests above), so only shifts get a "my requests" bucket.
+  const myRequestsByShift = Object.fromEntries(shifts.map(s => [
+    s.id,
+    rideRequests.filter(r => r.shift_id === s.id && r.requesterId === user?.uid),
+  ]))
   const rawManualAvailable = manualRides
     .map(r => ({ ...r, _status: computeRideStatus(r) }))
     .filter(r => (r._status === 'open' || r._status === 'full') && r.driverId !== user?.uid && !activeBookedRideIds.has(r.id))
@@ -470,11 +502,36 @@ export default function Dashboard() {
     if (ok) setRideRequests(prev => prev.filter(r => r.id !== id))
   }
 
+  // Renders the current user's own offered ride(s)/request(s) for a card
+  // (network or shift) — always visible, unaffected by Available Rides
+  // filters, since it's a "here's what you already posted" reminder rather
+  // than part of the bookable list (issue #228).
+  const renderMyEntries = (networkId, myOfferedList, myRequestedList = []) => (
+    (myOfferedList.length > 0 || myRequestedList.length > 0) && (
+      <div className="space-y-2">
+        {myOfferedList.map(ride => (
+          <NetworkRideCard key={ride.id} ride={ride} networkId={networkId} />
+        ))}
+        {myRequestedList.map(r => (
+          <MyRequestSummaryCard
+            key={r.id}
+            r={r}
+            onOpen={() => openPopup('Ride request details', <RideRequestDetailsPopup request={r} onChanged={refreshAfterShiftRide} />)}
+            onCancel={() => setCancelingRequestId(r.id)}
+          />
+        ))}
+      </div>
+    )
+  )
+
   // One card per shift in Available Rides (issue #199) — title/date + inline
   // Offer/Request buttons scoped to that shift, no network picker needed.
   const renderShiftSection = (s) => {
     const available = availableByShift[s.id] || []
     const raw = rawAvailableByShift[s.id] || []
+    const myOfferedForShift = myOfferedByShift[s.id] || []
+    const myRequestedForShift = myRequestsByShift[s.id] || []
+    const hasOwnEntry = myOfferedForShift.length > 0 || myRequestedForShift.length > 0
     const { page: availPage, pageCount: availPageCount, paged: pagedAvailable } = paginate(available, availablePages[s.id] || 0)
     const setAvailPage = (updater) => setAvailablePages(prev => ({ ...prev, [s.id]: updater(prev[s.id] || 0) }))
     return (
@@ -499,15 +556,18 @@ export default function Dashboard() {
             </Button>
           </div>
         </div>
-        {!collapsed[s.id] && (
-          available.length === 0 ? (
-            <Card>
-              <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                {hasAvailableFilters && raw.length > 0
-                  ? 'No rides match your filters.'
-                  : 'No rides available. Click on Offer or Request ride above.'}
-              </CardContent>
-            </Card>
+        {!collapsed[s.id] && (<>
+          {renderMyEntries(TROOPITER_NETWORK_ID, myOfferedForShift, myRequestedForShift)}
+          {available.length === 0 ? (
+            hasOwnEntry && !hasAvailableFilters ? null : (
+              <Card>
+                <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                  {hasAvailableFilters && raw.length > 0
+                    ? 'No rides match your filters.'
+                    : 'No rides available. Click on Offer or Request ride above.'}
+                </CardContent>
+              </Card>
+            )
           ) : (<>
             {pagedAvailable.map(ride => (
               <NetworkRideCard key={ride.id} ride={ride} networkId={TROOPITER_NETWORK_ID} />
@@ -518,8 +578,8 @@ export default function Dashboard() {
               onPrev={() => setAvailPage(p => p - 1)}
               onNext={() => setAvailPage(p => p + 1)}
             />
-          </>)
-        )}
+          </>)}
+        </>)}
       </div>
     )
   }
@@ -935,6 +995,7 @@ export default function Dashboard() {
           ) : (
             favorites.map((id, idx) => {
               const available = availableByNetwork[id] || []
+              const myOfferedForNetwork = myOfferedByNetwork[id] || []
               const { page: availPage, pageCount: availPageCount, paged: pagedAvailable } = paginate(available, availablePages[id] || 0)
               const setAvailPage = (updater) => setAvailablePages(prev => ({ ...prev, [id]: updater(prev[id] || 0) }))
               return (
@@ -975,21 +1036,24 @@ export default function Dashboard() {
                       </Button>
                     </div>
                   </div>
-                  {!collapsed[id] && (
-                    available.length === 0 ? (
-                      <Card>
-                        <CardContent className="py-6 text-center text-muted-foreground text-sm">
-                          {hasAvailableFilters && rawAvailableByNetwork[id].length > 0 ? (
-                            'No rides match your filters.'
-                          ) : (
-                            <>No rides available. Be the first to{' '}
-                              <button className="text-primary underline" onClick={() => openOffer(id)}>
-                                offer one
-                              </button>.
-                            </>
-                          )}
-                        </CardContent>
-                      </Card>
+                  {!collapsed[id] && (<>
+                    {renderMyEntries(id, myOfferedForNetwork)}
+                    {available.length === 0 ? (
+                      myOfferedForNetwork.length > 0 && !hasAvailableFilters ? null : (
+                        <Card>
+                          <CardContent className="py-6 text-center text-muted-foreground text-sm">
+                            {hasAvailableFilters && rawAvailableByNetwork[id].length > 0 ? (
+                              'No rides match your filters.'
+                            ) : (
+                              <>No rides available. Be the first to{' '}
+                                <button className="text-primary underline" onClick={() => openOffer(id)}>
+                                  offer one
+                                </button>.
+                              </>
+                            )}
+                          </CardContent>
+                        </Card>
+                      )
                     ) : (<>
                       {pagedAvailable.map(ride => (
                         <NetworkRideCard key={ride.id} ride={ride} networkId={id} />
@@ -1000,8 +1064,8 @@ export default function Dashboard() {
                         onPrev={() => setAvailPage(p => p - 1)}
                         onNext={() => setAvailPage(p => p + 1)}
                       />
-                    </>)
-                  )}
+                    </>)}
+                  </>)}
                 </div>
               )
             })
@@ -1098,6 +1162,42 @@ export default function Dashboard() {
         onConfirm={handleCancelRequest}
       />
     </DashboardLayout>
+  )
+}
+
+// Compact variant of the request card used in the flat "Requested Rides"
+// section (page.jsx ~776-830) — reused inside a shift card to surface the
+// user's own request there too (issue #228), rather than duplicating the
+// full card markup.
+function MyRequestSummaryCard({ r, onOpen, onCancel }) {
+  const { resolveLocation } = useLocations()
+  return (
+    <Card
+      className="py-0 cursor-pointer hover:border-primary/50 transition-colors border-purple-200 dark:border-purple-900"
+      onClick={onOpen}
+    >
+      <CardContent className="py-2.5 flex items-center justify-between gap-4 flex-wrap">
+        <div className="font-semibold flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+          <span className="flex items-center gap-2 min-w-0">
+            <MapPin className="size-4 text-muted-foreground shrink-0" />
+            <span className="break-words">{resolveLocation(r.departure)}</span>
+          </span>
+          <span className="flex items-center gap-2 min-w-0">
+            <MoveRight className="size-4 text-muted-foreground shrink-0" />
+            <span className="break-words">{resolveLocation(r.arrival)}</span>
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant="outline">{r.seats_requested} seat{r.seats_requested !== 1 ? 's' : ''}</Badge>
+          <span className="text-xs font-medium px-2.5 py-1 rounded-full border bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200">
+            Your request
+          </span>
+          <Button size="sm" variant="outline" onClick={e => { e.stopPropagation(); onCancel() }}>
+            Cancel
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 

@@ -522,7 +522,7 @@ export default function Dashboard() {
             key={r.id}
             r={r}
             isOwn={r.requesterId === user?.uid}
-            onOpen={() => openPopup('Ride request details', <RideRequestDetailsPopup request={r} onChanged={refreshAfterShiftRide} />)}
+            onOpen={() => openPopup('Ride request details', <RideRequestDetailsPopup request={r} shift={shifts.find(s => s.id === r.shift_id)} onChanged={refreshAfterShiftRide} />)}
             onCancel={() => setCancelingRequestId(r.id)}
           />
         ))}
@@ -853,7 +853,7 @@ export default function Dashboard() {
                   className="py-0 cursor-pointer hover:border-primary/50 transition-colors"
                   onClick={() => openPopup(
                     'Ride request details',
-                    <RideRequestDetailsPopup request={r} onChanged={() => fetchDataRef.current?.()} />
+                    <RideRequestDetailsPopup request={r} shift={shifts.find(s => s.id === r.shift_id)} onChanged={() => fetchDataRef.current?.()} />
                   )}
                 >
                   <CardContent className="py-2.5 flex items-center justify-between gap-4 flex-wrap">

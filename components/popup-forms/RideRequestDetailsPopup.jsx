@@ -10,7 +10,8 @@ import { useNetwork } from "@/context/NetworksContext"
 import { useLocations } from "@/context/LocationsContext"
 import { formatDate, formatTime } from "@/lib/utils"
 import { equipmentLabel } from "@/lib/rideRequests"
-import { NETWORKS } from "@/lib/networks"
+import { NETWORKS, TROOPITER_NETWORK_ID } from "@/lib/networks"
+import { useSkin } from "@/context/SkinContext"
 import OfferRidePopup, { OfferRideTitle } from "./OfferRidePopup"
 
 const ADMIN_ROLES = ['admin', 'super-admin']
@@ -18,11 +19,13 @@ const ADMIN_ROLES = ['admin', 'super-admin']
 // Click-through from a "REQUESTED RIDES" row. A rider can't fulfill their
 // own request (only cancel it); any other driver sees the reverse — Offer
 // Ride, not Cancel, unless they're an admin (who gets both).
-export default function RideRequestDetailsPopup({ request, onChanged }) {
+export default function RideRequestDetailsPopup({ request, shift, onChanged }) {
   const { closePopup, openPopup } = usePopup()
   const { user } = useAuth()
   const { resolveLocation } = useLocations()
   const { cancelRideRequest } = useNetwork()
+  const { skin } = useSkin()
+  const isTroopiter = skin === 'troopiter'
   const [showCancelConfirm, setShowCancelConfirm] = useState(false)
 
   const isOwnRequest = request.requesterId === user?.uid
@@ -40,6 +43,13 @@ export default function RideRequestDetailsPopup({ request, onChanged }) {
 
   const openOfferForNetwork = (networkId) => {
     openPopup(<OfferRideTitle />, <OfferRidePopup networkId={networkId} prefill={request} onSaved={onChanged} />)
+  }
+
+  // Troopiter requests are already scoped to a shift (issue #199) — there's
+  // no network to pick, so skip straight to the offer form the same way the
+  // shift card's own Offer Ride button does (openOfferForShift, dashboard/page.jsx).
+  const openOfferForShift = () => {
+    openPopup(<OfferRideTitle />, <OfferRidePopup networkId={TROOPITER_NETWORK_ID} shift={shift} prefill={request} onSaved={onChanged} />)
   }
 
   return (
@@ -68,22 +78,26 @@ export default function RideRequestDetailsPopup({ request, onChanged }) {
           <Button variant="outline" onClick={() => setShowCancelConfirm(true)}>Cancel request</Button>
         )}
         {canOffer && (
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button>Offer Ride</Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-48 p-1" align="end">
-              {NETWORKS.map(net => (
-                <button
-                  key={net.id}
-                  className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
-                  onClick={() => openOfferForNetwork(net.id)}
-                >
-                  {net.name}
-                </button>
-              ))}
-            </PopoverContent>
-          </Popover>
+          isTroopiter ? (
+            <Button onClick={openOfferForShift}>Offer Ride</Button>
+          ) : (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button>Offer Ride</Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-1" align="end">
+                {NETWORKS.map(net => (
+                  <button
+                    key={net.id}
+                    className="w-full text-left px-3 py-2 text-sm rounded-md hover:bg-accent transition-colors"
+                    onClick={() => openOfferForNetwork(net.id)}
+                  >
+                    {net.name}
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
+          )
         )}
       </div>
 

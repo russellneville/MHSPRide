@@ -395,10 +395,14 @@ export default function Dashboard() {
       .sort((a, b) => `${a.departure_date}${a.departure_time}`.localeCompare(`${b.departure_date}${b.departure_time}`)),
   ]))
   // Ride requests carry no network_id (they're never network-scoped — see
-  // getRideRequests above), so only shifts get a "my requests" bucket.
-  const myRequestsByShift = Object.fromEntries(shifts.map(s => [
+  // getRideRequests above), so only shifts get a requests bucket. Every
+  // request for the shift, not just the current user's own — previously this
+  // filtered to requesterId === user.uid, so a request only ever surfaced
+  // inside the shift for the person who made it; everyone else could only
+  // see it in the flat Requested Rides section above (issue #245).
+  const requestsByShift = Object.fromEntries(shifts.map(s => [
     s.id,
-    rideRequests.filter(r => r.shift_id === s.id && r.requesterId === user?.uid),
+    rideRequests.filter(r => r.shift_id === s.id),
   ]))
   const rawManualAvailable = manualRides
     .map(r => ({ ...r, _status: computeRideStatus(r) }))
@@ -502,20 +506,22 @@ export default function Dashboard() {
     if (ok) setRideRequests(prev => prev.filter(r => r.id !== id))
   }
 
-  // Renders the current user's own offered ride(s)/request(s) for a card
-  // (network or shift) — always visible, unaffected by Available Rides
-  // filters, since it's a "here's what you already posted" reminder rather
-  // than part of the bookable list (issue #228).
-  const renderMyEntries = (networkId, myOfferedList, myRequestedList = []) => (
-    (myOfferedList.length > 0 || myRequestedList.length > 0) && (
+  // Renders the current user's own offered ride(s), plus every rider's
+  // request(s), for a card (network or shift) — always visible, unaffected
+  // by Available Rides filters, since it's a "here's what's already posted"
+  // reminder rather than part of the bookable list (issue #228, extended to
+  // every requester's request rather than just the viewer's own in #245).
+  const renderMyEntries = (networkId, myOfferedList, shiftRequestList = []) => (
+    (myOfferedList.length > 0 || shiftRequestList.length > 0) && (
       <div className="space-y-2">
         {myOfferedList.map(ride => (
           <NetworkRideCard key={ride.id} ride={ride} networkId={networkId} />
         ))}
-        {myRequestedList.map(r => (
-          <MyRequestSummaryCard
+        {shiftRequestList.map(r => (
+          <ShiftRequestSummaryCard
             key={r.id}
             r={r}
+            isOwn={r.requesterId === user?.uid}
             onOpen={() => openPopup('Ride request details', <RideRequestDetailsPopup request={r} onChanged={refreshAfterShiftRide} />)}
             onCancel={() => setCancelingRequestId(r.id)}
           />
@@ -530,8 +536,8 @@ export default function Dashboard() {
     const available = availableByShift[s.id] || []
     const raw = rawAvailableByShift[s.id] || []
     const myOfferedForShift = myOfferedByShift[s.id] || []
-    const myRequestedForShift = myRequestsByShift[s.id] || []
-    const hasOwnEntry = myOfferedForShift.length > 0 || myRequestedForShift.length > 0
+    const shiftRequests = requestsByShift[s.id] || []
+    const hasOwnEntry = myOfferedForShift.length > 0 || shiftRequests.length > 0
     const { page: availPage, pageCount: availPageCount, paged: pagedAvailable } = paginate(available, availablePages[s.id] || 0)
     const setAvailPage = (updater) => setAvailablePages(prev => ({ ...prev, [s.id]: updater(prev[s.id] || 0) }))
     return (
@@ -557,7 +563,7 @@ export default function Dashboard() {
           </div>
         </div>
         {!collapsed[s.id] && (<>
-          {renderMyEntries(TROOPITER_NETWORK_ID, myOfferedForShift, myRequestedForShift)}
+          {renderMyEntries(TROOPITER_NETWORK_ID, myOfferedForShift, shiftRequests)}
           {available.length === 0 ? (
             hasOwnEntry && !hasAvailableFilters ? null : (
               <Card>
@@ -1166,10 +1172,12 @@ export default function Dashboard() {
 }
 
 // Compact variant of the request card used in the flat "Requested Rides"
-// section (page.jsx ~776-830) — reused inside a shift card to surface the
-// user's own request there too (issue #228), rather than duplicating the
-// full card markup.
-function MyRequestSummaryCard({ r, onOpen, onCancel }) {
+// section (page.jsx ~776-830) — reused inside a shift card so every rider's
+// request surfaces there too (issue #245, extending issue #228's "own
+// request" version), rather than duplicating the full card markup. Only the
+// requester gets the "Your request" badge and Cancel button; everyone else
+// sees who requested it, same as the flat section.
+function ShiftRequestSummaryCard({ r, isOwn, onOpen, onCancel }) {
   const { resolveLocation } = useLocations()
   return (
     <Card
@@ -1177,24 +1185,34 @@ function MyRequestSummaryCard({ r, onOpen, onCancel }) {
       onClick={onOpen}
     >
       <CardContent className="py-2.5 flex items-center justify-between gap-4 flex-wrap">
-        <div className="font-semibold flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-          <span className="flex items-center gap-2 min-w-0">
-            <MapPin className="size-4 text-muted-foreground shrink-0" />
-            <span className="break-words">{resolveLocation(r.departure)}</span>
-          </span>
-          <span className="flex items-center gap-2 min-w-0">
-            <MoveRight className="size-4 text-muted-foreground shrink-0" />
-            <span className="break-words">{resolveLocation(r.arrival)}</span>
-          </span>
+        <div className="space-y-1 min-w-0">
+          <div className="font-semibold flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+            <span className="flex items-center gap-2 min-w-0">
+              <MapPin className="size-4 text-muted-foreground shrink-0" />
+              <span className="break-words">{resolveLocation(r.departure)}</span>
+            </span>
+            <span className="flex items-center gap-2 min-w-0">
+              <MoveRight className="size-4 text-muted-foreground shrink-0" />
+              <span className="break-words">{resolveLocation(r.arrival)}</span>
+            </span>
+          </div>
+          {!isOwn && r.requester?.fullname && (
+            <div className="text-sm text-muted-foreground flex items-center gap-1.5">
+              <UserAvatar user={r.requester} size="sm" />
+              Requested by: <span className="text-foreground font-medium">{r.requester.fullname}</span>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Badge variant="outline">{r.seats_requested} seat{r.seats_requested !== 1 ? 's' : ''}</Badge>
           <span className="text-xs font-medium px-2.5 py-1 rounded-full border bg-purple-100 text-purple-800 border-purple-300 dark:bg-purple-900 dark:text-purple-200">
-            Your request
+            {isOwn ? 'Your request' : 'Ride request'}
           </span>
-          <Button size="sm" variant="outline" onClick={e => { e.stopPropagation(); onCancel() }}>
-            Cancel
-          </Button>
+          {isOwn && (
+            <Button size="sm" variant="outline" onClick={e => { e.stopPropagation(); onCancel() }}>
+              Cancel
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

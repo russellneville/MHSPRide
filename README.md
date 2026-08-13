@@ -299,6 +299,15 @@ node scripts/fixStaleBookingStatuses.mjs --dry-run
 node scripts/fixStaleBookingStatuses.mjs
 ```
 
+### Troopiter demo roster
+
+`app/troopiter-shift-demo` (and its `roster`/`mint` API routes) is unauthenticated by design — it mimics an external site visitors haven't logged into yet — and draws its "Armadillo Mountain" roster from the `members` collection, which is really MHSP's own live patrol data (multi-tenancy isn't built yet). Both routes filter to the maintainer's real account plus synthetic `@example.com` addresses (`lib/troopiterTestSigning.js`'s `isDemoAllowedEmail`), so the public demo page never exposes real patrollers' names/emails. `scripts/seedTroopiterDemoMembers.mjs` seeds those synthetic members — run it once per environment before using the demo page.
+
+```bash
+node scripts/seedTroopiterDemoMembers.mjs --dry-run
+node scripts/seedTroopiterDemoMembers.mjs
+```
+
 ---
 
 ## Test / UAT environment

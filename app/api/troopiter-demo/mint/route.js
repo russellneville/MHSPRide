@@ -10,10 +10,14 @@
  * that it only ever signs for an email that's actually on the org's roster
  * (members collection) — same as how the real Troopiter integration would
  * only ever mint for an actual patrol member — plus a light IP rate limit.
+ * On top of that, the roster this route draws from is itself restricted to
+ * the maintainer's real account plus synthetic @example.com seed members
+ * (isDemoAllowedEmail) — `members` is really MHSP's live patrol data, not
+ * Armadillo Mountain's, and this route is unauthenticated by design.
  */
 import { NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/firebaseAdmin'
-import { signTestLaunchToken, readPemEnv } from '@/lib/troopiterTestSigning'
+import { signTestLaunchToken, readPemEnv, isDemoAllowedEmail } from '@/lib/troopiterTestSigning'
 import { recordAttempt, getClientIp, normalizeEmail, isValidEmailInput } from '@/lib/rateLimit'
 import { TROOPITER_ORG_ID } from '@/lib/skin'
 
@@ -47,7 +51,7 @@ export async function POST(request) {
   const rosterByEmail = new Map(
     membersSnap.docs
       .map(d => d.data())
-      .filter(m => m.email)
+      .filter(m => m.email && isDemoAllowedEmail(m.email))
       .map(m => [normalizeEmail(m.email), m])
   )
 

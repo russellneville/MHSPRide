@@ -7,12 +7,13 @@
  */
 import { NextResponse } from 'next/server'
 import { getAdminDb } from '@/lib/firebaseAdmin'
+import { isDemoAllowedEmail } from '@/lib/troopiterTestSigning'
 
 export async function GET() {
   const snap = await getAdminDb().collection('members').where('active', '==', true).get()
   const roster = snap.docs
     .map(d => ({ firstName: d.data().firstName || '', lastName: d.data().lastName || '', email: d.data().email || '' }))
-    .filter(m => m.email)
+    .filter(m => m.email && isDemoAllowedEmail(m.email))
     .sort((a, b) => a.lastName.localeCompare(b.lastName))
 
   return NextResponse.json({ roster })

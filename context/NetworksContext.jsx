@@ -161,6 +161,18 @@ export const NetworkProvider = ({children})=>{
           saveRecentLocation(auth.currentUser.uid, { address: rideData.departure, lat: rideData.departure_lat, lng: rideData.departure_lng })
           saveRecentLocation(auth.currentUser.uid, { address: rideData.arrival, lat: rideData.arrival_lat, lng: rideData.arrival_lng })
         }
+
+        // Shift-member map picker invites (issue #225), fire-and-forget —
+        // mirrors bookRide's own notify-booking call below.
+        if (rideData.invite_emails?.length) {
+          auth.currentUser?.getIdToken().then(token => {
+            fetch('/api/notify-shift-invite', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ type: 'ride', id: `ride-${inviteCode}` }),
+            }).catch(err => console.error('[notify-shift-invite]', err))
+          }).catch(() => {})
+        }
       }
 
     }
@@ -206,6 +218,17 @@ export const NetworkProvider = ({children})=>{
         expires_at: computeRequestExpiresAt(requestData.departure_date, requestData.departure_time),
       })
       toast.success('Ride request submitted')
+
+      // Shift-member map picker invites (issue #225), fire-and-forget.
+      if (requestData.invite_emails?.length) {
+        auth.currentUser?.getIdToken().then(token => {
+          fetch('/api/notify-shift-invite', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ type: 'request', id: `req-${inviteCode}` }),
+          }).catch(err => console.error('[notify-shift-invite]', err))
+        }).catch(() => {})
+      }
 
       logEvent({
         type: 'rideRequest.created',

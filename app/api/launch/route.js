@@ -202,6 +202,12 @@ async function createAccountFromRoster(db, launchUser) {
 // this route needing to track who left. `rosterEmails` is a flat normalized-
 // email array purely so the dashboard can do a cheap array-contains query;
 // `roster` keeps the display names alongside it.
+//
+// latitude/longitude (issue #225) ride along from each roster entry when
+// Troopiter's payload includes them — this is what lets the shift-member map
+// picker show pins immediately on the very first launch for a shift, with no
+// dependency on anyone having onboarded to this app before. See
+// resources/troopiter/spike-shift-map-picker.md.
 async function upsertShift(db, orgId, shift, launchUser, roster) {
   const members = [
     { name: launchUser.name || '', email: launchUser.email },
@@ -214,7 +220,12 @@ async function upsertShift(db, orgId, shift, launchUser, roster) {
     const normalized = normalizeEmail(m.email)
     if (seen.has(normalized)) continue
     seen.add(normalized)
-    dedupedRoster.push({ name: m.name || '', email: m.email })
+    dedupedRoster.push({
+      name: m.name || '',
+      email: m.email,
+      latitude: m.latitude ?? null,
+      longitude: m.longitude ?? null,
+    })
   }
 
   const shiftRef = db.collection('shifts').doc(`${orgId}_${shift.id}`)

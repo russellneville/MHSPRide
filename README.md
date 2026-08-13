@@ -117,6 +117,18 @@ RESEND_API_KEY=
 # other two automatically. Easy to miss when standing up a new environment.
 GOOGLE_MAPS_API_KEY=
 
+# Google Maps JS API — client-exposed key for the interactive shift-member
+# map picker (issue #225, Offer/Request Ride on a Troopiter-skinned shift).
+# This is the FIRST client-side Maps key in this app — every other Maps
+# integration above is a server-side REST call proxied through a Next API
+# route specifically to keep GOOGLE_MAPS_API_KEY off the client. Do not reuse
+# that key here: provision a separate one, restricted by HTTP referrer (Cloud
+# Console → Credentials) to this app's actual domains, since anything in
+# NEXT_PUBLIC_* ships in the browser bundle. Requires the Maps JavaScript API
+# enabled on the same Cloud project. If unset, the picker still renders as a
+# plain checklist with no map.
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=
+
 # Firebase Admin SDK — full service account JSON, as a single-line string
 # (Firebase Console → Project Settings → Service Accounts → Generate new private key)
 FIREBASE_SERVICE_ACCOUNT_KEY=

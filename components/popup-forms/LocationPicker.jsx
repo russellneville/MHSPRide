@@ -50,6 +50,9 @@ export function LocationPicker({ value, onSelectChange, otherValue, onOtherChang
   // the parent already trusted at mount stays trusted until the user
   // actually edits it, regardless of what blur does.
   const [prefillTrusted, setPrefillTrusted] = useState(!!trustedValue)
+  // Saved-address pills default collapsed — a driver with a long MRU was
+  // seeing a wall of pills above every field before they'd typed anything.
+  const [showSaved, setShowSaved] = useState(false)
 
   const handleOtherChange = (newValue) => {
     onOtherChange(newValue)
@@ -71,6 +74,7 @@ export function LocationPicker({ value, onSelectChange, otherValue, onOtherChang
     reset()
     setAccepted(false)
     setPickedFromRecent(true)
+    setShowSaved(false)
     onValidated?.({ latitude: loc.lat, longitude: loc.lng, formattedAddress: loc.address })
   }
 
@@ -137,17 +141,28 @@ export function LocationPicker({ value, onSelectChange, otherValue, onOtherChang
         onBlur={handleBlur}
       />
       {savedLocations.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {savedLocations.map(loc => (
-            <button
-              key={loc.address}
-              type="button"
-              onClick={() => handleRecentPick(loc)}
-              className="inline-flex items-center gap-1 text-xs rounded-full border border-border bg-muted/50 hover:bg-muted px-2.5 py-1 transition-colors"
-            >
-              <MapPin className="size-3 text-muted-foreground" /> {loc.address}
-            </button>
-          ))}
+        <div>
+          <button
+            type="button"
+            onClick={() => setShowSaved(v => !v)}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+          >
+            <MapPin className="size-3" /> Favorites ({savedLocations.length})
+          </button>
+          {showSaved && (
+            <div className="flex flex-wrap gap-1.5 mt-1.5">
+              {savedLocations.map(loc => (
+                <button
+                  key={loc.address}
+                  type="button"
+                  onClick={() => handleRecentPick(loc)}
+                  className="inline-flex items-center gap-1 text-xs rounded-full border border-border bg-muted/50 hover:bg-muted px-2.5 py-1 transition-colors"
+                >
+                  <MapPin className="size-3 text-muted-foreground" /> {loc.address}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
       {status === 'checking' && (

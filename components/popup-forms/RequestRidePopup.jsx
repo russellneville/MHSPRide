@@ -7,6 +7,8 @@ import { usePopup } from "@/context/PopupContext"
 import { useNetwork } from "@/context/NetworksContext"
 import { useLocations } from "@/context/LocationsContext"
 import { useSkin } from "@/context/SkinContext"
+import { useAuth } from "@/context/AuthContext"
+import { ShiftInvitePicker } from "./ShiftInvitePicker"
 import { Button } from "../ui/button"
 import { Textarea } from "../ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select"
@@ -31,7 +33,13 @@ export default function RequestRidePopup({ onSaved, shift }) {
   const { requestRide, getMyRideRequests } = useNetwork()
   const { origins, destinations, getLocationCoords } = useLocations()
   const { skin } = useSkin()
+  const { user } = useAuth()
   const isTroopiter = skin === 'troopiter'
+  // Shift-member map picker (issue #225) — only meaningful when opened from
+  // a real shift (which carries the roster); the top-level Request button
+  // has no shift record to invite from.
+  const [inviteEmails, setInviteEmails] = useState([])
+  const favoriteDriverIds = new Set((user?.favorite_drivers || []).map(d => d.id))
   const [showAlreadyOpen, setShowAlreadyOpen] = useState(false)
   // Local, not the shared NetworksContext isLoading — that flag defaults to
   // true and only flips once some other useNetwork() call resolves, so a
@@ -115,6 +123,7 @@ export default function RequestRidePopup({ onSaved, shift }) {
       equipment,
       notes,
       ...(isTroopiter && { shift_name: shiftName.trim(), shift_id: shift?.id || null }),
+      ...(inviteEmails.length > 0 && { invite_emails: inviteEmails }),
     }, isTroopiter)
     setSubmitting(false)
     onSaved?.()
@@ -214,6 +223,16 @@ export default function RequestRidePopup({ onSaved, shift }) {
           </SelectContent>
         </Select>
       </div>
+
+      {isTroopiter && shift && (
+        <ShiftInvitePicker
+          shiftDocId={shift.id}
+          excludeEmail={user?.email}
+          favoriteIds={favoriteDriverIds}
+          value={inviteEmails}
+          onChange={setInviteEmails}
+        />
+      )}
 
       <div className="space-y-1">
         <Label htmlFor="notes">Notes (optional)</Label>

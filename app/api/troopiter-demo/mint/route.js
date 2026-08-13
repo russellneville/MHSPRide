@@ -56,12 +56,16 @@ export async function POST(request) {
     return NextResponse.json({ error: 'That email is not on the Armadillo Mountain roster.' }, { status: 403 })
   }
 
+  // latitude/longitude ride along here (issue #225) — standing in for the
+  // real Troopiter integration resending each shift member's location on
+  // every launch. members.latitude/longitude come from the admin
+  // roster-import's geocoding, same source this demo already uses elsewhere.
   const companions = Array.isArray(roster)
     ? roster
         .filter(r => r?.email && rosterByEmail.has(normalizeEmail(r.email)) && normalizeEmail(r.email) !== normalizedEmail)
         .map(r => {
           const m = rosterByEmail.get(normalizeEmail(r.email))
-          return { name: `${m.firstName} ${m.lastName}`.trim(), email: m.email }
+          return { name: `${m.firstName} ${m.lastName}`.trim(), email: m.email, latitude: m.latitude ?? null, longitude: m.longitude ?? null }
         })
     : []
 

@@ -21,6 +21,7 @@ import {
 import { useEstimatedArrival } from "@/hooks/use-estimated-arrival"
 import { addMinutesToTime } from "@/lib/drive-times"
 import { LocationPicker } from "./LocationPicker"
+import { ShiftInvitePicker } from "./ShiftInvitePicker"
 import { formatDate, toLocalDateStr, TEXTAREA_MAX_LENGTH, LOCATION_NAME_MAX_LENGTH } from "@/lib/utils"
 import { hasActiveSameDayBooking, hasActiveSameDayRide } from "@/lib/rides"
 import { diffPrefilledFields, requiredStorageFor, equipmentLabel } from "@/lib/rideRequests"
@@ -204,6 +205,12 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, shift, origins, desti
   )
   const [oneWay, setOneWay] = useState(false)
   const [takenDates, setTakenDates] = useState([])
+  // Shift-member map picker (issue #225) — only meaningful for a fresh,
+  // shift-scoped offer; fulfilling an existing request already targets one
+  // specific rider, and the top-level Offer button has no shift roster to
+  // pick from.
+  const [inviteEmails, setInviteEmails] = useState([])
+  const favoriteRiderIds = new Set((user?.favorite_riders || []).map(r => r.id))
   const vehicles = getVehicles(user)
   // Selected in the title bar (see OfferRideTitle above) via shared popupState;
   // falls back to the default vehicle until the driver picks a different one.
@@ -351,6 +358,7 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, shift, origins, desti
     ride_description: rideData.ride_description,
     total_seats: Number(rideData.total_seats),
     ...(isTroopiter && { shift_name: shiftName.trim(), shift_id: shift?.id || null }),
+    ...(inviteEmails.length > 0 && { invite_emails: inviteEmails }),
   })
 
   const doFulfill = async (submittedRideData) => {
@@ -533,6 +541,17 @@ function OfferRidePopupForm({ networkId, onSaved, prefill, shift, origins, desti
           </p>
         )}
       </div>
+
+      {/* ── Invite shift-mates (troopiter, shift-scoped, new rides only) ── */}
+      {isTroopiter && shift && !prefill && (
+        <ShiftInvitePicker
+          shiftDocId={shift.id}
+          excludeEmail={user?.email}
+          favoriteIds={favoriteRiderIds}
+          value={inviteEmails}
+          onChange={setInviteEmails}
+        />
+      )}
 
       {/* ── Notes ──────────────────────────────────────── */}
       <div className="space-y-1">

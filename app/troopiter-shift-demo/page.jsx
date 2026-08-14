@@ -16,6 +16,8 @@ export default function TroopiterShiftDemoPage() {
   const [error, setError] = useState('')
   const [viewingAsEmail, setViewingAsEmail] = useState('')
   const [companionEmails, setCompanionEmails] = useState(new Set())
+  const [existingShifts, setExistingShifts] = useState([])
+  const [selectedExistingShiftId, setSelectedExistingShiftId] = useState('')
 
   // Shift record fields — mirrors what a real Troopiter push would carry:
   // a stable id (so MHSP Ride can tell "same shift, resend" from "new
@@ -43,6 +45,11 @@ export default function TroopiterShiftDemoPage() {
       })
       .catch(() => setError('Could not load the roster.'))
       .finally(() => setLoading(false))
+
+    fetch('/api/troopiter-demo/shifts')
+      .then(res => res.json())
+      .then(data => setExistingShifts(data.shifts || []))
+      .catch(() => {})
   }, [])
 
   const viewingAs = useMemo(() => roster.find(m => m.email === viewingAsEmail), [roster, viewingAsEmail])
@@ -55,6 +62,20 @@ export default function TroopiterShiftDemoPage() {
       else next.add(email)
       return next
     })
+  }
+
+  function handleExistingShiftSelect(id) {
+    setSelectedExistingShiftId(id)
+    if (!id) return
+    const shift = existingShifts.find(s => s.shiftId === id)
+    if (!shift) return
+    setShiftId(shift.shiftId)
+    setShiftTitle(shift.title)
+    setShiftDate(shift.date)
+    setShiftTime(shift.time)
+    setLocationText(shift.location?.address || '')
+    setConfirmedLocation(shift.location || null)
+    setLocationState({ status: 'idle', result: null, error: null })
   }
 
   function handleLocationChange(text) {
@@ -151,18 +172,40 @@ export default function TroopiterShiftDemoPage() {
                   <label className="text-xs font-medium text-slate-600">Shift ID</label>
                   <button
                     type="button"
-                    onClick={() => setShiftId(String(Date.now()))}
+                    onClick={() => { setShiftId(String(Date.now())); setSelectedExistingShiftId('') }}
                     className="text-xs text-slate-500 underline underline-offset-2 hover:text-slate-700"
                   >
                     New shift ID
                   </button>
                 </div>
-                <input type="text" value={shiftId} onChange={e => setShiftId(e.target.value)}
+                <input type="text" value={shiftId}
+                  onChange={e => { setShiftId(e.target.value); setSelectedExistingShiftId('') }}
                   className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm font-mono" />
                 <p className="text-xs text-slate-400">
                   Stable per shift — reuse the same ID across launches to simulate a roster update; change it (or click "New shift ID") to simulate a different shift.
                 </p>
               </div>
+
+              {existingShifts.length > 0 && (
+                <div className="space-y-1">
+                  <label className="text-xs font-medium text-slate-600">Or simulate SSO from an existing shift</label>
+                  <select
+                    value={selectedExistingShiftId}
+                    onChange={e => handleExistingShiftSelect(e.target.value)}
+                    className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm"
+                  >
+                    <option value="">— Pick a shift already on the schedule —</option>
+                    {existingShifts.map(s => (
+                      <option key={s.shiftId} value={s.shiftId}>
+                        {s.date} {s.time} — {s.title}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-slate-400">
+                    Picking one prefills the fields below from that shift's last launch, like Troopiter resending a shift you're already signed up for.
+                  </p>
+                </div>
+              )}
 
               <div className="space-y-1">
                 <label className="text-xs font-medium text-slate-600">Shift / event title</label>

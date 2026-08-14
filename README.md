@@ -290,6 +290,15 @@ node scripts/seedTestData.mjs      # load test data
 node scripts/clearTestData.mjs     # remove test data
 ```
 
+### Simulated Troopiter shift data
+
+`scripts/seedSimulatedShifts.mjs` seeds `shifts` docs plus a randomized mix of carpool `rides`/`ride_requests`/`bookings` around them — for demoing or testing the shift-scoped carpool UI (`app/troopiter-shift-demo`) without a real Troopiter launch. Roster is drawn only from the 7 synthetic `@example.com` members (`scripts/seedTroopiterDemoMembers.mjs`), never real patrol data. Every doc it writes is tagged `simulated: true`; each run clears the previous simulated batch by default so re-runs replace rather than accumulate. Driven by the `/simulate-shifts` Claude Code skill, which reads a calendar screenshot and builds the events file this script consumes.
+
+```bash
+node scripts/seedSimulatedShifts.mjs --events-file events.json   # seed N simulated shifts
+node scripts/seedSimulatedShifts.mjs --clear-only                # wipe simulated data only
+```
+
 ### One-time data cleanup
 
 `scripts/fixStaleBookingStatuses.mjs` fixes bookings that were left at `booked`/`on progress` because their ride finished or was canceled without a matching driver action — a pre-existing data issue from before booking cancellation cascaded from ride-level actions. Supports `--dry-run`.

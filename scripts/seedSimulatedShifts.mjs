@@ -280,7 +280,14 @@ async function seedEvent(db, event, pool, index) {
       started_at: '',
       finished_at: '',
       created_at: FieldValue.serverTimestamp(),
-      shift_id: shiftId,
+      // Must equal the shifts/{shiftDocId} doc's Firestore doc id, not the
+      // bare shiftId field — the dashboard's getRidesByShiftId/requestsByShift
+      // match rides/requests to a shift by comparing shift_id against
+      // shift.id (the doc id), the same value OfferRidePopup/RequestRidePopup
+      // write from the real UI (shift?.id, where `shift` is a doc read via
+      // getShiftsForOrg). Using the bare shiftId here silently orphans every
+      // simulated ride from its shift.
+      shift_id: shiftDocId,
       shift_name: event.title,
       simulated: true,
     })
@@ -334,7 +341,7 @@ async function seedEvent(db, event, pool, index) {
       seats_requested: 1,
       equipment: '',
       notes: '',
-      shift_id: shiftId,
+      shift_id: shiftDocId, // see the matching comment on the ride write above
       shift_name: event.title,
       requesterId: requesterEntry.id,
       requester: { id: requesterEntry.id, fullname: requesterEntry.fullname, email: requesterEntry.email, phone: requesterEntry.phone, photoURL: requesterEntry.photoURL },

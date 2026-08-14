@@ -404,6 +404,14 @@ export default function Dashboard() {
     s.id,
     rideRequests.filter(r => r.shift_id === s.id),
   ]))
+  // Requests already surfaced inside a shift card above shouldn't also
+  // clutter the flat Requested Rides section below — same "manual vs
+  // shift-scoped" split rides already get via manualRides/rawManualAvailable.
+  // Only requests with no shift_id, or a shift_id that doesn't resolve to a
+  // currently-known shift (e.g. the shift is now in the past and no longer
+  // in `shifts`), fall through to the flat list.
+  const shiftIds = new Set(shifts.map(s => s.id))
+  const unscopedRideRequests = rideRequests.filter(r => !r.shift_id || !shiftIds.has(r.shift_id))
   const rawManualAvailable = manualRides
     .map(r => ({ ...r, _status: computeRideStatus(r) }))
     .filter(r => (r._status === 'open' || r._status === 'full') && r.driverId !== user?.uid && !activeBookedRideIds.has(r.id))
@@ -453,14 +461,14 @@ export default function Dashboard() {
   // under otherwise.
   const manualGroups = groupByShift(availableManual)
 
-  const requestOriginOptions = [...new Set(rideRequests.map(r => r.departure).filter(Boolean))]
+  const requestOriginOptions = [...new Set(unscopedRideRequests.map(r => r.departure).filter(Boolean))]
     .sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)))
-  const requestDestinationOptions = [...new Set(rideRequests.map(r => r.arrival).filter(Boolean))]
+  const requestDestinationOptions = [...new Set(unscopedRideRequests.map(r => r.arrival).filter(Boolean))]
     .sort((a, b) => resolveLocation(a).localeCompare(resolveLocation(b)))
 
   const requestSearchLower = requestSearchTerm.trim().toLowerCase()
   const favoriteRiderIds = new Set((user?.favorite_riders || []).map(r => r.id))
-  const filteredRideRequests = rideRequests.filter(r => {
+  const filteredRideRequests = unscopedRideRequests.filter(r => {
     if (requestFilterDate && r.departure_date !== requestFilterDate) return false
     if (requestFilterOrigin && r.departure !== requestFilterOrigin) return false
     if (requestFilterDestination && r.arrival !== requestFilterDestination) return false
@@ -776,7 +784,7 @@ export default function Dashboard() {
         </section>
 
         {/* ── Requested Rides ──────────────────────────────── */}
-        {rideRequests.length > 0 && (
+        {unscopedRideRequests.length > 0 && (
           <section className="space-y-2 rounded-lg border border-purple-200 dark:border-purple-900 bg-purple-50 dark:bg-purple-950/30 p-3">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <h4 className="text-sm font-semibold uppercase tracking-wide text-purple-800 dark:text-purple-300">
